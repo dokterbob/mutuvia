@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mutuvia — App Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --forest: #2D4A32; --forest-mid: #3D6145; --forest-light: #527A58;
+  --moss: #7A9E7E; --cream: #F7F3EC; --cream-warm: #EDE7D9;
+  --paper: #FAF8F3; --ochre: #C4922A; --ochre-light: #E8B84B;
+  --terracotta: #B85C38; --ink: #1E2820; --ink-mid: #3A4A3D;
+  --ink-soft: #6B7A6E; --rule: #DDD8CE;
+}
+body {
+  background: #E8E2D8; min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; padding: 32px 16px 64px;
+  font-family: 'DM Sans', sans-serif;
+}
+.page-header { text-align: center; margin-bottom: 24px; }
+.page-header h1 { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 400; color: var(--ink); }
+.page-header p { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+
+/* step dots */
+.step-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin-bottom: 18px; }
+.step-dot { width: 7px; height: 7px; border-radius: 50%; background: #BDB8AE; transition: all 0.3s; }
+.step-dot.active { background: var(--forest); width: 20px; border-radius: 4px; }
+.step-dot.done { background: var(--moss); }
+.step-label { font-size: 11px; color: var(--ink-soft); letter-spacing: 0.1em; text-transform: uppercase; margin-left: 8px; }
+
+/* phone frame */
+.phone-frame {
+  width: 375px; max-width: 100%; height: 780px;
+  background: var(--paper); border-radius: 48px; overflow: hidden;
+  box-shadow: 0 0 0 10px #1A1A1A, 0 0 0 11px #333, 0 32px 80px rgba(0,0,0,0.35);
+  position: relative;
+}
+.phone-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 28px; background: #1A1A1A;
+  border-radius: 0 0 18px 18px; z-index: 100;
+}
+.phone-status {
+  position: absolute; top: 0; left: 0; right: 0; height: 48px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 0 28px 8px; font-size: 12px; font-weight: 500;
+  color: var(--ink); z-index: 99; pointer-events: none;
+}
+.status-icons { display: flex; gap: 5px; align-items: center; opacity: 0.7; }
+
+/* screens */
+.screens { position: absolute; inset: 0; border-radius: 48px; overflow: hidden; }
+.screen {
+  position: absolute; inset: 0; background: var(--paper);
+  display: flex; flex-direction: column;
+  padding: 56px 28px 32px;
+  opacity: 0; pointer-events: none; transform: translateX(40px);
+  transition: opacity 0.32s ease, transform 0.32s ease;
+  overflow-y: auto; scrollbar-width: none;
+}
+.screen::-webkit-scrollbar { display: none; }
+.screen.active { opacity: 1; pointer-events: all; transform: translateX(0); }
+.screen.exit { opacity: 0; transform: translateX(-40px); pointer-events: none; }
+
+/* typography */
+.eyebrow { font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--moss); font-weight: 500; margin-bottom: 10px; }
+.title { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; line-height: 1.2; color: var(--ink); letter-spacing: -0.02em; margin-bottom: 14px; }
+.title em { color: var(--forest); font-style: normal; }
+.body-text { font-size: 15px; line-height: 1.7; color: var(--ink-mid); font-weight: 300; margin-bottom: 14px; }
+.fg { flex: 1; }
+
+/* buttons */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 16px; border: none; border-radius: 14px;
+  font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 500;
+  cursor: pointer; transition: opacity 0.15s, transform 0.1s; margin-bottom: 10px;
+}
+.btn:last-child { margin-bottom: 0; }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--forest); color: #fff; }
+.btn-primary:disabled { opacity: 0.38; cursor: not-allowed; }
+.btn-secondary { background: transparent; color: var(--forest); border: 1.5px solid var(--rule); font-size: 15px; }
+.btn-ghost { background: transparent; color: var(--ink-soft); font-size: 14px; }
+
+/* ── SCREEN 0: WELCOME ── */
+.logo-wrap { display: flex; flex-direction: column; align-items: center; margin: 24px 0 32px; }
+.logo-mark {
+  width: 96px; height: 96px; background: var(--forest); border-radius: 28px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 32px rgba(45,74,50,0.3);
+}
+.logo-mark svg { width: 52px; height: 52px; }
+.app-name { font-family: 'Fraunces', serif; font-size: 13px; color: var(--ink-soft); text-align: center; margin-top: 12px; }
+
+/* ── SCREEN 1: CONSENT ── */
+.consent-list { list-style: none; margin: 18px 0; }
+.consent-list li { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--rule); font-size: 14px; color: var(--ink-mid); line-height: 1.5; }
+.consent-list li:last-child { border-bottom: none; }
+.ci { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.cb { font-weight: 500; color: var(--ink); display: block; margin-bottom: 2px; }
+
+/* ── SCREEN 2: PHONE ── */
+.input-label { font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; display: block; }
+.input-row { display: flex; border: 1.5px solid var(--rule); border-radius: 12px; overflow: hidden; background: #fff; transition: border-color 0.2s; margin-bottom: 8px; }
+.input-row:focus-within { border-color: var(--forest); }
+.input-prefix { padding: 14px 12px 14px 16px; font-size: 15px; color: var(--ink-soft); background: var(--cream-warm); border-right: 1.5px solid var(--rule); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.input-field { flex: 1; padding: 14px 16px; font-family: 'DM Sans', sans-serif; font-size: 17px; border: none; outline: none; background: transparent; color: var(--ink); }
+.input-field::placeholder { color: #BDB8AE; }
+.input-hint { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; margin-bottom: 18px; }
+.divider-or { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; font-size: 12px; color: var(--ink-soft); }
+.divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+
+/* ── SCREEN 3: OTP ── */
+.sent-info { background: var(--cream-warm); border-radius: 12px; padding: 14px 16px; font-size: 14px; color: var(--ink-mid); margin: 16px 0 20px; line-height: 1.5; }
+.sent-info strong { color: var(--ink); }
+
+/* OTP container — single hidden real input overlaid on visual boxes */
+.otp-container {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 0 0 6px;
+}
+.otp-real {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 32px;
+  letter-spacing: 2.4em;
+  padding-left: 14px;
+  border: none;
+  outline: none;
+  background: transparent;
+  cursor: text;
+  z-index: 10;
+  caret-color: transparent;
+}
+.otp-boxes { display: flex; gap: 10px; pointer-events: none; }
+.otp-box {
+  width: 46px; height: 58px;
+  border: 1.5px solid var(--rule);
+  border-radius: 12px;
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink);
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.otp-box.filled { background: var(--cream-warm); border-color: var(--moss); }
+.otp-box.active { border-color: var(--forest); box-shadow: 0 0 0 3px rgba(45,74,50,0.12); }
+.otp-cursor {
+  width: 2px; height: 26px;
+  background: var(--forest);
+  animation: blink 1s steps(1) infinite;
+  display: none;
+}
+.otp-box.active .otp-cursor { display: block; }
+.otp-box.filled .otp-cursor { display: none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.resend-row { text-align: center; font-size: 13.5px; color: var(--ink-soft); margin: 14px 0; }
+.resend-link { color: var(--forest); font-weight: 500; cursor: pointer; }
+.resend-link:hover { text-decoration: underline; }
+.proto-hint { font-size: 12px; color: var(--ink-soft); text-align: center; font-style: italic; line-height: 1.5; }
+
+/* ── SCREEN 4: PASSKEY ── */
+.pk-graphic { display: flex; justify-content: center; margin: 20px 0; }
+.pk-circle { width: 88px; height: 88px; background: var(--cream-warm); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 42px; border: 2px solid var(--rule); }
+.feat { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; font-size: 14px; color: var(--ink-mid); line-height: 1.5; }
+.fi { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.ft strong { display: block; color: var(--ink); font-weight: 500; margin-bottom: 1px; }
+
+/* ── SCREENS 5-7: INTRO ── */
+.intro-illus { margin: 16px 0 20px; display: flex; justify-content: center; }
+.illus-box { width: 100%; max-width: 280px; height: 150px; background: var(--cream-warm); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 52px; border: 1.5px dashed var(--rule); }
+.bubbles { display: flex; gap: 6px; justify-content: center; margin-bottom: 12px; }
+.bub { width: 8px; height: 8px; border-radius: 50%; background: var(--rule); transition: all 0.3s; }
+.bub.on { background: var(--forest); width: 24px; border-radius: 4px; }
+.bub.done { background: var(--moss); }
+.skip-btn { align-self: flex-end; font-size: 13px; color: var(--ink-soft); background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 6px; font-family: 'DM Sans', sans-serif; }
+.skip-btn:hover { color: var(--ink); }
+
+/* name input in onboarding */
+.name-input-wrap { border: 1.5px solid var(--rule); border-radius: 12px; overflow: hidden; background: #fff; margin: 18px 0 6px; transition: border-color 0.2s; }
+.name-input-wrap:focus-within { border-color: var(--forest); }
+.name-input { width: 100%; padding: 14px 16px; font-family: 'DM Sans', sans-serif; font-size: 17px; border: none; outline: none; background: transparent; color: var(--ink); }
+.name-input::placeholder { color: #BDB8AE; }
+
+/* ── SCREEN 8: HOME ── */
+.home-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.home-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 400; color: var(--ink); }
+.home-greet { font-size: 13px; color: var(--ink-soft); margin-bottom: 22px; }
+.gear { width: 38px; height: 38px; background: var(--cream-warm); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; border: 1px solid var(--rule); cursor: pointer; }
+.balance-card { background: var(--forest); border-radius: 24px; padding: 28px 24px; color: #fff; margin-bottom: 18px; position: relative; overflow: hidden; }
+.balance-card::before { content:''; position:absolute; top:-40px; right:-40px; width:180px; height:180px; background:rgba(255,255,255,0.04); border-radius:50%; }
+.bal-label { font-size: 11.5px; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.65; margin-bottom: 8px; font-weight: 500; }
+.bal-amount { font-family: 'Fraunces', serif; font-size: 48px; font-weight: 600; letter-spacing: -0.03em; line-height: 1; margin-bottom: 10px; }
+.bal-caption { font-size: 13.5px; opacity: 0.7; font-weight: 300; }
+.action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+.action-card { background: var(--cream-warm); border: 1.5px solid var(--rule); border-radius: 18px; padding: 18px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+.ac-icon { width: 46px; height: 46px; background: var(--forest); border-radius: 14px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 22px; }
+.ac-label { font-size: 14px; font-weight: 500; color: var(--ink); }
+.sec-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.sec-title { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 400; color: var(--ink); }
+.empty-state { background: var(--cream-warm); border-radius: 14px; padding: 20px; text-align: center; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+
+/* nav controls */
+.nav-controls { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 20px; }
+.nav-btn { background: var(--forest); color: #fff; border: none; border-radius: 10px; padding: 10px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.15s; }
+.nav-btn:hover { opacity: 0.85; }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-btn.sec { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--rule); }
+.screen-ctr { font-size: 12px; color: var(--ink-soft); min-width: 60px; text-align: center; }
+
+/* feedback */
+.feedback { max-width: 375px; background: #fff; border-radius: 16px; padding: 18px 20px; margin-top: 20px; border: 1px solid var(--rule); }
+.feedback h3 { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.feedback p { font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+.feedback ul { margin-top: 10px; padding-left: 16px; font-size: 13px; color: var(--ink-mid); line-height: 1.9; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Mutuvia — Prototype</h1>
+  <p>Click through the onboarding flow. Share with your community for feedback.<br>Use arrow keys ← → or the buttons below to navigate.</p>
+  <p style="font-size:12px;color:var(--ink-soft);margin-top:4px">The app name <em>Mutuvia</em> is the FOSS package name and a configurable default — deployments can rebrand freely (e.g. Mombucha) via <code style="font-size:11px;background:#e8e2d8;padding:1px 5px;border-radius:4px">APP_NAME</code>.</p>
+</div>
+
+<div class="step-row" id="stepRow">
+  <div class="step-dot active" id="dot0"></div>
+  <div class="step-dot" id="dot1"></div>
+  <div class="step-dot" id="dot2"></div>
+  <div class="step-dot" id="dot3"></div>
+  <div class="step-dot" id="dot4"></div>
+  <div class="step-dot" id="dot5"></div>
+  <div class="step-dot" id="dot6"></div>
+  <div class="step-dot" id="dot7"></div>
+  <div class="step-dot" id="dot8"></div>
+  <span class="step-label" id="stepLabel">Welcome</span>
+</div>
+
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-status">
+    <span style="font-weight:500">9:41</span>
+    <div class="status-icons">
+      <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="4" width="3" height="7" rx="1"/><rect x="4" y="2.5" width="3" height="8.5" rx="1"/><rect x="8" y="1" width="3" height="10" rx="1"/><rect x="12" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 2.5C10.2 2.5 12.2 3.4 13.6 4.9L15 3.5C13.2 1.7 10.7 0.5 8 0.5S2.8 1.7 1 3.5L2.4 4.9C3.8 3.4 5.8 2.5 8 2.5Z"/><path d="M8 5.5C9.4 5.5 10.7 6.1 11.6 7L13 5.6C11.7 4.3 10 3.5 8 3.5S4.3 4.3 3 5.6L4.4 7C5.3 6.1 6.6 5.5 8 5.5Z"/><circle cx="8" cy="10" r="2"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor"><rect x="0" y="1" width="21" height="10" rx="2.5" stroke="currentColor" stroke-width="1.2" fill="none"/><rect x="1.6" y="2.6" width="16" height="6.8" rx="1.5"/><path d="M22.5 4v4a2 2 0 000-4z"/></svg>
+    </div>
+  </div>
+
+  <div class="screens" id="screens">
+
+    <!-- S0: WELCOME -->
+    <div class="screen active" id="s0">
+      <!-- compact header -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:38px;height:38px;background:var(--forest);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="22" height="22" viewBox="0 0 52 52" fill="none"><path d="M26 10C18 10 12 16 12 24c0 8 6 14 14 14s14-6 14-14" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M26 13v22M20 19l6-6 6 6" stroke="rgba(255,255,255,0.7)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:400;color:var(--ink)">Mutuvia</div>
+      </div>
+
+      <div class="eyebrow">Community Credit</div>
+      <div class="title"><em>Together,</em> we are more.</div>
+      <p class="body-text" style="margin-bottom:18px">We already have everything we need. We just lack the means to exchange it.</p>
+
+      <!-- cycle diagram -->
+      <div style="background:var(--cream-warm);border-radius:18px;padding:18px 14px 14px;border:1px solid var(--rule)">
+        <div style="font-size:10.5px;letter-spacing:0.15em;text-transform:uppercase;color:var(--moss);font-weight:500;text-align:center;margin-bottom:14px">How it works</div>
+        <!-- three nodes in a triangle -->
+        <div style="position:relative;height:148px;margin:0 auto;max-width:260px">
+          <!-- Ana (top centre) -->
+          <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);text-align:center">
+            <div style="width:44px;height:44px;background:var(--forest);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 auto">A</div>
+            <div style="font-size:12px;font-weight:500;color:var(--ink);margin-top:4px">Ana</div>
+            <div style="font-size:10.5px;color:var(--ink-soft)">massage</div>
+          </div>
+          <!-- Bruno (bottom left) -->
+          <div style="position:absolute;bottom:0;left:0;text-align:center">
+            <div style="width:44px;height:44px;background:var(--forest);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 auto">B</div>
+            <div style="font-size:12px;font-weight:500;color:var(--ink);margin-top:4px">Bruno</div>
+            <div style="font-size:10.5px;color:var(--ink-soft)">vegetables</div>
+          </div>
+          <!-- Carla (bottom right) -->
+          <div style="position:absolute;bottom:0;right:0;text-align:center">
+            <div style="width:44px;height:44px;background:var(--forest);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0 auto">C</div>
+            <div style="font-size:12px;font-weight:500;color:var(--ink);margin-top:4px">Carla</div>
+            <div style="font-size:10.5px;color:var(--ink-soft)">bread</div>
+          </div>
+          <!-- SVG arrows -->
+          <svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" viewBox="0 0 260 148">
+            <defs>
+              <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 Z" fill="var(--moss)"/>
+              </marker>
+            </defs>
+            <!-- Ana → Bruno (top-centre to bottom-left) -->
+            <path d="M108,50 Q60,90 54,102" stroke="var(--moss)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+            <text x="62" y="82" font-size="9.5" fill="var(--ochre)" font-family="DM Sans,sans-serif" font-weight="500" text-anchor="middle">€10 credit</text>
+            <!-- Bruno → Carla (bottom-left to bottom-right) -->
+            <path d="M76,126 Q130,140 184,126" stroke="var(--moss)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+            <text x="130" y="148" font-size="9.5" fill="var(--ochre)" font-family="DM Sans,sans-serif" font-weight="500" text-anchor="middle">€10 credit</text>
+            <!-- Carla → Ana (bottom-right to top-centre) -->
+            <path d="M206,102 Q200,60 152,50" stroke="var(--moss)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+            <text x="198" y="82" font-size="9.5" fill="var(--ochre)" font-family="DM Sans,sans-serif" font-weight="500" text-anchor="middle">€10 credit</text>
+          </svg>
+        </div>
+        <div style="text-align:center;margin-top:12px;font-size:13px;font-weight:500;color:var(--forest)">Nobody paid a euro. Everyone got what they needed.</div>
+      </div>
+
+      <div style="height:16px"></div>
+      <button class="btn btn-primary" onclick="go(1)">Get started →</button>
+      <button class="btn btn-ghost" onclick="go(1)">I already have an account</button>
+    </div>
+
+    <!-- S1: CONSENT -->
+    <div class="screen" id="s1">
+      <div class="eyebrow">Before you join</div>
+      <div class="title">What you're <em>agreeing to</em></div>
+      <ul class="consent-list">
+        <li><span class="ci">📒</span><div><span class="cb">This records mutual debts, not money</span>When someone sends you credit they are saying "I owe you." No real euros are transferred.</div></li>
+        <li><span class="ci">🔒</span><div><span class="cb">We store almost nothing about you</span>Only your phone number and a display name. No payment details needed.</div></li>
+        <li><span class="ci">👥</span><div><span class="cb">Other members can see your balance</span>When exchanging, the other person sees your balance — so they can decide whether to trust you.</div></li>
+        <li><span class="ci">🌱</span><div><span class="cb">Open source and community-owned</span>The code is public — anyone can read it and any community can run their own instance. Changes that affect your data or credits will always be announced in advance.</div></li>
+      </ul>
+      <div class="fg"></div>
+      <button class="btn btn-primary" onclick="go(2)">I understand, continue →</button>
+      <button class="btn btn-ghost" onclick="go(0)">← Back</button>
+    </div>
+
+    <!-- S2: PHONE -->
+    <div class="screen" id="s2">
+      <div class="eyebrow">Sign in</div>
+      <div class="title">Your <em>phone number</em></div>
+      <p class="body-text">We'll send you a one-time code. No password needed, ever.</p>
+      <div style="height:6px"></div>
+      <label class="input-label">Mobile number</label>
+      <div class="input-row">
+        <div class="input-prefix">🇵🇹 +351</div>
+        <input class="input-field" type="tel" placeholder="912 345 678" id="phoneInput" oninput="checkPhone()" inputmode="tel">
+      </div>
+      <p class="input-hint">Used only for sign-in. Never shared.</p>
+      <div class="divider-or">or</div>
+      <button class="btn btn-secondary" onclick="go(3)">Continue with email instead →</button>
+      <div class="fg"></div>
+      <button class="btn btn-primary" id="phoneContinueBtn" onclick="go(3)" disabled>Send code →</button>
+      <button class="btn btn-ghost" onclick="go(1)">← Back</button>
+    </div>
+
+    <!-- S3: OTP -->
+    <div class="screen" id="s3">
+      <div class="eyebrow">Verify</div>
+      <div class="title">Enter the <em>6-digit code</em></div>
+      <div class="sent-info">Sent to <strong id="phoneSentTo">+351 912 345 678</strong>. Should arrive within a few seconds.</div>
+
+      <div class="otp-container" id="otpContainer" onclick="document.getElementById('otpReal').focus()">
+        <input type="text" id="otpReal" class="otp-real"
+               inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" pattern="[0-9]*"
+               oninput="otpInput()" onkeydown="otpKeydown(event)"
+               onfocus="otpFocus()" onblur="otpBlur()">
+        <div class="otp-boxes" id="otpBoxes">
+          <div class="otp-box active" id="ob0"><div class="otp-cursor"></div></div>
+          <div class="otp-box" id="ob1"></div>
+          <div class="otp-box" id="ob2"></div>
+          <div class="otp-box" id="ob3"></div>
+          <div class="otp-box" id="ob4"></div>
+          <div class="otp-box" id="ob5"></div>
+        </div>
+      </div>
+
+      <div class="resend-row">
+        Didn't receive it? <span class="resend-link" id="resendLink" onclick="resendCode()">Resend</span>
+        <span id="countdown" style="color:var(--ink-soft)"> (30s)</span>
+      </div>
+      <p class="proto-hint">Prototype: type any 6 digits to continue.</p>
+      <div class="fg"></div>
+      <button class="btn btn-primary" id="verifyBtn" onclick="go(4)" disabled>Verify →</button>
+      <button class="btn btn-ghost" onclick="go(2)">← Back</button>
+    </div>
+
+
+    <!-- S4: VERIFIED -->
+    <div class="screen" id="s4">
+      <div class="fg"></div>
+      <div style="text-align:center;margin-bottom:32px">
+        <div style="width:80px;height:80px;background:var(--forest);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;box-shadow:0 8px 24px rgba(45,74,50,0.25)">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><path d="M8 18l7 7 13-13" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:var(--ink);letter-spacing:-0.02em;margin-bottom:10px">You're verified ✓</div>
+        <p class="body-text" style="text-align:center;margin-bottom:0">Your number is confirmed.<br>Let's get you set up.</p>
+      </div>
+      <div class="fg"></div>
+      <button class="btn btn-primary" onclick="go(5)">Continue →</button>
+    </div>
+
+
+    <!-- S5: INTRO 1 -->
+    <div class="screen" id="s5">
+      <button class="skip-btn" onclick="go(8)">Skip intro ↗</button>
+      <div class="bubbles"><div class="bub on"></div><div class="bub"></div><div class="bub"></div></div>
+      <div class="intro-illus"><div class="illus-box">🤝</div></div>
+      <div class="eyebrow">What is this?</div>
+      <div class="title">A ledger of <em>trust</em></div>
+      <p class="body-text">When someone sends you credit, they are saying: <strong>I owe you.</strong> When you send credit, you are saying: <strong>I owe you.</strong> No real money moves.</p>
+      <p class="body-text">Because credit has a positive side and a negative side that cancel out, the community can trade to the extent of its <em>trust</em> — not to the extent of its cash. You effectively create liquidity together, from nothing.</p>
+      <div class="fg"></div>
+      <button class="btn btn-primary" onclick="go(6)">Got it →</button>
+    </div>
+
+    <!-- S6: INTRO 2 -->
+    <div class="screen" id="s6">
+      <button class="skip-btn" onclick="go(8)">Skip intro ↗</button>
+      <div class="bubbles"><div class="bub done"></div><div class="bub on"></div><div class="bub"></div></div>
+      <div class="intro-illus"><div class="illus-box">⚖️</div></div>
+      <div class="eyebrow">Your balance</div>
+      <div class="title">Negative is <em>normal</em></div>
+      <p class="body-text">Your balance shows what the community owes you (positive ↑) or what you owe the community (negative ↓).</p>
+      <p class="body-text">Being negative just means you've received more than you've given so far. The community trusts you to contribute over time.</p>
+      <div class="fg"></div>
+      <button class="btn btn-primary" onclick="go(7)">Understood →</button>
+      <button class="btn btn-ghost" onclick="go(5)">← Back</button>
+    </div>
+
+    <!-- S7: INTRO 3 — NAME ENTRY -->
+    <div class="screen" id="s7">
+      <div style="height:4px"></div>
+      <div class="bubbles"><div class="bub done"></div><div class="bub done"></div><div class="bub on"></div></div>
+      <div class="intro-illus"><div class="illus-box" style="height:110px;font-size:44px">🌿</div></div>
+      <div class="eyebrow">Almost there</div>
+      <div class="title">What should we <em>call you?</em></div>
+      <p class="body-text">This is how other members will see you. You can change it later in Settings.</p>
+      <label class="input-label">Your display name</label>
+      <div class="name-input-wrap">
+        <input class="name-input" type="text" placeholder="e.g. Ana, Bruno, Carla…" id="nameInput" oninput="checkName()" maxlength="40">
+      </div>
+      <p class="input-hint">2–40 characters. No real name required.</p>
+      <div class="fg"></div>
+      <button class="btn btn-primary" id="nameContinueBtn" onclick="enterCommunity()" disabled>Enter the community →</button>
+      <button class="btn btn-ghost" onclick="go(6)">← Back</button>
+    </div>
+
+    <!-- S8: HOME -->
+    <div class="screen" id="s8" style="padding-top:60px">
+      <div class="home-hdr">
+        <div>
+          <div class="home-name">Mutuvia</div>
+          <div class="home-greet">Good morning, <span id="homeGreetName">there</span> ☀️</div>
+        </div>
+        <div class="gear">⚙️</div>
+      </div>
+      <div class="balance-card">
+        <div class="bal-label">Your balance</div>
+        <div class="bal-amount">€ 0.00</div>
+        <div class="bal-caption">You're all square ✓</div>
+      </div>
+      <div class="action-row">
+        <div class="action-card"><div class="ac-icon">↑</div><div class="ac-label">Send</div></div>
+        <div class="action-card"><div class="ac-icon">↓</div><div class="ac-label">Receive</div></div>
+      </div>
+      <div class="sec-hdr">
+        <div class="sec-title">Recent</div>
+        <span style="font-size:13px;color:var(--forest);font-weight:500;cursor:pointer">See all</span>
+      </div>
+      <div class="empty-state">Your balance starts at zero.<br>Tap <strong>Send</strong> or <strong>Receive</strong> to get started.</div>
+    </div>
+
+  </div><!-- /screens -->
+</div><!-- /phone-frame -->
+
+<div class="nav-controls">
+  <button class="nav-btn sec" id="prevBtn" onclick="go(cur-1)" disabled>← Back</button>
+  <span class="screen-ctr" id="screenCtr">1 / 9</span>
+  <button class="nav-btn" id="nextBtn" onclick="go(cur+1)">Next →</button>
+</div>
+
+<div class="feedback">
+  <h3>Questions for your community</h3>
+  <p>As you click through, consider gathering feedback on:</p>
+  <ul>
+    <li>Is the consent screen clear enough?</li>
+    <li>Is asking for a phone number comfortable?</li>
+    <li>Does the passkey explanation make sense?</li>
+    <li>Is "negative balance is normal" reassuring or confusing?</li>
+    <li>Would you feel comfortable sharing your balance with neighbours?</li>
+    <li>Is choosing a display name the right moment for this?</li>
+  </ul>
+</div>
+
+<script>
+let cur = 0;
+const N = 9;
+const labels = ['Welcome','Consent','Phone number','SMS code','Verified','Intro 1/3','Intro 2/3','Name entry','Home'];
+
+function go(n) {
+  if (n < 0 || n >= N) return;
+  const prev = document.getElementById('s' + cur);
+  const next = document.getElementById('s' + n);
+  prev.classList.remove('active');
+  prev.classList.add('exit');
+  setTimeout(() => prev.classList.remove('exit'), 400);
+  next.classList.add('active');
+  cur = n;
+  updateUI();
+  if (n === 3) { resetOtp(); startCountdown(); }
+}
+
+function updateUI() {
+  document.getElementById('screenCtr').textContent = (cur + 1) + ' / ' + N;
+  document.getElementById('prevBtn').disabled = cur === 0;
+  document.getElementById('nextBtn').disabled = cur === N - 1;
+  document.getElementById('stepLabel').textContent = labels[cur];
+  for (let i = 0; i < N; i++) {
+    const d = document.getElementById('dot' + i);
+    d.className = 'step-dot' + (i === cur ? ' active' : i < cur ? ' done' : '');
+  }
+}
+
+// ── PHONE INPUT ──
+function checkPhone() {
+  const v = document.getElementById('phoneInput').value.replace(/\D/g,'');
+  const ok = v.length >= 9;
+  const btn = document.getElementById('phoneContinueBtn');
+  btn.disabled = !ok;
+  const num = document.getElementById('phoneInput').value || '912 345 678';
+  document.getElementById('phoneSentTo').textContent = '+351 ' + num;
+}
+
+// ── OTP — single real input, visual boxes ──
+let otpFocused = false;
+
+function otpInput() {
+  const real = document.getElementById('otpReal');
+  // strip non-digits, limit to 6
+  const clean = real.value.replace(/\D/g,'').slice(0,6);
+  real.value = clean;
+  renderBoxes(clean);
+  const done = clean.length === 6;
+  const btn = document.getElementById('verifyBtn');
+  btn.disabled = !done;
+  if (done) setTimeout(() => go(4), 500);
+}
+
+function otpKeydown(e) {
+  // allow: digits, backspace, delete, arrows, tab
+  if (!/^\d$/.test(e.key) && !['Backspace','Delete','ArrowLeft','ArrowRight','Tab'].includes(e.key)) {
+    e.preventDefault();
+  }
+}
+
+function otpFocus() {
+  otpFocused = true;
+  renderBoxes(document.getElementById('otpReal').value);
+}
+
+function otpBlur() {
+  otpFocused = false;
+  renderBoxes(document.getElementById('otpReal').value);
+}
+
+function renderBoxes(val) {
+  for (let i = 0; i < 6; i++) {
+    const box = document.getElementById('ob' + i);
+    const ch = val[i] || '';
+    const isActive = otpFocused && i === Math.min(val.length, 5);
+    box.className = 'otp-box' + (ch ? ' filled' : '') + (isActive ? ' active' : '');
+    box.innerHTML = ch
+      ? ch
+      : (isActive ? '<div class="otp-cursor"></div>' : '');
+  }
+}
+
+function resetOtp() {
+  const real = document.getElementById('otpReal');
+  real.value = '';
+  renderBoxes('');
+  document.getElementById('verifyBtn').disabled = true;
+}
+
+// ── COUNTDOWN ──
+let cdInterval;
+function startCountdown() {
+  clearInterval(cdInterval);
+  let t = 30;
+  const el = document.getElementById('countdown');
+  el.textContent = ' (30s)';
+  cdInterval = setInterval(() => {
+    t--;
+    el.textContent = t > 0 ? ` (${t}s)` : '';
+    if (t <= 0) clearInterval(cdInterval);
+  }, 1000);
+}
+function resendCode() { resetOtp(); startCountdown(); document.getElementById('otpReal').focus(); }
+
+// ── PHONE CONTINUE BTN ──
+function checkPhone() {
+  const v = document.getElementById('phoneInput').value.replace(/\D/g,'');
+  document.getElementById('phoneContinueBtn').disabled = v.length < 9;
+  document.getElementById('phoneSentTo').textContent = '+351 ' + (document.getElementById('phoneInput').value || '912 345 678');
+}
+
+// ── NAME INPUT ──
+function checkName() {
+  const v = document.getElementById('nameInput').value.trim();
+  document.getElementById('nameContinueBtn').disabled = v.length < 2;
+}
+function enterCommunity() {
+  const name = document.getElementById('nameInput').value.trim() || 'there';
+  document.getElementById('homeGreetName').textContent = name;
+  go(8);
+}
+
+// ── KEYBOARD NAV ──
+document.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+  if (e.key === 'ArrowRight') go(cur + 1);
+  if (e.key === 'ArrowLeft') go(cur - 1);
+});
+
+updateUI();
+</script>
+</body>
+</html>
