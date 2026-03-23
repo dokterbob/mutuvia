@@ -1,3 +1,11 @@
+## Project Configuration
+
+- **Language**: TypeScript
+- **Package Manager**: bun
+- **Add-ons**: none
+
+---
+
 
 Default to using Bun instead of Node.js.
 
