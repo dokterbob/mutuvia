@@ -8,7 +8,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(307, '/onboarding');
 	}
 	if (!locals.appUser) {
-		redirect(307, '/onboarding?step=intro1');
+		redirect(307, '/onboarding/intro1');
 	}
 	redirect(307, '/home');
 };

@@ -4,14 +4,11 @@ import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
-	if (!locals.session) {
-		redirect(307, '/onboarding');
+	if (locals.session && locals.appUser) {
+		redirect(307, '/home');
 	}
-	if (!locals.appUser) {
-		redirect(307, '/onboarding/intro1');
-	}
-
 	return {
-		appUser: locals.appUser
+		isAuthenticated: !!locals.session,
+		hasAppUser: !!locals.appUser
 	};
 };
