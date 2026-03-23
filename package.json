@@ -4,21 +4,25 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
-		"build": "vite build",
-		"preview": "vite preview",
+		"dev": "bunx --bun vite dev",
+		"build": "bunx --bun vite build",
+		"preview": "bunx --bun vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
-		"test": "npm run test:unit -- --run"
+		"test": "npm run test:unit -- --run",
+		"db:generate": "bunx drizzle-kit generate",
+		"db:migrate": "bun scripts/migrate.ts",
+		"db:seed": "bun scripts/seed.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.2",
 		"@eslint/js": "^9.39.2",
 		"@fontsource-variable/noto-sans": "^5.2.10",
+		"@internationalized/date": "^3.12.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
@@ -26,6 +30,8 @@
 		"@tailwindcss/vite": "^4.1.18",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.1.0",
+		"better-sqlite3": "^12.8.0",
+		"bits-ui": "^2.16.3",
 		"clsx": "^2.1.1",
 		"drizzle-kit": "^0.31.10",
 		"eslint": "^9.39.2",
@@ -50,6 +56,10 @@
 		"vitest-browser-svelte": "^2.0.2"
 	},
 	"dependencies": {
-		"drizzle-orm": "^0.45.1"
+		"@types/qrcode": "^1.5.6",
+		"better-auth": "^1.5.6",
+		"drizzle-orm": "^0.45.1",
+		"jose": "^6.2.2",
+		"qrcode": "^1.5.4"
 	}
 }

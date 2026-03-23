@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { env } from '$env/dynamic/private';
+import { env as publicEnv } from '$env/dynamic/public';
+
+export const config = {
+	get appName() {
+		return publicEnv.PUBLIC_APP_NAME || 'Mutuvia';
+	},
+	get appTagline() {
+		return publicEnv.PUBLIC_APP_TAGLINE || 'Together, we are more.';
+	},
+	get unitCode() {
+		return env.UNIT_CODE || 'EUR';
+	},
+	get unitSymbol() {
+		return publicEnv.PUBLIC_UNIT_SYMBOL || '€';
+	},
+	get unitDisplayName() {
+		return publicEnv.PUBLIC_UNIT_DISPLAY_NAME || 'euro';
+	},
+	get decimalPlaces() {
+		return parseInt(env.UNIT_DECIMAL_PLACES || '2', 10);
+	},
+	get qrTtlSeconds() {
+		return parseInt(env.QR_TTL_SECONDS || '600', 10);
+	},
+	get appUrl() {
+		return env.APP_URL || 'http://localhost:5173';
+	},
+	get communityDocUrl() {
+		return publicEnv.PUBLIC_COMMUNITY_DOC_URL || '';
+	},
+	get qrJwtSecret() {
+		const secret = env.QR_JWT_SECRET;
+		if (!secret || secret.length < 32) {
+			throw new Error('QR_JWT_SECRET must be at least 32 characters');
+		}
+		return secret;
+	},
+	get twilioAccountSid() {
+		return env.TWILIO_ACCOUNT_SID || '';
+	},
+	get twilioAuthToken() {
+		return env.TWILIO_AUTH_TOKEN || '';
+	},
+	get twilioPhoneNumber() {
+		return env.TWILIO_PHONE_NUMBER || '';
+	}
+};

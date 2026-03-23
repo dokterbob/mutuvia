@@ -1,3 +1,18 @@
+## Context7 Library IDs
+
+Use these with `mcp__context7__query-docs` for up-to-date documentation:
+
+| Library | Context7 ID | Notes |
+|---|---|---|
+| SvelteKit / Svelte 5 | `/sveltejs/svelte` | Runes, components, routing |
+| Svelte Docs (comprehensive) | `/websites/svelte_dev` | 8203 snippets, tutorials + reference |
+| Drizzle ORM | `/llmstxt/orm_drizzle_team_llms_txt` | SQLite schema, migrations, queries |
+| Better Auth | `/llmstxt/better-auth_llms_txt` | Phone OTP, email OTP, Drizzle adapter |
+| shadcn-svelte | `/llmstxt/shadcn-svelte_llms_txt` | UI components, CLI, Bits UI |
+| Intlayer | `/websites/intlayer_doc` | i18n, multilingual content declaration |
+| Tailwind CSS v4 | `/websites/tailwindcss` | Utility classes, CSS variables |
+| jose (JWT) | `/panva/jose` | JWT sign/verify, HS256 |
+
 ## Project Configuration
 
 - **Language**: TypeScript
