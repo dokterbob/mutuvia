@@ -22,8 +22,7 @@ export const auth = betterAuth({
 		}),
 		phoneNumber({
 			signUpOnVerification: {
-				getTempEmail: (phone) => `${phone.replace(/\D/g, '')}@phone.local`,
-				getTempName: (phone) => phone
+				getTempEmail: () => null as unknown as string
 			},
 			sendOTP: async ({ phoneNumber: phone, code }) => {
 				const accountSid = process.env.TWILIO_ACCOUNT_SID;

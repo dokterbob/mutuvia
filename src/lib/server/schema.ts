@@ -7,8 +7,8 @@ import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core'
 
 export const user = sqliteTable('user', {
 	id: text('id').primaryKey(),
-	name: text('name').notNull(),
-	email: text('email').notNull(),
+	name: text('name'),
+	email: text('email'),
 	emailVerified: integer('email_verified', { mode: 'boolean' }).notNull(),
 	image: text('image'),
 	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
