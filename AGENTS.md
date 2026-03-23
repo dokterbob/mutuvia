@@ -2,7 +2,7 @@
 
 - **Language**: TypeScript
 - **Package Manager**: bun
-- **Add-ons**: none
+- **Add-ons**: prettier, eslint, vitest, tailwindcss
 
 ---
 
