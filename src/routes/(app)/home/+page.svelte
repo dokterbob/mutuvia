@@ -4,7 +4,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 	import { Separator } from '$lib/components/ui/separator';
-	import { IconArrowUp, IconArrowDown, IconSettings } from '@tabler/icons-svelte';
+	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+import SettingsIcon from '@lucide/svelte/icons/settings';
 
 	let { data } = $props();
 
@@ -29,7 +31,7 @@
 			class="flex h-9 w-9 items-center justify-center rounded-full border bg-muted"
 			onclick={() => goto('/settings')}
 		>
-			<IconSettings class="h-4 w-4 text-muted-foreground" />
+			<SettingsIcon class="h-4 w-4 text-muted-foreground" />
 		</button>
 	</div>
 	<p class="mb-5 text-sm text-muted-foreground">
@@ -69,7 +71,7 @@
 			<div
 				class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white"
 			>
-				<IconArrowUp class="h-5 w-5" />
+				<ArrowUpIcon class="h-5 w-5" />
 			</div>
 			<span class="text-sm font-medium">{$t('home.send')}</span>
 		</button>
@@ -80,7 +82,7 @@
 			<div
 				class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white"
 			>
-				<IconArrowDown class="h-5 w-5" />
+				<ArrowDownIcon class="h-5 w-5" />
 			</div>
 			<span class="text-sm font-medium">{$t('home.receive')}</span>
 		</button>

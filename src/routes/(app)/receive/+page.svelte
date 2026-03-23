@@ -3,10 +3,13 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
+import { CopyButton } from '$lib/components/ui/copy-button';
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { IconArrowRight, IconArrowLeft, IconQrcode, IconX } from '@tabler/icons-svelte';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+import QrCodeIcon from '@lucide/svelte/icons/qr-code';
+import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
 
 	let { data, form } = $props();
@@ -24,7 +27,6 @@
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
-	let copied = $state(false);
 
 	$effect(() => {
 		if (form?.qrUrl) {
@@ -39,12 +41,6 @@
 		step = 'qr';
 		startCountdown(expires);
 		startPolling(id);
-	}
-
-	async function copyLink() {
-		await navigator.clipboard.writeText(qrUrl);
-		copied = true;
-		setTimeout(() => (copied = false), 2000);
 	}
 
 	function shareLink() {
@@ -131,11 +127,11 @@
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145] disabled:opacity-40"
 				disabled={!amount || parseFloat(amount) <= 0}
 			>
-				<IconQrcode class="mr-2 h-5 w-5" />
+				<QrCodeIcon class="mr-2 h-5 w-5" />
 				{$t('receive.cta')}
 			</Button>
 			<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
-				<IconArrowLeft class="mr-1 h-3 w-3" />
+				<ArrowLeftIcon class="mr-1 h-3 w-3" />
 				{$t('consent.back')}
 			</Button>
 		</form>
@@ -159,9 +155,9 @@
 				{#if qrUrl}
 					<p class="mb-2 max-w-[280px] truncate text-xs text-muted-foreground">{qrUrl}</p>
 					<div class="mb-4 flex gap-2">
-						<Button variant="outline" class="flex-1 rounded-xl text-sm" onclick={copyLink}>
-							{copied ? $t('qr.copied') : $t('qr.copy_link')}
-						</Button>
+						<CopyButton text={qrUrl} variant="outline" class="flex-1 rounded-xl text-sm">
+							{$t('qr.copy_link')}
+						</CopyButton>
 						{#if typeof navigator !== 'undefined' && 'share' in navigator}
 							<Button variant="outline" class="flex-1 rounded-xl text-sm" onclick={shareLink}>
 								{$t('qr.share')}
@@ -175,7 +171,7 @@
 				<form method="POST" action="?/cancel" use:enhance>
 					<input type="hidden" name="qrId" value={qrId} />
 					<Button type="submit" variant="outline" class="rounded-xl">
-						<IconX class="mr-2 h-4 w-4" />
+						<XIcon class="mr-2 h-4 w-4" />
 						{$t('send.cancel')}
 					</Button>
 				</form>

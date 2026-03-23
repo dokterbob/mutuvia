@@ -2,14 +2,15 @@
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
-	import { IconArrowRight, IconCheck } from '@tabler/icons-svelte';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+import CheckIcon from '@lucide/svelte/icons/check';
 </script>
 
 <div class="flex flex-1 flex-col items-center justify-center text-center">
 	<div
 		class="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#2D4A32] shadow-lg shadow-[#2D4A32]/25"
 	>
-		<IconCheck class="h-9 w-9 text-white" stroke={2.5} />
+		<CheckIcon class="h-9 w-9 text-white" stroke-width={2.5} />
 	</div>
 	<h1 class="mb-2.5 font-serif text-[26px] font-semibold text-[#1E2820]">
 		{$t('verified.title')} ✓
@@ -22,6 +23,6 @@
 		onclick={() => goto('/onboarding/intro1')}
 	>
 		{$t('verified.cta')}
-		<IconArrowRight class="ml-2 h-4 w-4" />
+		<ArrowRightIcon class="ml-2 h-4 w-4" />
 	</Button>
 </div>

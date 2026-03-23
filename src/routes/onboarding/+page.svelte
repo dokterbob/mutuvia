@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
-	import { IconArrowRight } from '@tabler/icons-svelte';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 </script>
 
 <div class="flex flex-1 flex-col">
@@ -148,7 +148,7 @@
 		onclick={() => goto('/onboarding/consent')}
 	>
 		{$t('welcome.cta')}
-		<IconArrowRight class="ml-2 h-4 w-4" />
+		<ArrowRightIcon class="ml-2 h-4 w-4" />
 	</Button>
 	<Button
 		variant="ghost"

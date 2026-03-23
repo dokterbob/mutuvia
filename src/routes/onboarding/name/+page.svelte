@@ -4,7 +4,8 @@
 	import { t } from '$lib/i18n';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
-	import { IconArrowRight, IconArrowLeft } from '@tabler/icons-svelte';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let displayName = $state('');
 	let authError = $state('');
@@ -82,7 +83,7 @@
 			disabled={displayName.trim().length < 2}
 		>
 			{$t('intro3.cta')}
-			<IconArrowRight class="ml-2 h-4 w-4" />
+			<ArrowRightIcon class="ml-2 h-4 w-4" />
 		</Button>
 	</form>
 	<Button
@@ -90,7 +91,7 @@
 		class="mt-2 w-full text-sm text-[#6B7A6E]"
 		onclick={() => goto('/onboarding/intro2')}
 	>
-		<IconArrowLeft class="mr-1 h-3 w-3" />
+		<ArrowLeftIcon class="mr-1 h-3 w-3" />
 		{$t('intro3.back')}
 	</Button>
 </div>
