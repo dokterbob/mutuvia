@@ -130,6 +130,11 @@ const nl: Record<string, string> = {
 	'send.done': 'Klaar. Je hebt {amount} gestuurd naar {name}.',
 	'send.back_home': 'Terug naar home',
 
+	// QR link sharing
+	'qr.copy_link': 'Link kopiëren',
+	'qr.copied': 'Gekopieerd!',
+	'qr.share': 'Delen',
+
 	// Receive flow
 	'receive.helper': 'Voer het bedrag in dat je wilt vragen.',
 	'receive.note_placeholder': 'Waarvoor? (optioneel)',

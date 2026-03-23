@@ -125,6 +125,11 @@ const en: Record<string, string> = {
 	'send.done': 'Done. You sent {amount} to {name}.',
 	'send.back_home': 'Back to home',
 
+	// QR link sharing
+	'qr.copy_link': 'Copy link',
+	'qr.copied': 'Copied!',
+	'qr.share': 'Share',
+
 	// Receive flow
 	'receive.helper': "Enter the amount you'd like to request.",
 	'receive.note_placeholder': "What's this for? (optional)",

@@ -130,6 +130,11 @@ const pt: Record<string, string> = {
 	'send.done': 'Feito. Enviaste {amount} a {name}.',
 	'send.back_home': 'Voltar ao início',
 
+	// QR link sharing
+	'qr.copy_link': 'Copiar link',
+	'qr.copied': 'Copiado!',
+	'qr.share': 'Partilhar',
+
 	// Receive flow
 	'receive.helper': 'Introduz o montante que queres pedir.',
 	'receive.note_placeholder': 'Para quê? (opcional)',

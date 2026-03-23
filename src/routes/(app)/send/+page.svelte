@@ -24,6 +24,8 @@
 	let isExpired = $state(false);
 	let completedName = $state('');
 	let completedAmount = $state('');
+	let qrUrl = $state('');
+	let copied = $state(false);
 
 	$effect(() => {
 		if (form?.consented) {
@@ -35,12 +37,23 @@
 	});
 
 	async function generateQr(url: string, id: string, expires: string) {
+		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
 		expiresAt = expires;
 		step = 'qr';
 		startCountdown(expires);
 		startPolling(id);
+	}
+
+	async function copyLink() {
+		await navigator.clipboard.writeText(qrUrl);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
+
+	function shareLink() {
+		navigator.share({ url: qrUrl });
 	}
 
 	function startCountdown(expires: string) {
@@ -168,6 +181,19 @@
 				<p class="mb-4 text-sm text-muted-foreground">{$t('send.qr_caption')}</p>
 				{#if qrDataUrl}
 					<img src={qrDataUrl} alt="QR Code" class="mb-4 rounded-2xl" width="280" height="280" />
+				{/if}
+				{#if qrUrl}
+					<p class="mb-2 max-w-[280px] truncate text-xs text-muted-foreground">{qrUrl}</p>
+					<div class="mb-4 flex gap-2">
+						<Button variant="outline" class="flex-1 rounded-xl text-sm" onclick={copyLink}>
+							{copied ? $t('qr.copied') : $t('qr.copy_link')}
+						</Button>
+						{#if typeof navigator !== 'undefined' && 'share' in navigator}
+							<Button variant="outline" class="flex-1 rounded-xl text-sm" onclick={shareLink}>
+								{$t('qr.share')}
+							</Button>
+						{/if}
+					</div>
 				{/if}
 				<p class="mb-6 font-mono text-lg tabular-nums text-muted-foreground">
 					{formatMinSec(secondsLeft)}

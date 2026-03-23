@@ -71,30 +71,34 @@
 		<p class="mb-3 text-sm text-red-600">{authError}</p>
 	{/if}
 
-	<div class="mb-3 flex items-center gap-3 text-xs text-[#6B7A6E]">
-		<span class="h-px flex-1 bg-[#DDD8CE]"></span>
-		{$t('phone.or')}
-		<span class="h-px flex-1 bg-[#DDD8CE]"></span>
-	</div>
+	{#if !phoneNumber.trim()}
+		<div class="mb-3 flex items-center gap-3 text-xs text-[#6B7A6E]">
+			<span class="h-px flex-1 bg-[#DDD8CE]"></span>
+			{$t('phone.or')}
+			<span class="h-px flex-1 bg-[#DDD8CE]"></span>
+		</div>
 
-	<Button
-		variant="outline"
-		class="mb-4 w-full rounded-xl border-[1.5px] border-[#DDD8CE] py-5 text-sm text-[#2D4A32]"
-		onclick={() => goto('/onboarding/email')}
-	>
-		{$t('phone.email_fallback')}
-		<IconArrowRight class="ml-2 h-3 w-3" />
-	</Button>
+		<Button
+			variant="outline"
+			class="mb-4 w-full rounded-xl border-[1.5px] border-[#DDD8CE] py-5 text-sm text-[#2D4A32]"
+			onclick={() => goto('/onboarding/email')}
+		>
+			{$t('phone.email_fallback')}
+			<IconArrowRight class="ml-2 h-3 w-3" />
+		</Button>
+	{/if}
 
-	<div class="flex-1"></div>
-	<Button
-		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
-		disabled={phoneNumber.replace(/\D/g, '').length < 9 || isLoading}
-		onclick={sendPhoneOtp}
-	>
-		{$t('phone.cta')}
-		<IconArrowRight class="ml-2 h-4 w-4" />
-	</Button>
+	<form onsubmit={(e) => { e.preventDefault(); sendPhoneOtp(); }}>
+		<div class="flex-1"></div>
+		<Button
+			type="submit"
+			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
+			disabled={phoneNumber.replace(/\D/g, '').length < 9 || isLoading}
+		>
+			{$t('phone.cta')}
+			<IconArrowRight class="ml-2 h-4 w-4" />
+		</Button>
+	</form>
 	<Button
 		variant="ghost"
 		class="mt-2 w-full text-sm text-[#6B7A6E]"

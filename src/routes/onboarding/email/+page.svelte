@@ -55,15 +55,17 @@
 		<p class="mb-3 text-sm text-red-600">{authError}</p>
 	{/if}
 
-	<div class="flex-1"></div>
-	<Button
-		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
-		disabled={!emailAddress.includes('@') || isLoading}
-		onclick={sendEmailOtp}
-	>
-		{$t('email.cta')}
-		<IconArrowRight class="ml-2 h-4 w-4" />
-	</Button>
+	<form onsubmit={(e) => { e.preventDefault(); sendEmailOtp(); }}>
+		<div class="flex-1"></div>
+		<Button
+			type="submit"
+			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
+			disabled={!emailAddress.includes('@') || isLoading}
+		>
+			{$t('email.cta')}
+			<IconArrowRight class="ml-2 h-4 w-4" />
+		</Button>
+	</form>
 	<Button
 		variant="ghost"
 		class="mt-2 w-full text-sm text-[#6B7A6E]"

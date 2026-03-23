@@ -28,7 +28,7 @@
 			} else {
 				await authClient.emailOtp.verifyEmail({ email: data.otpDestination, otp: otpCode });
 			}
-			goto('/onboarding/verified');
+			goto('/onboarding/verified', { invalidateAll: true });
 		} catch (e: unknown) {
 			authError = e instanceof Error ? e.message : 'Invalid code';
 		} finally {
