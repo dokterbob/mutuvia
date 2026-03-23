@@ -22,7 +22,8 @@
 		| 'intro2'
 		| 'name';
 
-	let currentStep = $state<Step>((data.step as Step) || 'welcome');
+	const initialStep = data.step as Step | undefined;
+	let currentStep = $state<Step>(initialStep || 'welcome');
 
 	// Phone / email auth state
 	let phoneNumber = $state('');
