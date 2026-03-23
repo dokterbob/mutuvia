@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { locale, t, localeNames, type Locale } from '$lib/i18n';
 	import { authClient } from '$lib/auth-client';
@@ -42,9 +42,7 @@
 
 	function goTo(step: Step) {
 		currentStep = step;
-		const url = new URL(window.location.href);
-		url.searchParams.set('step', step);
-		window.history.replaceState({}, '', url.toString());
+		replaceState(`/onboarding?step=${step}`, {});
 	}
 
 	function startCountdown() {
@@ -786,7 +784,23 @@
 				>
 					{$t('intro3.label')}
 				</Label>
-				<form method="POST" action="?/createProfile" use:enhance>
+				<form
+					method="POST"
+					action="?/createProfile"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'failure' || result.type === 'error') {
+								authError =
+									result.type === 'failure'
+										? ((result.data as Record<string, unknown>)?.error as string) ||
+											'Something went wrong'
+										: 'Something went wrong';
+							} else {
+								await update();
+							}
+						};
+					}}
+				>
 					<div
 						class="mb-1.5 overflow-hidden rounded-xl border-[1.5px] border-[#DDD8CE] bg-white transition focus-within:border-[#2D4A32]"
 					>
@@ -800,6 +814,9 @@
 						/>
 					</div>
 					<p class="mb-4 text-xs text-[#6B7A6E]">{$t('intro3.hint')}</p>
+					{#if authError}
+						<p class="mb-2 text-sm text-red-600">{authError}</p>
+					{/if}
 
 					<div class="flex-1"></div>
 					<Button

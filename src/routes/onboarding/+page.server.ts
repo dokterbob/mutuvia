@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { redirect } from '@sveltejs/kit';
+import { redirect, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
@@ -29,7 +29,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 export const actions: Actions = {
 	createProfile: async ({ request, locals }) => {
 		if (!locals.session || !locals.user) {
-			redirect(307, '/onboarding');
+			return fail(401, { error: 'Session expired. Please sign in again.' });
 		}
 
 		const data = await request.formData();
