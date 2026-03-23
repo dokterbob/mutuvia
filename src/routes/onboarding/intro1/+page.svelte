@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import { IconArrowRight } from '@tabler/icons-svelte';
 </script>
@@ -10,7 +10,7 @@
 		class="mb-1.5 self-end text-[13px] text-[#6B7A6E] hover:text-[#1E2820]"
 		onclick={() => goto('/onboarding/name')}
 	>
-		{$t('intro1.skip')} ↗
+		{m.intro1_skip()} ↗
 	</button>
 
 	<div class="mb-3 flex justify-center gap-1.5">
@@ -28,19 +28,19 @@
 	</div>
 
 	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
-		{$t('intro1.eyebrow')}
+		{m.intro1_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html $t('intro1.title').replace(
+		{@html m.intro1_title().replace(
 			/trust|confiança|vertrouwen/i,
 			'<span class="text-[#2D4A32]">$&</span>'
 		)}
 	</h1>
 	<p class="mb-3.5 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
-		{$t('intro1.body1')}
+		{m.intro1_body1()}
 	</p>
 	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
-		{$t('intro1.body2')}
+		{m.intro1_body2()}
 	</p>
 
 	<div class="flex-1"></div>
@@ -48,7 +48,7 @@
 		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145]"
 		onclick={() => goto('/onboarding/intro2')}
 	>
-		{$t('intro1.cta')}
+		{m.intro1_cta()}
 		<IconArrowRight class="ml-2 h-4 w-4" />
 	</Button>
 </div>

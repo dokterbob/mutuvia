@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
@@ -19,7 +19,7 @@
 			await authClient.phoneNumber.sendOtp({ phoneNumber: fullPhone });
 			goto(`/onboarding/otp?dest=${encodeURIComponent(fullPhone)}&method=phone`);
 		} catch (e: unknown) {
-			authError = e instanceof Error ? e.message : 'Failed to send code';
+			authError = e instanceof Error ? e.message : m.error_send_code();
 		} finally {
 			isLoading = false;
 		}
@@ -28,20 +28,20 @@
 
 <div class="flex flex-1 flex-col">
 	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
-		{$t('phone.eyebrow')}
+		{m.phone_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html $t('phone.title').replace(
+		{@html m.phone_title().replace(
 			/phone number|número de telefone|telefoonnummer/i,
 			'<span class="text-[#2D4A32]">$&</span>'
 		)}
 	</h1>
 	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
-		{$t('phone.body')}
+		{m.phone_body()}
 	</p>
 
 	<Label class="mb-2 block text-xs font-medium uppercase tracking-wider text-[#6B7A6E]">
-		{$t('phone.label')}
+		{m.phone_label()}
 	</Label>
 	<div
 		class="mb-2 flex overflow-hidden rounded-xl border-[1.5px] border-[#DDD8CE] bg-white transition focus-within:border-[#2D4A32]"
@@ -65,7 +65,7 @@
 			class="flex-1 border-none bg-transparent px-4 py-3.5 text-[17px] text-[#1E2820] outline-none placeholder:text-[#BDB8AE]"
 		/>
 	</div>
-	<p class="mb-4 text-xs text-[#6B7A6E]">{$t('phone.hint')}</p>
+	<p class="mb-4 text-xs text-[#6B7A6E]">{m.phone_hint()}</p>
 
 	{#if authError}
 		<p class="mb-3 text-sm text-red-600">{authError}</p>
@@ -73,7 +73,7 @@
 
 	<div class="mb-3 flex items-center gap-3 text-xs text-[#6B7A6E]">
 		<span class="h-px flex-1 bg-[#DDD8CE]"></span>
-		{$t('phone.or')}
+		{m.phone_or()}
 		<span class="h-px flex-1 bg-[#DDD8CE]"></span>
 	</div>
 
@@ -82,7 +82,7 @@
 		class="mb-4 w-full rounded-xl border-[1.5px] border-[#DDD8CE] py-5 text-sm text-[#2D4A32]"
 		onclick={() => goto('/onboarding/email')}
 	>
-		{$t('phone.email_fallback')}
+		{m.phone_email_fallback()}
 		<IconArrowRight class="ml-2 h-3 w-3" />
 	</Button>
 
@@ -92,7 +92,7 @@
 		disabled={phoneNumber.replace(/\D/g, '').length < 9 || isLoading}
 		onclick={sendPhoneOtp}
 	>
-		{$t('phone.cta')}
+		{m.phone_cta()}
 		<IconArrowRight class="ml-2 h-4 w-4" />
 	</Button>
 	<Button
@@ -101,6 +101,6 @@
 		onclick={() => goto('/onboarding/consent')}
 	>
 		<IconArrowLeft class="mr-1 h-3 w-3" />
-		{$t('phone.back')}
+		{m.phone_back()}
 	</Button>
 </div>

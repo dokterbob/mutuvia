@@ -5,8 +5,18 @@ import { db } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import type { Handle } from '@sveltejs/kit';
+import { sequence } from '@sveltejs/kit/hooks';
+import { paraglideMiddleware } from '$lib/paraglide/server';
 
-export const handle: Handle = async ({ event, resolve }) => {
+const i18nHandle: Handle = ({ event, resolve }) => {
+	return paraglideMiddleware(event.request, ({ locale }) => {
+		return resolve(event, {
+			transformPageChunk: ({ html }) => html.replace('%lang%', locale)
+		});
+	});
+};
+
+const authHandle: Handle = async ({ event, resolve }) => {
 	// Better Auth API routes
 	if (event.url.pathname.startsWith('/api/auth')) {
 		return auth.handler(event.request);
@@ -35,3 +45,5 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	return resolve(event);
 };
+
+export const handle = sequence(i18nHandle, authHandle);

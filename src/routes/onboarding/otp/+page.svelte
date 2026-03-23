@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button';
 	import { IconArrowRight, IconArrowLeft } from '@tabler/icons-svelte';
@@ -62,17 +62,17 @@
 
 <div class="flex flex-1 flex-col">
 	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
-		{$t('otp.eyebrow')}
+		{m.otp_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html $t('otp.title').replace(
+		{@html m.otp_title().replace(
 			/6-digit code|6 dígitos|6-cijferige code/i,
 			'<span class="text-[#2D4A32]">$&</span>'
 		)}
 	</h1>
 
 	<div class="mb-5 rounded-xl bg-[#EDE7D9] p-3.5 text-sm leading-relaxed text-[#3A4A3D]">
-		{$t('otp.sent_to', { destination: data.otpDestination })}
+		{m.otp_sent_to({ destination: data.otpDestination })}
 	</div>
 
 	<!-- OTP input -->
@@ -102,14 +102,14 @@
 	</div>
 
 	<div class="mb-4 text-center text-sm text-[#6B7A6E]">
-		{$t('otp.resend_prompt')}
+		{m.otp_resend_prompt()}
 		{#if countdown > 0}
 			<span class="text-[#6B7A6E]">
-				{$t('otp.resend')} ({$t('otp.countdown', { seconds: countdown })})
+				{m.otp_resend()} ({m.otp_countdown({ seconds: countdown })})
 			</span>
 		{:else}
 			<button class="font-medium text-[#2D4A32] hover:underline" onclick={resendOtp}>
-				{$t('otp.resend')}
+				{m.otp_resend()}
 			</button>
 		{/if}
 	</div>
@@ -124,7 +124,7 @@
 		disabled={otpCode.length < 6 || isLoading}
 		onclick={verifyOtp}
 	>
-		{$t('otp.cta')}
+		{m.otp_cta()}
 		<IconArrowRight class="ml-2 h-4 w-4" />
 	</Button>
 	<Button
@@ -133,6 +133,6 @@
 		onclick={() => goto(`/onboarding/${data.otpMethod}`)}
 	>
 		<IconArrowLeft class="mr-1 h-3 w-3" />
-		{$t('otp.back')}
+		{m.otp_back()}
 	</Button>
 </div>

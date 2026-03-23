@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
@@ -79,11 +79,11 @@
 <div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
 	<!-- Amount step -->
 	{#if step === 'amount'}
-		<h1 class="mb-4 font-serif text-2xl font-semibold">{$t('home.receive')}</h1>
-		<p class="mb-4 text-sm text-muted-foreground">{$t('receive.helper')}</p>
+		<h1 class="mb-4 font-serif text-2xl font-semibold">{m.home_receive()}</h1>
+		<p class="mb-4 text-sm text-muted-foreground">{m.receive_helper()}</p>
 
 		<form method="POST" action="?/createQr" use:enhance>
-			<Label class="mb-2 text-sm text-muted-foreground">{$t('send.amount_label')}</Label>
+			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-2xl font-medium text-muted-foreground">{data.unitSymbol}</span>
 				<Input
@@ -101,7 +101,7 @@
 			<textarea
 				name="note"
 				maxlength="120"
-				placeholder={$t('receive.note_placeholder')}
+				placeholder={m.receive_note_placeholder()}
 				bind:value={note}
 				class="mb-1 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:border-[#2D4A32]"
 				rows="2"
@@ -119,11 +119,11 @@
 				disabled={!amount || parseFloat(amount) <= 0}
 			>
 				<IconQrcode class="mr-2 h-5 w-5" />
-				{$t('receive.cta')}
+				{m.receive_cta()}
 			</Button>
 			<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
 				<IconArrowLeft class="mr-1 h-3 w-3" />
-				{$t('consent.back')}
+				{m.consent_back()}
 			</Button>
 		</form>
 	{/if}
@@ -133,13 +133,13 @@
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
 			{#if isExpired}
 				<Card class="rounded-2xl bg-muted p-8">
-					<p class="text-muted-foreground">{$t('send.qr_expired')}</p>
+					<p class="text-muted-foreground">{m.send_qr_expired()}</p>
 				</Card>
 				<Button class="mt-4 w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
-					{$t('receive.back_home')}
+					{m.receive_back_home()}
 				</Button>
 			{:else}
-				<p class="mb-4 text-sm text-muted-foreground">{$t('receive.qr_caption')}</p>
+				<p class="mb-4 text-sm text-muted-foreground">{m.receive_qr_caption()}</p>
 				{#if qrDataUrl}
 					<img src={qrDataUrl} alt="QR Code" class="mb-4 rounded-2xl" width="280" height="280" />
 				{/if}
@@ -150,7 +150,7 @@
 					<input type="hidden" name="qrId" value={qrId} />
 					<Button type="submit" variant="outline" class="rounded-xl">
 						<IconX class="mr-2 h-4 w-4" />
-						{$t('send.cancel')}
+						{m.send_cancel()}
 					</Button>
 				</form>
 			{/if}
@@ -162,10 +162,10 @@
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
 			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">✓</div>
 			<p class="mb-6 text-lg font-medium">
-				{$t('receive.done', { amount: completedAmount, name: completedName })}
+				{m.receive_done({ amount: completedAmount, name: completedName })}
 			</p>
 			<Button class="w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
-				{$t('receive.back_home')}
+				{m.receive_back_home()}
 			</Button>
 		</div>
 	{/if}

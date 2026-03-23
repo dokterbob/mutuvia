@@ -1,12 +1,17 @@
 <script lang="ts">
-	import { locale, localeNames, type Locale } from '$lib/i18n';
+	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime.js';
 
 	let { children } = $props();
 
+	const localeNames: Record<string, string> = {
+		en: 'English',
+		pt: 'Português',
+		nl: 'Nederlands'
+	};
+
 	function cycleLocale() {
-		const locales: Locale[] = ['en', 'pt', 'nl'];
-		const idx = locales.indexOf($locale);
-		locale.set(locales[(idx + 1) % locales.length]);
+		const idx = locales.indexOf(getLocale());
+		setLocale(locales[(idx + 1) % locales.length] as 'en' | 'pt' | 'nl');
 	}
 </script>
 
@@ -16,7 +21,7 @@
 			onclick={cycleLocale}
 			class="rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#6B7A6E] transition hover:bg-[#EDE7D9]"
 		>
-			{localeNames[$locale]}
+			{localeNames[getLocale()]}
 		</button>
 	</div>
 

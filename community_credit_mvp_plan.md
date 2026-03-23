@@ -38,7 +38,7 @@ A minimal mutual credit app for a small community. Members send and receive cred
 | Auth | Better Auth | SMS OTP primary; see section 3 |
 | ORM | Drizzle ORM | Schema-first, type-safe |
 | Database | SQLite (via Drizzle) | Single file; WAL mode |
-| i18n | intlayer | EN + PT + NL |
+| i18n | Paraglide JS v2 | EN + PT + NL |
 | QR generation | Client-side library | No server round-trip |
 | QR scanning | Browser camera API | Plain HTTPS link; see section 5 |
 

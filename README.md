@@ -44,7 +44,7 @@ In development, SMS and email OTP codes are logged to the console (no Twilio cre
 | Auth | Better Auth (SMS OTP via Twilio, email OTP fallback) |
 | ORM | Drizzle ORM |
 | Database | SQLite (WAL mode, via bun:sqlite) |
-| i18n | Custom store-based (EN, PT, NL) |
+| i18n | Paraglide JS v2 (EN, PT, NL) |
 | QR | jose (JWT) + qrcode |
 
 ---
@@ -80,12 +80,16 @@ Key settings for rebranding:
 ## Project Structure
 
 ```
+messages/
+├── en.json                  # English translations
+├── pt.json                  # Portuguese translations
+└── nl.json                  # Dutch translations
 src/
-├── hooks.server.ts          # Auth session resolution
+├── hooks.server.ts          # i18n locale resolution + auth session
 ├── lib/
 │   ├── auth-client.ts       # Better Auth client (phone + email OTP)
 │   ├── config.ts            # Env-var config
-│   ├── i18n/                # EN, PT, NL translations
+│   ├── paraglide/           # Generated Paraglide runtime (gitignored)
 │   ├── server/
 │   │   ├── auth.ts          # Better Auth server setup
 │   │   ├── balance.ts       # Balance computation, formatAmount, connections

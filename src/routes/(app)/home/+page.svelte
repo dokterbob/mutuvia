@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
@@ -12,10 +12,10 @@
 		const now = Date.now();
 		const then = new Date(date).getTime();
 		const diff = Math.floor((now - then) / 1000);
-		if (diff < 60) return 'just now';
-		if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-		if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-		return `${Math.floor(diff / 86400)}d ago`;
+		if (diff < 60) return m.time_just_now();
+		if (diff < 3600) return m.time_minutes_ago({ count: String(Math.floor(diff / 60)) });
+		if (diff < 86400) return m.time_hours_ago({ count: String(Math.floor(diff / 3600)) });
+		return m.time_days_ago({ count: String(Math.floor(diff / 86400)) });
 	}
 </script>
 
@@ -33,7 +33,7 @@
 		</button>
 	</div>
 	<p class="mb-5 text-sm text-muted-foreground">
-		{$t('home.greeting', { name: data.appUser?.displayName ?? '' })}
+		{m.home_greeting({ name: data.appUser?.displayName ?? '' })}
 	</p>
 
 	<!-- Balance card -->
@@ -42,20 +42,20 @@
 	>
 		<div class="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/[0.04]"></div>
 		<p class="mb-2 text-[11.5px] font-medium uppercase tracking-[0.15em] text-white/65">
-			{$t('home.balance_label')}
+			{m.home_balance_label()}
 		</p>
 		<p class="mb-2.5 font-serif text-5xl font-semibold tracking-tight">
 			{data.formattedBalance}
 		</p>
 		<p class="text-sm font-light text-white/70">
 			{#if data.balance > 0}
-				{$t('home.balance_positive')}
+				{m.home_balance_positive()}
 			{:else if data.balance < 0}
-				{$t('home.balance_negative')}
+				{m.home_balance_negative()}
 			{:else if data.recentTransactions.length === 0}
-				{$t('home.balance_first_use')}
+				{m.home_balance_first_use()}
 			{:else}
-				{$t('home.balance_zero')}
+				{m.home_balance_zero()}
 			{/if}
 		</p>
 	</Card>
@@ -71,7 +71,7 @@
 			>
 				<IconArrowUp class="h-5 w-5" />
 			</div>
-			<span class="text-sm font-medium">{$t('home.send')}</span>
+			<span class="text-sm font-medium">{m.home_send()}</span>
 		</button>
 		<button
 			class="flex flex-col items-center gap-2 rounded-2xl border bg-muted p-4"
@@ -82,26 +82,26 @@
 			>
 				<IconArrowDown class="h-5 w-5" />
 			</div>
-			<span class="text-sm font-medium">{$t('home.receive')}</span>
+			<span class="text-sm font-medium">{m.home_receive()}</span>
 		</button>
 	</div>
 
 	<!-- Recent transactions -->
 	<div class="mb-2.5 flex items-center justify-between">
-		<span class="font-serif text-base">{$t('home.recent')}</span>
+		<span class="font-serif text-base">{m.home_recent()}</span>
 		{#if data.recentTransactions.length > 0}
 			<button
 				class="text-sm font-medium text-[#2D4A32]"
 				onclick={() => goto('/history')}
 			>
-				{$t('home.see_all')}
+				{m.home_see_all()}
 			</button>
 		{/if}
 	</div>
 
 	{#if data.recentTransactions.length === 0}
 		<Card class="rounded-2xl bg-muted p-5 text-center text-sm text-muted-foreground">
-			{$t('home.empty_state')}
+			{m.home_empty_state()}
 		</Card>
 	{:else}
 		<div class="space-y-0">

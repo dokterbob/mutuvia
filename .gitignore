@@ -29,3 +29,6 @@ vite.config.ts.timestamp-*
 
 # Claude Code
 .claude/
+
+# Paraglide generated
+src/lib/paraglide/

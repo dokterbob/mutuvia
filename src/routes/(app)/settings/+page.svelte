@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { t, locale, localeNames, type Locale } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
+	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime.js';
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import { authClient } from '$lib/auth-client';
@@ -11,6 +12,12 @@
 	import { IconArrowLeft, IconCheck, IconLogout } from '@tabler/icons-svelte';
 
 	let { data, form } = $props();
+
+	const localeNames: Record<string, string> = {
+		en: 'English',
+		pt: 'Português',
+		nl: 'Nederlands'
+	};
 
 	let displayName = $state(data.appUser.displayName);
 
@@ -25,13 +32,13 @@
 		<button onclick={() => goto('/home')} class="text-muted-foreground">
 			<IconArrowLeft class="h-5 w-5" />
 		</button>
-		<h1 class="font-serif text-xl font-semibold">{$t('settings.title')}</h1>
+		<h1 class="font-serif text-xl font-semibold">{m.settings_title()}</h1>
 	</div>
 
 	<!-- Display name -->
 	<Card class="mb-4 rounded-xl p-4">
 		<form method="POST" action="?/updateName" use:enhance>
-			<Label class="mb-2 text-sm text-muted-foreground">{$t('settings.display_name')}</Label>
+			<Label class="mb-2 text-sm text-muted-foreground">{m.settings_display_name()}</Label>
 			<div class="flex gap-2">
 				<Input
 					name="displayName"
@@ -47,7 +54,7 @@
 					{#if form?.saved}
 						<IconCheck class="h-4 w-4" />
 					{:else}
-						{$t('settings.save')}
+						{m.settings_save()}
 					{/if}
 				</Button>
 			</div>
@@ -55,20 +62,20 @@
 				<p class="mt-2 text-sm text-red-600">{form.error}</p>
 			{/if}
 			{#if form?.saved}
-				<p class="mt-2 text-sm text-green-700">{$t('settings.saved')}</p>
+				<p class="mt-2 text-sm text-green-700">{m.settings_saved()}</p>
 			{/if}
 		</form>
 	</Card>
 
 	<!-- Language -->
 	<Card class="mb-4 rounded-xl p-4">
-		<Label class="mb-2 text-sm text-muted-foreground">{$t('settings.language')}</Label>
+		<Label class="mb-2 text-sm text-muted-foreground">{m.settings_language()}</Label>
 		<div class="flex gap-2">
-			{#each (['en', 'pt', 'nl'] as Locale[]) as loc}
+			{#each locales as loc}
 				<Button
-					variant={$locale === loc ? 'default' : 'outline'}
-					class="flex-1 rounded-lg text-sm {$locale === loc ? 'bg-[#2D4A32] text-white' : ''}"
-					onclick={() => locale.set(loc)}
+					variant={getLocale() === loc ? 'default' : 'outline'}
+					class="flex-1 rounded-lg text-sm {getLocale() === loc ? 'bg-[#2D4A32] text-white' : ''}"
+					onclick={() => setLocale(loc as 'en' | 'pt' | 'nl')}
 				>
 					{localeNames[loc]}
 				</Button>
@@ -78,9 +85,9 @@
 
 	<!-- About -->
 	<Card class="mb-4 rounded-xl p-4">
-		<Label class="mb-2 text-sm text-muted-foreground">{$t('settings.about')}</Label>
+		<Label class="mb-2 text-sm text-muted-foreground">{m.settings_about()}</Label>
 		<p class="text-sm leading-relaxed text-muted-foreground">
-			{$t('settings.about_text', { appName: data.appName })}
+			{m.settings_about_text({ appName: data.appName })}
 		</p>
 		{#if data.communityDocUrl}
 			<a
@@ -89,7 +96,7 @@
 				rel="noopener noreferrer"
 				class="mt-2 inline-block text-sm font-medium text-[#2D4A32] hover:underline"
 			>
-				Community docs →
+				{m.common_community_docs()} →
 			</a>
 		{/if}
 	</Card>
@@ -103,6 +110,6 @@
 		onclick={signOut}
 	>
 		<IconLogout class="mr-2 h-4 w-4" />
-		{$t('settings.sign_out')}
+		{m.settings_sign_out()}
 	</Button>
 </div>

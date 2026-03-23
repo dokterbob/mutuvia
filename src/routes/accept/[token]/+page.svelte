@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
@@ -32,19 +32,19 @@
 			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted text-3xl">
 				⏱
 			</div>
-			<p class="mb-2 text-lg font-medium">{$t('accept.expired')}</p>
+			<p class="mb-2 text-lg font-medium">{m.accept_expired()}</p>
 			<p class="text-sm text-muted-foreground">{data.error}</p>
 		</div>
 	{:else}
 		<div class="flex flex-1 flex-col">
 			<h1 class="mb-4 font-serif text-2xl font-semibold">
 				{#if data.direction === 'send'}
-					{$t('accept.send_prompt', {
+					{m.accept_send_prompt({
 						name: data.initiatorName ?? '',
 						amount: data.formattedAmount ?? ''
 					})}
 				{:else}
-					{$t('accept.receive_prompt', {
+					{m.accept_receive_prompt({
 						name: data.initiatorName ?? '',
 						amount: data.formattedAmount ?? ''
 					})}
@@ -58,7 +58,7 @@
 			{/if}
 
 			<p class="mb-4 text-sm text-muted-foreground">
-				{$t('accept.balance_label', {
+				{m.accept_balance_label({
 					name: data.initiatorName ?? '',
 					balance: data.initiatorBalance ?? ''
 				})}
@@ -67,13 +67,13 @@
 			{#if showNotice}
 				<Card class="mb-4 rounded-xl border-blue-200 bg-blue-50 p-4">
 					<p class="mb-2 text-sm text-blue-900">
-						{$t('accept.first_time_notice')}
+						{m.accept_first_time_notice()}
 					</p>
 					<button
 						class="text-xs font-medium text-blue-700 hover:underline"
 						onclick={dismissNotice}
 					>
-						Dismiss
+						{m.common_dismiss()}
 					</button>
 				</Card>
 			{/if}
@@ -91,7 +91,7 @@
 					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 				>
 					<IconCheck class="mr-2 h-5 w-5" />
-					{$t('accept.cta')}
+					{m.accept_cta()}
 				</Button>
 			</form>
 
@@ -99,7 +99,7 @@
 				<input type="hidden" name="qrId" value={data.qrId} />
 				<Button type="submit" variant="ghost" class="w-full text-sm text-muted-foreground">
 					<IconX class="mr-1 h-4 w-4" />
-					{$t('accept.decline')}
+					{m.accept_decline()}
 				</Button>
 			</form>
 		</div>

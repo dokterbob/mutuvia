@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
@@ -85,30 +85,30 @@
 <div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
 	<!-- Consent step -->
 	{#if step === 'consent'}
-		<h1 class="mb-4 font-serif text-2xl font-semibold">{$t('send.consent_title')}</h1>
-		<p class="mb-3 text-sm leading-relaxed text-muted-foreground">{$t('send.consent_body1')}</p>
-		<p class="mb-3 text-sm leading-relaxed text-muted-foreground">{$t('send.consent_body2')}</p>
-		<p class="mb-6 text-sm leading-relaxed text-muted-foreground">{$t('send.consent_body3')}</p>
+		<h1 class="mb-4 font-serif text-2xl font-semibold">{m.send_consent_title()}</h1>
+		<p class="mb-3 text-sm leading-relaxed text-muted-foreground">{m.send_consent_body1()}</p>
+		<p class="mb-3 text-sm leading-relaxed text-muted-foreground">{m.send_consent_body2()}</p>
+		<p class="mb-6 text-sm leading-relaxed text-muted-foreground">{m.send_consent_body3()}</p>
 		<div class="flex-1"></div>
 		<form method="POST" action="?/consent" use:enhance>
 			<Button
 				type="submit"
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 			>
-				{$t('send.consent_cta')}
+				{m.send_consent_cta()}
 			</Button>
 		</form>
 		<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
-			{$t('send.consent_cancel')}
+			{m.send_consent_cancel()}
 		</Button>
 	{/if}
 
 	<!-- Amount step -->
 	{#if step === 'amount'}
-		<h1 class="mb-4 font-serif text-2xl font-semibold">{$t('home.send')}</h1>
+		<h1 class="mb-4 font-serif text-2xl font-semibold">{m.home_send()}</h1>
 
 		<form method="POST" action="?/createQr" use:enhance>
-			<Label class="mb-2 text-sm text-muted-foreground">{$t('send.amount_label')}</Label>
+			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-2xl font-medium text-muted-foreground">{data.unitSymbol}</span>
 				<Input
@@ -126,7 +126,7 @@
 			<textarea
 				name="note"
 				maxlength="120"
-				placeholder={$t('send.note_placeholder')}
+				placeholder={m.send_note_placeholder()}
 				bind:value={note}
 				class="mb-1 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:border-[#2D4A32]"
 				rows="2"
@@ -144,11 +144,11 @@
 				disabled={!amount || parseFloat(amount) <= 0}
 			>
 				<IconQrcode class="mr-2 h-5 w-5" />
-				{$t('send.cta')}
+				{m.send_cta()}
 			</Button>
 			<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
 				<IconArrowLeft class="mr-1 h-3 w-3" />
-				{$t('consent.back')}
+				{m.consent_back()}
 			</Button>
 		</form>
 	{/if}
@@ -158,14 +158,14 @@
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
 			{#if isExpired}
 				<Card class="rounded-2xl bg-muted p-8">
-					<p class="text-muted-foreground">{$t('send.qr_expired')}</p>
+					<p class="text-muted-foreground">{m.send_qr_expired()}</p>
 				</Card>
 				<Button class="mt-4 w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
 					<IconArrowLeft class="mr-2 h-4 w-4" />
-					{$t('send.back_home')}
+					{m.send_back_home()}
 				</Button>
 			{:else}
-				<p class="mb-4 text-sm text-muted-foreground">{$t('send.qr_caption')}</p>
+				<p class="mb-4 text-sm text-muted-foreground">{m.send_qr_caption()}</p>
 				{#if qrDataUrl}
 					<img src={qrDataUrl} alt="QR Code" class="mb-4 rounded-2xl" width="280" height="280" />
 				{/if}
@@ -176,7 +176,7 @@
 					<input type="hidden" name="qrId" value={qrId} />
 					<Button type="submit" variant="outline" class="rounded-xl">
 						<IconX class="mr-2 h-4 w-4" />
-						{$t('send.cancel')}
+						{m.send_cancel()}
 					</Button>
 				</form>
 			{/if}
@@ -190,10 +190,10 @@
 				✓
 			</div>
 			<p class="mb-6 text-lg font-medium">
-				{$t('send.done', { amount: completedAmount, name: completedName })}
+				{m.send_done({ amount: completedAmount, name: completedName })}
 			</p>
 			<Button class="w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
-				{$t('send.back_home')}
+				{m.send_back_home()}
 			</Button>
 		</div>
 	{/if}

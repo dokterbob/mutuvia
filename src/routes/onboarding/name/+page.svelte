@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import { IconArrowRight, IconArrowLeft } from '@tabler/icons-svelte';
@@ -26,20 +26,20 @@
 	</div>
 
 	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
-		{$t('intro3.eyebrow')}
+		{m.intro3_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html $t('intro3.title').replace(
+		{@html m.intro3_title().replace(
 			/call you|chamar|noemen/i,
 			'<span class="text-[#2D4A32]">$&</span>'
 		)}
 	</h1>
 	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
-		{$t('intro3.body')}
+		{m.intro3_body()}
 	</p>
 
 	<Label class="mb-2 block text-xs font-medium uppercase tracking-wider text-[#6B7A6E]">
-		{$t('intro3.label')}
+		{m.intro3_label()}
 	</Label>
 	<form
 		method="POST"
@@ -50,8 +50,8 @@
 					authError =
 						result.type === 'failure'
 							? ((result.data as Record<string, unknown>)?.error as string) ||
-								'Something went wrong'
-							: 'Something went wrong';
+								m.error_generic()
+							: m.error_generic();
 				} else {
 					await update();
 				}
@@ -65,12 +65,12 @@
 				name="displayName"
 				type="text"
 				maxlength="40"
-				placeholder={$t('intro3.placeholder')}
+				placeholder={m.intro3_placeholder()}
 				bind:value={displayName}
 				class="w-full border-none bg-transparent px-4 py-3.5 text-[17px] text-[#1E2820] outline-none placeholder:text-[#BDB8AE]"
 			/>
 		</div>
-		<p class="mb-4 text-xs text-[#6B7A6E]">{$t('intro3.hint')}</p>
+		<p class="mb-4 text-xs text-[#6B7A6E]">{m.intro3_hint()}</p>
 		{#if authError}
 			<p class="mb-2 text-sm text-red-600">{authError}</p>
 		{/if}
@@ -81,7 +81,7 @@
 			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
 			disabled={displayName.trim().length < 2}
 		>
-			{$t('intro3.cta')}
+			{m.intro3_cta()}
 			<IconArrowRight class="ml-2 h-4 w-4" />
 		</Button>
 	</form>
@@ -91,6 +91,6 @@
 		onclick={() => goto('/onboarding/intro2')}
 	>
 		<IconArrowLeft class="mr-1 h-3 w-3" />
-		{$t('intro3.back')}
+		{m.intro3_back()}
 	</Button>
 </div>

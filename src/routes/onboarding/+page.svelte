@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import { IconArrowRight } from '@tabler/icons-svelte';
 </script>
@@ -31,16 +31,16 @@
 	</div>
 
 	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
-		{$t('welcome.eyebrow')}
+		{m.welcome_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		<span class="text-[#2D4A32]">{$t('welcome.tagline').split(',')[0]},</span>{$t('welcome.tagline')
+		<span class="text-[#2D4A32]">{m.welcome_tagline().split(',')[0]},</span>{m.welcome_tagline()
 			.split(',')
 			.slice(1)
 			.join(',')}
 	</h1>
 	<p class="mb-5 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
-		{$t('welcome.pitch')}
+		{m.welcome_pitch()}
 	</p>
 
 	<!-- How it works diagram -->
@@ -48,7 +48,7 @@
 		<p
 			class="mb-3 text-center text-[10.5px] font-medium uppercase tracking-[0.15em] text-[#7A9E7E]"
 		>
-			{$t('welcome.how_it_works')}
+			{m.welcome_how_it_works()}
 		</p>
 		<div class="relative mx-auto h-[148px] max-w-[260px]">
 			<div class="absolute left-1/2 top-0 -translate-x-1/2 text-center">
@@ -138,7 +138,7 @@
 			</svg>
 		</div>
 		<p class="mt-3 text-center text-[13px] font-medium text-[#2D4A32]">
-			{$t('welcome.cycle_result')}
+			{m.welcome_cycle_result()}
 		</p>
 	</div>
 
@@ -147,7 +147,7 @@
 		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145]"
 		onclick={() => goto('/onboarding/consent')}
 	>
-		{$t('welcome.cta')}
+		{m.welcome_cta()}
 		<IconArrowRight class="ml-2 h-4 w-4" />
 	</Button>
 	<Button
@@ -155,6 +155,6 @@
 		class="mt-2 w-full text-sm text-[#6B7A6E]"
 		onclick={() => goto('/onboarding/phone')}
 	>
-		{$t('welcome.returning')}
+		{m.welcome_returning()}
 	</Button>
 </div>

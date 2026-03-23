@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/i18n';
+	import * as m from '$lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
 	import { IconArrowLeft } from '@tabler/icons-svelte';
@@ -27,15 +27,15 @@
 		<button onclick={() => goto('/home')} class="text-muted-foreground">
 			<IconArrowLeft class="h-5 w-5" />
 		</button>
-		<h1 class="font-serif text-xl font-semibold">{$t('history.title')}</h1>
+		<h1 class="font-serif text-xl font-semibold">{m.history_title()}</h1>
 	</div>
 
 	<!-- Filter toggle -->
 	<div class="mb-4 flex gap-2">
 		{#each [
-			['all', $t('history.all')],
-			['sent', $t('history.sent')],
-			['received', $t('history.received')]
+			['all', m.history_all()],
+			['sent', m.history_sent()],
+			['received', m.history_received()]
 		] as [value, label]}
 			<Button
 				variant={filter === value ? 'default' : 'outline'}
@@ -49,7 +49,7 @@
 
 	<!-- Transaction list -->
 	{#if filteredTxs.length === 0}
-		<p class="mt-8 text-center text-sm text-muted-foreground">No transactions found.</p>
+		<p class="mt-8 text-center text-sm text-muted-foreground">{m.history_empty()}</p>
 	{:else}
 		<div class="space-y-0">
 			{#each filteredTxs as tx}
