@@ -1,3 +1,7 @@
+# Mutuvia — Agent Instructions
+
+> Mutual credit app for small communities. See [ROADMAP.md](ROADMAP.md) for what's done, what's next, and what's deferred.
+
 ## Context7 Library IDs
 
 Use these with `mcp__context7__query-docs` for up-to-date documentation:
@@ -9,121 +13,62 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 | Drizzle ORM | `/llmstxt/orm_drizzle_team_llms_txt` | SQLite schema, migrations, queries |
 | Better Auth | `/llmstxt/better-auth_llms_txt` | Phone OTP, email OTP, Drizzle adapter |
 | shadcn-svelte | `/llmstxt/shadcn-svelte_llms_txt` | UI components, CLI, Bits UI |
-| Intlayer | `/websites/intlayer_doc` | i18n, multilingual content declaration |
 | Tailwind CSS v4 | `/websites/tailwindcss` | Utility classes, CSS variables |
 | jose (JWT) | `/panva/jose` | JWT sign/verify, HS256 |
 
-## Project Configuration
-
-- **Language**: TypeScript
-- **Package Manager**: bun
-- **Add-ons**: prettier, eslint, vitest, tailwindcss
-
 ---
 
+## Tech Stack
 
-Default to using Bun instead of Node.js.
+- **Framework**: SvelteKit (Svelte 5 with Runes) via Vite
+- **Runtime**: Bun (via `svelte-adapter-bun`)
+- **UI**: shadcn-svelte + Tailwind CSS v4
+- **Auth**: Better Auth (SMS OTP via Twilio, email OTP fallback)
+- **ORM**: Drizzle ORM with `bun:sqlite` (WAL mode, foreign keys ON)
+- **Database**: SQLite — `better-sqlite3` as devDependency for Drizzle Kit migrations
+- **i18n**: Custom store-based (EN, PT, NL) in `src/lib/i18n/`
+- **QR**: jose (JWT HS256) + qrcode (client-side generation)
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Key Conventions
 
-## APIs
+- **Bun over Node.js**: Use `bun`, `bun run`, `bun test`, `bunx` for everything
+- **Vite scripts use `bunx --bun`**: Required so `bun:sqlite` imports resolve at build time
+- **Bun loads `.env` automatically**: Don't use dotenv
+- **Balance is always computed from the ledger** — never stored
+- **Amounts are integers** (cents/smallest unit) — `formatAmount()` handles display
+- **Connections are implicit** — upserted on transaction settlement, no friend management UI
+- **Atomic settlement**: Insert transaction + update QR status + upsert connection in one SQLite transaction
+- **QR flow uses polling** (2s interval via `/api/qr-status/[id]`), not SSE
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Scripts
+
+| Command | Description |
+|---|---|
+| `bun run dev` | Start dev server (Vite + Bun) |
+| `bun run build` | Production build |
+| `bun run check` | Type-check (svelte-check) |
+| `bun run lint` | Prettier + ESLint |
+| `bun run format` | Auto-format |
+| `bun test` | Run tests |
+| `bun run db:generate` | Generate Drizzle migration |
+| `bun run db:migrate` | Apply migrations |
+| `bun run db:seed` | Seed test data (3 users, 2 transactions) |
 
 ## Testing
 
-Use `bun test` to run tests.
-
-```ts#index.test.ts
+```ts
 import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
 ```
 
-## Frontend
+## Key Files
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+- `src/lib/config.ts` — All env-var configuration (lazy getters)
+- `src/lib/server/schema.ts` — Drizzle schema (user, session, account, verification, appUsers, transactions, pendingQr, connections)
+- `src/lib/server/auth.ts` — Better Auth server setup
+- `src/lib/server/balance.ts` — `getBalance`, `formatAmount`, `getConnections`, `upsertConnection`
+- `src/lib/server/qr.ts` — JWT sign/verify/buildUrl with jose
+- `src/lib/i18n/` — i18n store + EN/PT/NL translations
+- `src/hooks.server.ts` — Auth session resolution, appUser lookup
+- `src/routes/onboarding/` — 9-step onboarding flow
+- `src/routes/(app)/` — Authenticated app screens (home, send, receive, history, settings)
+- `src/routes/accept/[token]/` — QR acceptance screen
