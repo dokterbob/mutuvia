@@ -44,6 +44,15 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **QR flow uses polling** (2s interval via `/api/qr-status/[id]`), not SSE
 - **Keep README.md in sync**: When changing the tech stack, project structure, scripts, or configuration, update `README.md` to reflect the change.
 
+## Git Workflow
+
+- **Always work on a branch** — never commit directly to `main`. Create a branch, open a PR, and let CI pass before merging.
+
+## Code Quality
+
+- **Pre-commit hook** auto-formats staged files via `bun-git-hooks` + Prettier. Installed automatically by `bun install` (via `prepare`). To skip: `SKIP_BUN_GIT_HOOKS=1 git commit`.
+- **Before submitting code**, run `bun run format` then `bun run lint` to catch any remaining issues.
+
 ## Scripts
 
 | Command               | Description                              |

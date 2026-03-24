@@ -30,20 +30,23 @@
 </script>
 
 <div class="flex flex-1 flex-col">
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.phone_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html m.phone_title().replace(
-			/phone number|número de telefone|telefoonnummer/i,
-			'<span class="text-[#2D4A32]">$&</span>'
-		)}
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html m
+			.phone_title()
+			.replace(
+				/phone number|número de telefone|telefoonnummer/i,
+				'<span class="text-[#2D4A32]">$&</span>'
+			)}
 	</h1>
-	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-4 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.phone_body()}
 	</p>
 
-	<Label class="mb-2 block text-xs font-medium uppercase tracking-wider text-[#6B7A6E]">
+	<Label class="mb-2 block text-xs font-medium tracking-wider text-[#6B7A6E] uppercase">
 		{m.phone_label()}
 	</Label>
 	<PhoneInput bind:value={phoneValue} bind:valid defaultCountry="PT" class="mb-2" />
@@ -70,7 +73,12 @@
 		</Button>
 	{/if}
 
-	<form onsubmit={(e) => { e.preventDefault(); sendPhoneOtp(); }}>
+	<form
+		onsubmit={(e) => {
+			e.preventDefault();
+			sendPhoneOtp();
+		}}
+	>
 		<div class="flex-1"></div>
 		<Button
 			type="submit"

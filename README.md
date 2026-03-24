@@ -1,17 +1,17 @@
 # Mutuvia
 
-> *Together, we are more.* Mutual credit for the rest of us.
+> _Together, we are more._ Mutual credit for the rest of us.
 
 A minimal mutual credit app for small communities. Members send and receive credit obligations denominated in a configurable unit. No real money transfers — the ledger records mutual debts. Mobile-first, bilingual (EN / PT / NL), privacy-respecting.
 
-**The FOSS package is named *Mutuvia*. Any community deploying it may rebrand freely** via the `APP_NAME` and `APP_TAGLINE` environment variables.
+**The FOSS package is named _Mutuvia_. Any community deploying it may rebrand freely** via the `APP_NAME` and `APP_TAGLINE` environment variables.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install dependencies (also installs the pre-commit format hook)
 bun install
 
 # Set up environment
@@ -36,33 +36,33 @@ In development, SMS and email OTP codes are logged to the console (no Twilio cre
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Framework | SvelteKit (Svelte 5 with Runes) |
-| Runtime | Bun (via svelte-adapter-bun) |
-| UI | shadcn-svelte + Tailwind CSS v4 |
-| Auth | Better Auth (SMS OTP via Twilio, email OTP fallback) |
-| ORM | Drizzle ORM |
-| Database | SQLite (WAL mode, via bun:sqlite) |
-| i18n | Paraglide JS v2 (EN, PT, NL) |
-| QR | jose (JWT) + qrcode |
+| Layer     | Choice                                               |
+| --------- | ---------------------------------------------------- |
+| Framework | SvelteKit (Svelte 5 with Runes)                      |
+| Runtime   | Bun (via svelte-adapter-bun)                         |
+| UI        | shadcn-svelte + Tailwind CSS v4                      |
+| Auth      | Better Auth (SMS OTP via Twilio, email OTP fallback) |
+| ORM       | Drizzle ORM                                          |
+| Database  | SQLite (WAL mode, via bun:sqlite)                    |
+| i18n      | Paraglide JS v2 (EN, PT, NL)                         |
+| QR        | jose (JWT) + qrcode                                  |
 
 ---
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `bun run dev` | Start development server |
-| `bun run build` | Production build |
-| `bun run preview` | Preview production build |
-| `bun run check` | Type-check (svelte-check) |
-| `bun run lint` | Prettier + ESLint |
-| `bun run format` | Auto-format |
-| `bun test` | Run tests |
-| `bun run db:generate` | Generate Drizzle migration |
-| `bun run db:migrate` | Apply migrations (bun:sqlite) |
-| `bun run db:seed` | Seed test data |
+| Command               | Description                   |
+| --------------------- | ----------------------------- |
+| `bun run dev`         | Start development server      |
+| `bun run build`       | Production build              |
+| `bun run preview`     | Preview production build      |
+| `bun run check`       | Type-check (svelte-check)     |
+| `bun run lint`        | Prettier + ESLint             |
+| `bun run format`      | Auto-format                   |
+| `bun test`            | Run tests                     |
+| `bun run db:generate` | Generate Drizzle migration    |
+| `bun run db:migrate`  | Apply migrations (bun:sqlite) |
+| `bun run db:seed`     | Seed test data                |
 
 ---
 
@@ -71,6 +71,7 @@ In development, SMS and email OTP codes are logged to the console (no Twilio cre
 All values in `.env`. See [`.env.example`](.env.example) for full documentation.
 
 Key settings for rebranding:
+
 - `PUBLIC_APP_NAME` — Display name (default: `Mutuvia`)
 - `PUBLIC_APP_TAGLINE` — Displayed tagline fallback (localized via i18n)
 - `PUBLIC_UNIT_SYMBOL` / `UNIT_CODE` / `PUBLIC_UNIT_DISPLAY_NAME` — Currency unit

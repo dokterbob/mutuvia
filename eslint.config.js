@@ -22,7 +22,15 @@ export default defineConfig(
 		rules: {
 			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			'no-undef': 'off',
+			// This project uses Paraglide middleware for locale detection, not localized URL prefixes,
+			// so raw goto('/path') is correct — no resolveRoute() wrapper needed.
+			'svelte/no-navigation-without-resolve': 'off',
+			// Allow _-prefixed variables as intentional discard (e.g. {#each Array(6) as _, i})
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' }
+			]
 		}
 	},
 	{

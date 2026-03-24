@@ -46,14 +46,22 @@
 		{placeholder}
 		bind:el
 		{options}
-		on:updateValue={(e) => { value = e.detail ?? null; }}
-		on:updateValid={(e) => { valid = e.detail; }}
-		on:updateDetailedValue={(e) => { detailedValue = e.detail ?? null; }}
-		on:updateCountry={(e) => { country = e.detail; }}
+		on:updateValue={(e) => {
+			value = e.detail ?? null;
+		}}
+		on:updateValid={(e) => {
+			valid = e.detail;
+		}}
+		on:updateDetailedValue={(e) => {
+			detailedValue = e.detail ?? null;
+		}}
+		on:updateCountry={(e) => {
+			country = e.detail;
+		}}
 		class={cn(
-			'border-input border-l-none bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground ring-offset-background placeholder:text-muted-foreground mb-0 flex h-9 w-full min-w-0 rounded-l-none rounded-r-md border-y border-r px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
-			'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-			'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive'
+			'border-l-none mb-0 flex h-9 w-full min-w-0 rounded-l-none rounded-r-md border-y border-r border-input bg-background px-3 py-1 text-base shadow-xs ring-offset-background transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30',
+			'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+			'aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40'
 		)}
 		{...rest}
 	/>

@@ -27,19 +27,19 @@
 		</div>
 	</div>
 
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.intro1_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html m.intro1_title().replace(
-			/trust|confiança|vertrouwen/i,
-			'<span class="text-[#2D4A32]">$&</span>'
-		)}
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html m
+			.intro1_title()
+			.replace(/trust|confiança|vertrouwen/i, '<span class="text-[#2D4A32]">$&</span>')}
 	</h1>
-	<p class="mb-3.5 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-3.5 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.intro1_body1()}
 	</p>
-	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-4 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.intro1_body2()}
 	</p>
 

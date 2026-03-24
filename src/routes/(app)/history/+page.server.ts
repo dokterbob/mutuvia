@@ -25,7 +25,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.orderBy(desc(transactions.createdAt))
 		.all();
 
-	const otherUserIds = [...new Set(allTxs.map((tx) => (tx.fromUserId === userId ? tx.toUserId : tx.fromUserId)))];
+	const otherUserIds = [
+		...new Set(allTxs.map((tx) => (tx.fromUserId === userId ? tx.toUserId : tx.fromUserId)))
+	];
 	const userMap: Record<string, string> = {};
 	for (const id of otherUserIds) {
 		const u = db.select().from(appUsers).where(eq(appUsers.id, id)).get();
