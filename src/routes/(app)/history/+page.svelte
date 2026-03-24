@@ -32,7 +32,7 @@
 
 	<!-- Filter toggle -->
 	<div class="mb-4 flex gap-2">
-		{#each [['all', m.history_all()], ['sent', m.history_sent()], ['received', m.history_received()]] as [value, label]}
+		{#each [['all', m.history_all()], ['sent', m.history_sent()], ['received', m.history_received()]] as [value, label] (value)}
 			<Button
 				variant={filter === value ? 'default' : 'outline'}
 				class="rounded-full px-4 py-1.5 text-sm {filter === value ? 'bg-[#2D4A32] text-white' : ''}"
@@ -48,7 +48,7 @@
 		<p class="mt-8 text-center text-sm text-muted-foreground">{m.history_empty()}</p>
 	{:else}
 		<div class="space-y-0">
-			{#each filteredTxs as tx}
+			{#each filteredTxs as tx (tx.id)}
 				<div class="flex items-center justify-between border-b py-3 last:border-b-0">
 					<div>
 						<p class="text-sm font-medium">{tx.otherName}</p>

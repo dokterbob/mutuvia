@@ -1,9 +1,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
-	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
-	import { Separator } from '$lib/components/ui/separator';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
@@ -98,7 +96,7 @@
 		</Card>
 	{:else}
 		<div class="space-y-0">
-			{#each data.recentTransactions as tx}
+			{#each data.recentTransactions as tx (tx.id)}
 				<div class="flex items-center justify-between border-b py-3 last:border-b-0">
 					<div>
 						<p class="text-sm font-medium">{tx.otherName}</p>

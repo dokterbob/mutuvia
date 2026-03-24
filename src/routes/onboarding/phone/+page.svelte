@@ -34,6 +34,7 @@
 		{m.phone_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html m
 			.phone_title()
 			.replace(

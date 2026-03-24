@@ -21,7 +21,6 @@
 	let note = $state('');
 	let qrDataUrl = $state('');
 	let qrId = $state('');
-	let expiresAt = $state('');
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let secondsLeft = $state(0);
 	let isExpired = $state(false);
@@ -42,7 +41,6 @@
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
-		expiresAt = expires;
 		step = 'qr';
 		startCountdown(expires);
 		startPolling(id);

@@ -32,6 +32,7 @@
 		{m.intro2_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html m.intro2_title().replace(/normal|normaal/i, '<span class="text-[#2D4A32]">$&</span>')}
 	</h1>
 	<p class="mb-3.5 text-[15px] leading-relaxed font-light text-[#3A4A3D]">

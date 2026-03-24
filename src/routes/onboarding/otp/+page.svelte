@@ -66,6 +66,7 @@
 		{m.otp_eyebrow()}
 	</p>
 	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 		{@html m
 			.otp_title()
 			.replace(
@@ -90,7 +91,7 @@
 			oninput={handleOtpInput}
 			class="absolute inset-0 z-10 w-full cursor-text bg-transparent text-[32px] tracking-[2.4em] caret-transparent opacity-0 outline-none"
 		/>
-		{#each Array(6) as _, i}
+		{#each Array(6) as _, i (i)}
 			<div
 				class="flex h-[58px] w-[46px] items-center justify-center rounded-xl border-[1.5px] bg-white font-serif text-[26px] font-semibold text-[#1E2820] transition
 				{otpCode[i]
