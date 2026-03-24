@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, test, vi } from 'vitest';
-
-// balance.ts imports ./db which uses bun:sqlite — mock it so Node can load the module
-vi.mock('./db', () => ({ db: {} }));
-
+import { describe, expect, test } from 'vitest';
 import { formatAmount } from './balance';
 
 describe('formatAmount', () => {
