@@ -4,7 +4,7 @@
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let { data } = $props();
 
@@ -62,14 +62,16 @@ import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 </script>
 
 <div class="flex flex-1 flex-col">
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.otp_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html m.otp_title().replace(
-			/6-digit code|6 dígitos|6-cijferige code/i,
-			'<span class="text-[#2D4A32]">$&</span>'
-		)}
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		{@html m
+			.otp_title()
+			.replace(
+				/6-digit code|6 dígitos|6-cijferige code/i,
+				'<span class="text-[#2D4A32]">$&</span>'
+			)}
 	</h1>
 
 	<div class="mb-5 rounded-xl bg-[#EDE7D9] p-3.5 text-sm leading-relaxed text-[#3A4A3D]">

@@ -5,8 +5,8 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Separator } from '$lib/components/ui/separator';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
-import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
-import SettingsIcon from '@lucide/svelte/icons/settings';
+	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
 
 	let { data } = $props();
 
@@ -21,7 +21,7 @@ import SettingsIcon from '@lucide/svelte/icons/settings';
 	}
 </script>
 
-<div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
+<div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
 	<!-- Header -->
 	<div class="mb-1.5 flex items-center justify-between">
 		<span class="font-serif text-base text-foreground">
@@ -39,11 +39,9 @@ import SettingsIcon from '@lucide/svelte/icons/settings';
 	</p>
 
 	<!-- Balance card -->
-	<Card
-		class="relative mb-4 overflow-hidden rounded-3xl bg-[#2D4A32] p-7 text-white shadow-lg"
-	>
-		<div class="absolute -right-10 -top-10 h-44 w-44 rounded-full bg-white/[0.04]"></div>
-		<p class="mb-2 text-[11.5px] font-medium uppercase tracking-[0.15em] text-white/65">
+	<Card class="relative mb-4 overflow-hidden rounded-3xl bg-[#2D4A32] p-7 text-white shadow-lg">
+		<div class="absolute -top-10 -right-10 h-44 w-44 rounded-full bg-white/[0.04]"></div>
+		<p class="mb-2 text-[11.5px] font-medium tracking-[0.15em] text-white/65 uppercase">
 			{m.home_balance_label()}
 		</p>
 		<p class="mb-2.5 font-serif text-5xl font-semibold tracking-tight">
@@ -68,9 +66,7 @@ import SettingsIcon from '@lucide/svelte/icons/settings';
 			class="flex flex-col items-center gap-2 rounded-2xl border bg-muted p-4"
 			onclick={() => goto('/send')}
 		>
-			<div
-				class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white"
-			>
+			<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white">
 				<ArrowUpIcon class="h-5 w-5" />
 			</div>
 			<span class="text-sm font-medium">{m.home_send()}</span>
@@ -79,9 +75,7 @@ import SettingsIcon from '@lucide/svelte/icons/settings';
 			class="flex flex-col items-center gap-2 rounded-2xl border bg-muted p-4"
 			onclick={() => goto('/receive')}
 		>
-			<div
-				class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white"
-			>
+			<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white">
 				<ArrowDownIcon class="h-5 w-5" />
 			</div>
 			<span class="text-sm font-medium">{m.home_receive()}</span>
@@ -92,10 +86,7 @@ import SettingsIcon from '@lucide/svelte/icons/settings';
 	<div class="mb-2.5 flex items-center justify-between">
 		<span class="font-serif text-base">{m.home_recent()}</span>
 		{#if data.recentTransactions.length > 0}
-			<button
-				class="text-sm font-medium text-[#2D4A32]"
-				onclick={() => goto('/history')}
-			>
+			<button class="text-sm font-medium text-[#2D4A32]" onclick={() => goto('/history')}>
 				{m.home_see_all()}
 			</button>
 		{/if}
@@ -116,11 +107,7 @@ import SettingsIcon from '@lucide/svelte/icons/settings';
 						{/if}
 					</div>
 					<div class="text-right">
-						<p
-							class="text-sm font-medium {tx.amount > 0
-								? 'text-green-700'
-								: 'text-foreground'}"
-						>
+						<p class="text-sm font-medium {tx.amount > 0 ? 'text-green-700' : 'text-foreground'}">
 							{tx.formattedAmount}
 						</p>
 						<p class="text-xs text-muted-foreground">{timeAgo(tx.createdAt)}</p>

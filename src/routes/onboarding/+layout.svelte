@@ -5,10 +5,12 @@
 
 	let { children } = $props();
 
-	const languages = $derived(locales.map((code) => ({
-		code,
-		label: m.locale_name({}, { locale: code })
-	})));
+	const languages = $derived(
+		locales.map((code) => ({
+			code,
+			label: m.locale_name({}, { locale: code })
+		}))
+	);
 
 	let currentLang = $derived(getLocale());
 </script>

@@ -30,28 +30,29 @@
 		<span class="font-serif text-lg text-[#1E2820]">{$page.data.appName ?? 'Mutuvia'}</span>
 	</div>
 
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.welcome_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		<span class="text-[#2D4A32]">{m.welcome_tagline().split(',')[0]},</span>{m.welcome_tagline()
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<span class="text-[#2D4A32]">{m.welcome_tagline().split(',')[0]},</span>{m
+			.welcome_tagline()
 			.split(',')
 			.slice(1)
 			.join(',')}
 	</h1>
-	<p class="mb-5 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-5 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.welcome_pitch()}
 	</p>
 
 	<!-- How it works diagram -->
 	<div class="mb-4 rounded-2xl border border-[#DDD8CE] bg-[#EDE7D9] p-4">
 		<p
-			class="mb-3 text-center text-[10.5px] font-medium uppercase tracking-[0.15em] text-[#7A9E7E]"
+			class="mb-3 text-center text-[10.5px] font-medium tracking-[0.15em] text-[#7A9E7E] uppercase"
 		>
 			{m.welcome_how_it_works()}
 		</p>
 		<div class="relative mx-auto h-[148px] max-w-[260px]">
-			<div class="absolute left-1/2 top-0 -translate-x-1/2 text-center">
+			<div class="absolute top-0 left-1/2 -translate-x-1/2 text-center">
 				<div
 					class="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#2D4A32] font-serif text-base font-semibold text-white"
 				>
@@ -69,7 +70,7 @@
 				<div class="mt-1 text-xs font-medium text-[#1E2820]">Bruno</div>
 				<div class="text-[10.5px] text-[#6B7A6E]">vegetables</div>
 			</div>
-			<div class="absolute bottom-0 right-0 text-center">
+			<div class="absolute right-0 bottom-0 text-center">
 				<div
 					class="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#2D4A32] font-serif text-base font-semibold text-white"
 				>

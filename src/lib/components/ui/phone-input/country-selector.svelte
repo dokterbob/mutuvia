@@ -82,7 +82,7 @@
 							>
 								<Flag {country} />
 								<span class="flex-1 text-sm">{country.name}</span>
-								<span class="text-foreground/50 text-sm">
+								<span class="text-sm text-foreground/50">
 									+{country.dialCode}
 								</span>
 								<div class="w-4">

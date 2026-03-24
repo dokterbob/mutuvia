@@ -18,10 +18,12 @@
 
 	let displayName = $state(data.appUser.displayName);
 
-	const languages = $derived(locales.map((code) => ({
-		code,
-		label: m.locale_name({}, { locale: code })
-	})));
+	const languages = $derived(
+		locales.map((code) => ({
+			code,
+			label: m.locale_name({}, { locale: code })
+		}))
+	);
 
 	let currentLang = $derived(getLocale());
 
@@ -31,7 +33,7 @@
 	}
 </script>
 
-<div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
+<div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
 	<div class="mb-6 flex items-center gap-3">
 		<button onclick={() => goto('/home')} class="text-muted-foreground">
 			<ArrowLeftIcon class="h-5 w-5" />
@@ -44,12 +46,7 @@
 		<form method="POST" action="?/updateName" use:enhance>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.settings_display_name()}</Label>
 			<div class="flex gap-2">
-				<Input
-					name="displayName"
-					bind:value={displayName}
-					maxlength={40}
-					class="flex-1"
-				/>
+				<Input name="displayName" bind:value={displayName} maxlength={40} class="flex-1" />
 				<Button
 					type="submit"
 					class="bg-[#2D4A32] text-white hover:bg-[#3D6145]"

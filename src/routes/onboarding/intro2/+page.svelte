@@ -3,7 +3,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 </script>
 
 <div class="flex flex-1 flex-col">
@@ -28,19 +28,16 @@ import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 		</div>
 	</div>
 
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.intro2_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html m.intro2_title().replace(
-			/normal|normaal/i,
-			'<span class="text-[#2D4A32]">$&</span>'
-		)}
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		{@html m.intro2_title().replace(/normal|normaal/i, '<span class="text-[#2D4A32]">$&</span>')}
 	</h1>
-	<p class="mb-3.5 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-3.5 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.intro2_body1()}
 	</p>
-	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-4 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.intro2_body2()}
 	</p>
 

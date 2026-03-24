@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let displayName = $state('');
 	let authError = $state('');
@@ -26,20 +26,19 @@ import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 		</div>
 	</div>
 
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.intro3_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html m.intro3_title().replace(
-			/call you|chamar|noemen/i,
-			'<span class="text-[#2D4A32]">$&</span>'
-		)}
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		{@html m
+			.intro3_title()
+			.replace(/call you|chamar|noemen/i, '<span class="text-[#2D4A32]">$&</span>')}
 	</h1>
-	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-4 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.intro3_body()}
 	</p>
 
-	<Label class="mb-2 block text-xs font-medium uppercase tracking-wider text-[#6B7A6E]">
+	<Label class="mb-2 block text-xs font-medium tracking-wider text-[#6B7A6E] uppercase">
 		{m.intro3_label()}
 	</Label>
 	<form
@@ -50,8 +49,7 @@ import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 				if (result.type === 'failure' || result.type === 'error') {
 					authError =
 						result.type === 'failure'
-							? ((result.data as Record<string, unknown>)?.error as string) ||
-								m.error_generic()
+							? ((result.data as Record<string, unknown>)?.error as string) || m.error_generic()
 							: m.error_generic();
 				} else {
 					await update();

@@ -26,20 +26,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	if (status === 'completed') {
 		// Find the transaction linked to this QR
-		const tx = db
-			.select()
-			.from(transactions)
-			.where(eq(transactions.pendingQrId, qr.id))
-			.get();
+		const tx = db.select().from(transactions).where(eq(transactions.pendingQrId, qr.id)).get();
 
 		if (tx) {
-			const otherUserId =
-				tx.fromUserId === locals.appUser?.id ? tx.toUserId : tx.fromUserId;
-			const otherUser = db
-				.select()
-				.from(appUsers)
-				.where(eq(appUsers.id, otherUserId))
-				.get();
+			const otherUserId = tx.fromUserId === locals.appUser?.id ? tx.toUserId : tx.fromUserId;
+			const otherUser = db.select().from(appUsers).where(eq(appUsers.id, otherUserId)).get();
 			otherName = otherUser?.displayName || 'Unknown';
 
 			const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';

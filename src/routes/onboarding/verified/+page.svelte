@@ -3,7 +3,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-import CheckIcon from '@lucide/svelte/icons/check';
+	import CheckIcon from '@lucide/svelte/icons/check';
 </script>
 
 <div class="flex flex-1 flex-col items-center justify-center text-center">

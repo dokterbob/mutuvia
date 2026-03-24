@@ -22,7 +22,7 @@
 	}
 </script>
 
-<div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
+<div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
 	<div class="mb-4 flex items-center gap-3">
 		<button onclick={() => goto('/home')} class="text-muted-foreground">
 			<ArrowLeftIcon class="h-5 w-5" />
@@ -32,11 +32,7 @@
 
 	<!-- Filter toggle -->
 	<div class="mb-4 flex gap-2">
-		{#each [
-			['all', m.history_all()],
-			['sent', m.history_sent()],
-			['received', m.history_received()]
-		] as [value, label]}
+		{#each [['all', m.history_all()], ['sent', m.history_sent()], ['received', m.history_received()]] as [value, label]}
 			<Button
 				variant={filter === value ? 'default' : 'outline'}
 				class="rounded-full px-4 py-1.5 text-sm {filter === value ? 'bg-[#2D4A32] text-white' : ''}"

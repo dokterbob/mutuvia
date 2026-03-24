@@ -75,8 +75,12 @@ db.insert(transactions)
 	.run();
 
 // Create connections: Ana-Bruno, Bruno-Carla
-db.insert(connections).values({ userAId: 'app-user-1', userBId: 'app-user-2', createdAt: now }).run();
-db.insert(connections).values({ userAId: 'app-user-2', userBId: 'app-user-3', createdAt: now }).run();
+db.insert(connections)
+	.values({ userAId: 'app-user-1', userBId: 'app-user-2', createdAt: now })
+	.run();
+db.insert(connections)
+	.values({ userAId: 'app-user-2', userBId: 'app-user-3', createdAt: now })
+	.run();
 
 console.log('Seeded 3 users, 2 transactions, 2 connections.');
 console.log('Ana: balance = -10.00 EUR');
