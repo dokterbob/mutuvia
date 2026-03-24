@@ -139,5 +139,11 @@
   "common_community_docs": "Documentação da comunidade",
   "history_empty": "Nenhuma transação encontrada.",
   "error_send_code": "Falha ao enviar código",
-  "error_generic": "Algo correu mal"
+  "error_generic": "Algo correu mal",
+
+  "qr_copy_link": "Copiar link",
+  "qr_copied": "Copiado!",
+  "qr_share": "Partilhar",
+
+  "locale_name": "Português"
 }

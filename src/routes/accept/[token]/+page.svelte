@@ -3,7 +3,8 @@
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
-	import { IconCheck, IconX } from '@tabler/icons-svelte';
+	import CheckIcon from '@lucide/svelte/icons/check';
+import XIcon from '@lucide/svelte/icons/x';
 	import { browser } from '$app/environment';
 
 	let { data, form } = $props();
@@ -90,7 +91,7 @@
 					type="submit"
 					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 				>
-					<IconCheck class="mr-2 h-5 w-5" />
+					<CheckIcon class="mr-2 h-5 w-5" />
 					{m.accept_cta()}
 				</Button>
 			</form>
@@ -98,7 +99,7 @@
 			<form method="POST" action="?/decline" use:enhance class="mt-2">
 				<input type="hidden" name="qrId" value={data.qrId} />
 				<Button type="submit" variant="ghost" class="w-full text-sm text-muted-foreground">
-					<IconX class="mr-1 h-4 w-4" />
+					<XIcon class="mr-1 h-4 w-4" />
 					{m.accept_decline()}
 				</Button>
 			</form>

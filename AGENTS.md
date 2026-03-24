@@ -16,6 +16,8 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 | Tailwind CSS v4 | `/websites/tailwindcss` | Utility classes, CSS variables |
 | jose (JWT) | `/panva/jose` | JWT sign/verify, HS256 |
 | Paraglide JS | `/opral/paraglide-js` | i18n message functions, locale strategy |
+| bits-ui | `/llmstxt/bits-ui_llms_txt` | Headless primitives (Popover, Dialog, Command, etc.) |
+| shadcn-svelte-extras | `/ieedan/shadcn-svelte-extras` | CopyButton, LanguageSwitcher, PhoneInput — installed via jsrepo |
 
 ---
 

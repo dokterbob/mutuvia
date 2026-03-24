@@ -139,5 +139,11 @@
   "common_community_docs": "Gemeenschapsdocumentatie",
   "history_empty": "Geen transacties gevonden.",
   "error_send_code": "Code versturen mislukt",
-  "error_generic": "Er ging iets mis"
+  "error_generic": "Er ging iets mis",
+
+  "qr_copy_link": "Link kopiëren",
+  "qr_copied": "Gekopieerd!",
+  "qr_share": "Delen",
+
+  "locale_name": "Nederlands"
 }

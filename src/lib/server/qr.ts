@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import * as jose from 'jose';
+import { config } from '$lib/config';
 
 const getSecret = () => {
 	const secret = process.env.QR_JWT_SECRET;
@@ -18,22 +19,18 @@ interface QrPayload {
 }
 
 export async function signQrToken(payload: QrPayload, ttlSeconds: number): Promise<string> {
-	const appUrl = process.env.APP_URL || 'http://localhost:5173';
-
 	return new jose.SignJWT({ amt: payload.amt, dir: payload.dir, dn: payload.dn })
 		.setProtectedHeader({ alg: 'HS256' })
 		.setJti(payload.jti)
-		.setIssuer(appUrl)
+		.setIssuer(config.appUrl)
 		.setIssuedAt()
 		.setExpirationTime(`${ttlSeconds}s`)
 		.sign(getSecret());
 }
 
 export async function verifyQrToken(token: string): Promise<QrPayload & { exp: number }> {
-	const appUrl = process.env.APP_URL || 'http://localhost:5173';
-
 	const { payload } = await jose.jwtVerify(token, getSecret(), {
-		issuer: appUrl
+		issuer: config.appUrl
 	});
 
 	return {
@@ -46,6 +43,5 @@ export async function verifyQrToken(token: string): Promise<QrPayload & { exp: n
 }
 
 export function buildQrUrl(token: string): string {
-	const appUrl = process.env.APP_URL || 'http://localhost:5173';
-	return `${appUrl}/accept/${token}`;
+	return `${config.appUrl}/accept/${token}`;
 }

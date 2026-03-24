@@ -2,7 +2,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
-	import { IconArrowLeft } from '@tabler/icons-svelte';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let { data } = $props();
 
@@ -25,7 +25,7 @@
 <div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
 	<div class="mb-4 flex items-center gap-3">
 		<button onclick={() => goto('/home')} class="text-muted-foreground">
-			<IconArrowLeft class="h-5 w-5" />
+			<ArrowLeftIcon class="h-5 w-5" />
 		</button>
 		<h1 class="font-serif text-xl font-semibold">{m.history_title()}</h1>
 	</div>

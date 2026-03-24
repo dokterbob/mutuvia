@@ -2,7 +2,8 @@
 	import { goto } from '$app/navigation';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
-	import { IconArrowRight, IconArrowLeft } from '@tabler/icons-svelte';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 </script>
 
 <div class="flex flex-1 flex-col">
@@ -41,14 +42,14 @@
 		onclick={() => goto('/onboarding/phone')}
 	>
 		{m.consent_cta()}
-		<IconArrowRight class="ml-2 h-4 w-4" />
+		<ArrowRightIcon class="ml-2 h-4 w-4" />
 	</Button>
 	<Button
 		variant="ghost"
 		class="mt-2 w-full text-sm text-[#6B7A6E]"
 		onclick={() => goto('/onboarding')}
 	>
-		<IconArrowLeft class="mr-1 h-3 w-3" />
+		<ArrowLeftIcon class="mr-1 h-3 w-3" />
 		{m.consent_back()}
 	</Button>
 </div>

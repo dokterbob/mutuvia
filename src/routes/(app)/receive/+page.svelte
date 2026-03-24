@@ -3,10 +3,13 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
+	import { CopyButton } from '$lib/components/ui/copy-button';
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { IconArrowRight, IconArrowLeft, IconQrcode, IconX } from '@tabler/icons-svelte';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
+	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
 
 	let { data, form } = $props();
@@ -23,6 +26,7 @@
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let completedName = $state('');
 	let completedAmount = $state('');
+	let qrUrl = $state('');
 
 	$effect(() => {
 		if (form?.qrUrl) {
@@ -31,11 +35,16 @@
 	});
 
 	async function generateQr(url: string, id: string, expires: string) {
+		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
 		step = 'qr';
 		startCountdown(expires);
 		startPolling(id);
+	}
+
+	function shareLink() {
+		navigator.share({ url: qrUrl });
 	}
 
 	function startCountdown(expires: string) {
@@ -118,11 +127,11 @@
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145] disabled:opacity-40"
 				disabled={!amount || parseFloat(amount) <= 0}
 			>
-				<IconQrcode class="mr-2 h-5 w-5" />
+				<QrCodeIcon class="mr-2 h-5 w-5" />
 				{m.receive_cta()}
 			</Button>
 			<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
-				<IconArrowLeft class="mr-1 h-3 w-3" />
+				<ArrowLeftIcon class="mr-1 h-3 w-3" />
 				{m.consent_back()}
 			</Button>
 		</form>
@@ -143,13 +152,26 @@
 				{#if qrDataUrl}
 					<img src={qrDataUrl} alt="QR Code" class="mb-4 rounded-2xl" width="280" height="280" />
 				{/if}
+				{#if qrUrl}
+					<p class="mb-2 max-w-[280px] truncate text-xs text-muted-foreground">{qrUrl}</p>
+					<div class="mb-4 flex gap-2">
+						<CopyButton text={qrUrl} variant="outline" class="flex-1 rounded-xl text-sm">
+							{m.qr_copy_link()}
+						</CopyButton>
+						{#if typeof navigator !== 'undefined' && 'share' in navigator}
+							<Button variant="outline" class="flex-1 rounded-xl text-sm" onclick={shareLink}>
+								{m.qr_share()}
+							</Button>
+						{/if}
+					</div>
+				{/if}
 				<p class="mb-6 font-mono text-lg tabular-nums text-muted-foreground">
 					{formatMinSec(secondsLeft)}
 				</p>
 				<form method="POST" action="?/cancel" use:enhance>
 					<input type="hidden" name="qrId" value={qrId} />
 					<Button type="submit" variant="outline" class="rounded-xl">
-						<IconX class="mr-2 h-4 w-4" />
+						<XIcon class="mr-2 h-4 w-4" />
 						{m.send_cancel()}
 					</Button>
 				</form>

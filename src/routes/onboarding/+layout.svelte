@@ -1,28 +1,27 @@
 <script lang="ts">
-	import { getLocale, setLocale, locales } from '$lib/paraglide/runtime.js';
+	import { LanguageSwitcher } from '$lib/components/ui/language-switcher';
+	import * as m from '$lib/paraglide/messages.js';
+	import { getLocale, setLocale, locales, isLocale } from '$lib/paraglide/runtime.js';
 
 	let { children } = $props();
 
-	const localeNames: Record<string, string> = {
-		en: 'English',
-		pt: 'Português',
-		nl: 'Nederlands'
-	};
+	const languages = $derived(locales.map((code) => ({
+		code,
+		label: m.locale_name({}, { locale: code })
+	})));
 
-	function cycleLocale() {
-		const idx = locales.indexOf(getLocale());
-		setLocale(locales[(idx + 1) % locales.length] as 'en' | 'pt' | 'nl');
-	}
+	let currentLang = $derived(getLocale());
 </script>
 
 <div class="flex min-h-dvh flex-col bg-[#FAF8F3]">
 	<div class="flex justify-end p-4">
-		<button
-			onclick={cycleLocale}
-			class="rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#6B7A6E] transition hover:bg-[#EDE7D9]"
-		>
-			{localeNames[getLocale()]}
-		</button>
+		<LanguageSwitcher
+			{languages}
+			bind:value={currentLang}
+			onChange={(code) => {
+				if (isLocale(code)) setLocale(code);
+			}}
+		/>
 	</div>
 
 	<div class="mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-8">

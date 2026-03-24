@@ -4,7 +4,8 @@
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
-	import { IconArrowRight, IconArrowLeft } from '@tabler/icons-svelte';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let emailAddress = $state('');
 	let isLoading = $state(false);
@@ -55,21 +56,23 @@
 		<p class="mb-3 text-sm text-red-600">{authError}</p>
 	{/if}
 
-	<div class="flex-1"></div>
-	<Button
-		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
-		disabled={!emailAddress.includes('@') || isLoading}
-		onclick={sendEmailOtp}
-	>
-		{m.email_cta()}
-		<IconArrowRight class="ml-2 h-4 w-4" />
-	</Button>
+	<form onsubmit={(e) => { e.preventDefault(); sendEmailOtp(); }}>
+		<div class="flex-1"></div>
+		<Button
+			type="submit"
+			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
+			disabled={!emailAddress.includes('@') || isLoading}
+		>
+			{m.email_cta()}
+			<ArrowRightIcon class="ml-2 h-4 w-4" />
+		</Button>
+	</form>
 	<Button
 		variant="ghost"
 		class="mt-2 w-full text-sm text-[#6B7A6E]"
 		onclick={() => goto('/onboarding/phone')}
 	>
-		<IconArrowLeft class="mr-1 h-3 w-3" />
+		<ArrowLeftIcon class="mr-1 h-3 w-3" />
 		{m.email_back()}
 	</Button>
 </div>

@@ -23,10 +23,10 @@
 		"@eslint/js": "^9.39.2",
 		"@fontsource-variable/noto-sans": "^5.2.10",
 		"@internationalized/date": "^3.12.0",
+		"@lucide/svelte": "^0.575.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
-		"@tabler/icons-svelte": "^3.40.0",
 		"@tailwindcss/vite": "^4.1.18",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.1.0",
@@ -38,6 +38,7 @@
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
 		"globals": "^17.3.0",
+		"jsrepo": "^3.7.0",
 		"playwright": "^1.58.2",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
@@ -59,8 +60,10 @@
 		"@inlang/paraglide-js": "^2.15.1",
 		"@types/qrcode": "^1.5.6",
 		"better-auth": "^1.5.6",
+		"country-flag-icons": "^1.6.15",
 		"drizzle-orm": "^0.45.1",
 		"jose": "^6.2.2",
-		"qrcode": "^1.5.4"
+		"qrcode": "^1.5.4",
+		"svelte-tel-input": "^3.6.1"
 	}
 }

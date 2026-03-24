@@ -139,5 +139,11 @@
   "common_community_docs": "Community docs",
   "history_empty": "No transactions found.",
   "error_send_code": "Failed to send code",
-  "error_generic": "Something went wrong"
+  "error_generic": "Something went wrong",
+
+  "qr_copy_link": "Copy link",
+  "qr_copied": "Copied!",
+  "qr_share": "Share",
+
+  "locale_name": "English"
 }
