@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 	import CheckIcon from '@lucide/svelte/icons/check';
-import XIcon from '@lucide/svelte/icons/x';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { browser } from '$app/environment';
 
 	let { data, form } = $props();
@@ -27,7 +27,7 @@ import XIcon from '@lucide/svelte/icons/x';
 	}
 </script>
 
-<div class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 pb-8 pt-14">
+<div class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 pt-14 pb-8">
 	{#if data.expired}
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
 			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted text-3xl">
@@ -54,7 +54,7 @@ import XIcon from '@lucide/svelte/icons/x';
 
 			{#if data.note}
 				<Card class="mb-4 rounded-xl bg-muted p-4">
-					<p class="text-sm italic text-foreground">"{data.note}"</p>
+					<p class="text-sm text-foreground italic">"{data.note}"</p>
 				</Card>
 			{/if}
 
@@ -70,10 +70,7 @@ import XIcon from '@lucide/svelte/icons/x';
 					<p class="mb-2 text-sm text-blue-900">
 						{m.accept_first_time_notice()}
 					</p>
-					<button
-						class="text-xs font-medium text-blue-700 hover:underline"
-						onclick={dismissNotice}
-					>
+					<button class="text-xs font-medium text-blue-700 hover:underline" onclick={dismissNotice}>
 						{m.common_dismiss()}
 					</button>
 				</Card>

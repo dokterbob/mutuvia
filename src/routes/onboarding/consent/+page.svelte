@@ -3,27 +3,22 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 </script>
 
 <div class="flex flex-1 flex-col">
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.consent_eyebrow()}
 	</p>
-	<h1 class="mb-4 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
-		{@html m.consent_title().replace(
-			/agreeing to|a aceitar|akkoord gaat/,
-			'<span class="text-[#2D4A32]">$&</span>'
-		)}
+	<h1 class="mb-4 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html m
+			.consent_title()
+			.replace(/agreeing to|a aceitar|akkoord gaat/, '<span class="text-[#2D4A32]">$&</span>')}
 	</h1>
 
 	<ul class="mb-4 space-y-0">
-		{#each [
-			{ icon: '📒', title: m.consent_item1_title(), body: m.consent_item1_body() },
-			{ icon: '🔒', title: m.consent_item2_title(), body: m.consent_item2_body() },
-			{ icon: '👥', title: m.consent_item3_title(), body: m.consent_item3_body() },
-			{ icon: '🌱', title: m.consent_item4_title(), body: m.consent_item4_body() }
-		] as item}
+		{#each [{ icon: '📒', title: m.consent_item1_title(), body: m.consent_item1_body() }, { icon: '🔒', title: m.consent_item2_title(), body: m.consent_item2_body() }, { icon: '👥', title: m.consent_item3_title(), body: m.consent_item3_body() }, { icon: '🌱', title: m.consent_item4_title(), body: m.consent_item4_body() }] as item (item.title)}
 			<li
 				class="flex items-start gap-3 border-b border-[#DDD8CE] py-3 text-sm text-[#3A4A3D] last:border-b-0"
 			>

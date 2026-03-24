@@ -65,10 +65,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
-			db.update(pendingQr)
-				.set({ status: 'declined' })
-				.where(eq(pendingQr.id, qrId))
-				.run();
+			db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId)).run();
 		}
 		redirect(307, '/home');
 	}

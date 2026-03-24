@@ -44,11 +44,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	// Get initiator info
-	const initiator = db
-		.select()
-		.from(appUsers)
-		.where(eq(appUsers.id, qr.initiatingUserId))
-		.get();
+	const initiator = db.select().from(appUsers).where(eq(appUsers.id, qr.initiatingUserId)).get();
 
 	if (!initiator) {
 		return { expired: true, error: 'Initiator not found.', unitSymbol, decimalPlaces };
@@ -131,10 +127,7 @@ export const actions: Actions = {
 			})
 			.run();
 
-		db.update(pendingQr)
-			.set({ status: 'completed' })
-			.where(eq(pendingQr.id, qr.id))
-			.run();
+		db.update(pendingQr).set({ status: 'completed' }).where(eq(pendingQr.id, qr.id)).run();
 
 		upsertConnection(fromUserId, toUserId);
 
@@ -146,10 +139,7 @@ export const actions: Actions = {
 		const qrId = data.get('qrId') as string;
 
 		if (qrId) {
-			db.update(pendingQr)
-				.set({ status: 'declined' })
-				.where(eq(pendingQr.id, qrId))
-				.run();
+			db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId)).run();
 		}
 
 		redirect(307, '/home');

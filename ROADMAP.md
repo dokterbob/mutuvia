@@ -49,12 +49,14 @@ These items improve what's already built before adding new features.
 Ordered roughly by community value and implementation readiness. See [section 12 of the plan](community_credit_mvp_plan.md#12-roadmap--post-mvp) for full descriptions.
 
 ### Near-term
+
 - [ ] **Circular debt netting** — Surface suggestions to cancel circular debts (A→B→C→A) in one move. Testers identified this as the standout feature.
 - [ ] **Passkeys** — Biometric one-tap sign-in. Introduce once friction reduction has clear value.
 - [ ] **Invitation system** — Phone/email invites with contact list. Builds on implicit connections graph.
 - [ ] **Push notifications** — Mobile push for received credits.
 
 ### Medium-term
+
 - [ ] **Trusted contacts / direct transfer** — Skip QR for known members. Needs mutual consent UX design.
 - [ ] **Re-auth per transaction** — Step-up authentication for high-value sends.
 - [ ] **Maximum transaction amount** — Community governance decision; add as config.
@@ -62,6 +64,7 @@ Ordered roughly by community value and implementation readiness. See [section 12
 - [ ] **Admin panel** — Member management, transaction oversight.
 
 ### Long-term
+
 - [ ] **Zero-knowledge balance proofs** — Prove balance to a counterparty without server storing plaintext.
 - [ ] **Multiple units** — Gold, silver, or custom units; per-transaction unit selection.
 - [ ] **Transaction disputes** — Formal dispute and reversal flow.
@@ -83,4 +86,4 @@ These will not be implemented unless the community governance process decides ot
 
 ---
 
-*Last updated: 2026-03-23*
+_Last updated: 2026-03-23_

@@ -23,10 +23,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
 	consent: async ({ locals }) => {
 		const userId = locals.appUser!.id;
-		db.update(appUsers)
-			.set({ sendConsentAt: new Date() })
-			.where(eq(appUsers.id, userId))
-			.run();
+		db.update(appUsers).set({ sendConsentAt: new Date() }).where(eq(appUsers.id, userId)).run();
 		return { consented: true };
 	},
 
@@ -62,10 +59,7 @@ export const actions: Actions = {
 			})
 			.run();
 
-		const token = await signQrToken(
-			{ jti: qrId, amt: amount, dir: 'send', dn: displayName },
-			ttl
-		);
+		const token = await signQrToken({ jti: qrId, amt: amount, dir: 'send', dn: displayName }, ttl);
 
 		return {
 			qrUrl: buildQrUrl(token),
@@ -78,10 +72,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
-			db.update(pendingQr)
-				.set({ status: 'declined' })
-				.where(eq(pendingQr.id, qrId))
-				.run();
+			db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId)).run();
 		}
 		redirect(307, '/home');
 	}

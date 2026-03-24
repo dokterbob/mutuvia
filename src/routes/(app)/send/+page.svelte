@@ -21,7 +21,6 @@
 	let note = $state('');
 	let qrDataUrl = $state('');
 	let qrId = $state('');
-	let expiresAt = $state('');
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let secondsLeft = $state(0);
 	let isExpired = $state(false);
@@ -42,7 +41,6 @@
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
-		expiresAt = expires;
 		step = 'qr';
 		startCountdown(expires);
 		startPolling(id);
@@ -91,7 +89,7 @@
 	}
 </script>
 
-<div class="flex min-h-dvh flex-col px-6 pb-8 pt-14">
+<div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
 	<!-- Consent step -->
 	{#if step === 'consent'}
 		<h1 class="mb-4 font-serif text-2xl font-semibold">{m.send_consent_title()}</h1>
@@ -107,7 +105,11 @@
 				{m.send_consent_cta()}
 			</Button>
 		</form>
-		<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
+		<Button
+			variant="ghost"
+			class="mt-2 w-full text-sm text-muted-foreground"
+			onclick={() => goto('/home')}
+		>
 			{m.send_consent_cancel()}
 		</Button>
 	{/if}
@@ -127,7 +129,7 @@
 					min="0.01"
 					placeholder="0.00"
 					bind:value={amount}
-					class="text-3xl font-serif font-semibold h-14"
+					class="h-14 font-serif text-3xl font-semibold"
 				/>
 			</div>
 
@@ -155,7 +157,11 @@
 				<QrCodeIcon class="mr-2 h-5 w-5" />
 				{m.send_cta()}
 			</Button>
-			<Button variant="ghost" class="mt-2 w-full text-sm text-muted-foreground" onclick={() => goto('/home')}>
+			<Button
+				variant="ghost"
+				class="mt-2 w-full text-sm text-muted-foreground"
+				onclick={() => goto('/home')}
+			>
 				<ArrowLeftIcon class="mr-1 h-3 w-3" />
 				{m.consent_back()}
 			</Button>
@@ -169,7 +175,10 @@
 				<Card class="rounded-2xl bg-muted p-8">
 					<p class="text-muted-foreground">{m.send_qr_expired()}</p>
 				</Card>
-				<Button class="mt-4 w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
+				<Button
+					class="mt-4 w-full rounded-xl bg-[#2D4A32] py-6 text-white"
+					onclick={() => goto('/home')}
+				>
 					<ArrowLeftIcon class="mr-2 h-4 w-4" />
 					{m.send_back_home()}
 				</Button>
@@ -191,7 +200,7 @@
 						{/if}
 					</div>
 				{/if}
-				<p class="mb-6 font-mono text-lg tabular-nums text-muted-foreground">
+				<p class="mb-6 font-mono text-lg text-muted-foreground tabular-nums">
 					{formatMinSec(secondsLeft)}
 				</p>
 				<form method="POST" action="?/cancel" use:enhance>
@@ -208,7 +217,9 @@
 	<!-- Done step -->
 	{#if step === 'done'}
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
-			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">
+			<div
+				class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl"
+			>
 				✓
 			</div>
 			<p class="mb-6 text-lg font-medium">

@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let emailAddress = $state('');
 	let isLoading = $state(false);
@@ -26,17 +26,17 @@ import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 </script>
 
 <div class="flex flex-1 flex-col">
-	<p class="mb-2.5 text-[10.5px] font-medium uppercase tracking-[0.2em] text-[#7A9E7E]">
+	<p class="mb-2.5 text-[10.5px] font-medium tracking-[0.2em] text-[#7A9E7E] uppercase">
 		{m.email_eyebrow()}
 	</p>
-	<h1 class="mb-3.5 font-serif text-[28px] font-semibold leading-tight text-[#1E2820]">
+	<h1 class="mb-3.5 font-serif text-[28px] leading-tight font-semibold text-[#1E2820]">
 		<span class="text-[#2D4A32]">{m.email_title()}</span>
 	</h1>
-	<p class="mb-4 text-[15px] font-light leading-relaxed text-[#3A4A3D]">
+	<p class="mb-4 text-[15px] leading-relaxed font-light text-[#3A4A3D]">
 		{m.email_body()}
 	</p>
 
-	<Label class="mb-2 block text-xs font-medium uppercase tracking-wider text-[#6B7A6E]">
+	<Label class="mb-2 block text-xs font-medium tracking-wider text-[#6B7A6E] uppercase">
 		{m.email_label()}
 	</Label>
 	<div
@@ -56,7 +56,12 @@ import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 		<p class="mb-3 text-sm text-red-600">{authError}</p>
 	{/if}
 
-	<form onsubmit={(e) => { e.preventDefault(); sendEmailOtp(); }}>
+	<form
+		onsubmit={(e) => {
+			e.preventDefault();
+			sendEmailOtp();
+		}}
+	>
 		<div class="flex-1"></div>
 		<Button
 			type="submit"
