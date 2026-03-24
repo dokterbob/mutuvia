@@ -6,18 +6,18 @@
 
 Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
-| Library | Context7 ID | Notes |
-|---|---|---|
-| SvelteKit / Svelte 5 | `/sveltejs/svelte` | Runes, components, routing |
-| Svelte Docs (comprehensive) | `/websites/svelte_dev` | 8203 snippets, tutorials + reference |
-| Drizzle ORM | `/llmstxt/orm_drizzle_team_llms_txt` | SQLite schema, migrations, queries |
-| Better Auth | `/llmstxt/better-auth_llms_txt` | Phone OTP, email OTP, Drizzle adapter |
-| shadcn-svelte | `/llmstxt/shadcn-svelte_llms_txt` | UI components, CLI, Bits UI |
-| Tailwind CSS v4 | `/websites/tailwindcss` | Utility classes, CSS variables |
-| jose (JWT) | `/panva/jose` | JWT sign/verify, HS256 |
-| Paraglide JS | `/opral/paraglide-js` | i18n message functions, locale strategy |
-| bits-ui | `/llmstxt/bits-ui_llms_txt` | Headless primitives (Popover, Dialog, Command, etc.) |
-| shadcn-svelte-extras | `/ieedan/shadcn-svelte-extras` | CopyButton, LanguageSwitcher, PhoneInput — installed via jsrepo |
+| Library                     | Context7 ID                          | Notes                                                           |
+| --------------------------- | ------------------------------------ | --------------------------------------------------------------- |
+| SvelteKit / Svelte 5        | `/sveltejs/svelte`                   | Runes, components, routing                                      |
+| Svelte Docs (comprehensive) | `/websites/svelte_dev`               | 8203 snippets, tutorials + reference                            |
+| Drizzle ORM                 | `/llmstxt/orm_drizzle_team_llms_txt` | SQLite schema, migrations, queries                              |
+| Better Auth                 | `/llmstxt/better-auth_llms_txt`      | Phone OTP, email OTP, Drizzle adapter                           |
+| shadcn-svelte               | `/llmstxt/shadcn-svelte_llms_txt`    | UI components, CLI, Bits UI                                     |
+| Tailwind CSS v4             | `/websites/tailwindcss`              | Utility classes, CSS variables                                  |
+| jose (JWT)                  | `/panva/jose`                        | JWT sign/verify, HS256                                          |
+| Paraglide JS                | `/opral/paraglide-js`                | i18n message functions, locale strategy                         |
+| bits-ui                     | `/llmstxt/bits-ui_llms_txt`          | Headless primitives (Popover, Dialog, Command, etc.)            |
+| shadcn-svelte-extras        | `/ieedan/shadcn-svelte-extras`       | CopyButton, LanguageSwitcher, PhoneInput — installed via jsrepo |
 
 ---
 
@@ -46,23 +46,35 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `bun run dev` | Start dev server (Vite + Bun) |
-| `bun run build` | Production build |
-| `bun run check` | Type-check (svelte-check) |
-| `bun run lint` | Prettier + ESLint |
-| `bun run format` | Auto-format |
-| `bun test` | Run tests |
-| `bun run db:generate` | Generate Drizzle migration |
-| `bun run db:migrate` | Apply migrations |
-| `bun run db:seed` | Seed test data (3 users, 2 transactions) |
+| Command               | Description                              |
+| --------------------- | ---------------------------------------- |
+| `bun run dev`         | Start dev server (Vite + Bun)            |
+| `bun run build`       | Production build                         |
+| `bun run check`       | Type-check (svelte-check)                |
+| `bun run lint`        | Prettier + ESLint                        |
+| `bun run format`      | Auto-format                              |
+| `bun test`            | Run tests                                |
+| `bun run db:generate` | Generate Drizzle migration               |
+| `bun run db:migrate`  | Apply migrations                         |
+| `bun run db:seed`     | Seed test data (3 users, 2 transactions) |
 
 ## Testing
 
 ```ts
-import { test, expect } from "bun:test";
+import { test, expect } from 'bun:test';
 ```
+
+## E2E Testing (Playwright)
+
+Run with: `bunx playwright test` (starts dev server automatically).
+
+**Always use subagents for Playwright browser inspection** — Playwright MCP tools are context-heavy.
+
+### Key patterns
+
+- **Hydration**: Use `goto()` from `e2e/test-utils.ts` instead of `page.goto()` — waits for `body.hydrated` before returning. bits-ui components aren't active until hydration completes.
+- **bits-ui portals**: Wait for portal content to mount after clicking a trigger (e.g. `await expect(page.getByRole('menu')).toBeVisible()`) before asserting on items inside.
+- **Do NOT** add `reducedMotion: 'reduce'` to playwright.config.ts — breaks bits-ui portal mounting.
 
 ## Key Files
 
