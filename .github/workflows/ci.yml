@@ -33,7 +33,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     env:
-      QR_JWT_SECRET: "ci-test-secret-that-is-at-least-32-chars!!"
+      QR_JWT_SECRET: 'ci-test-secret-that-is-at-least-32-chars!!'
       DB_FILE_NAME: ci-test.db
 
     steps:
