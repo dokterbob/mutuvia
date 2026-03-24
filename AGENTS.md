@@ -73,6 +73,18 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 import { test, expect } from 'bun:test';
 ```
 
+## E2E Testing (Playwright)
+
+Run with: `bunx playwright test` (starts dev server automatically).
+
+**Always use subagents for Playwright browser inspection** — Playwright MCP tools are context-heavy.
+
+### Key patterns
+
+- **Hydration**: Use `goto()` from `e2e/test-utils.ts` instead of `page.goto()` — waits for `body.hydrated` before returning. bits-ui components aren't active until hydration completes.
+- **bits-ui portals**: Wait for portal content to mount after clicking a trigger (e.g. `await expect(page.getByRole('menu')).toBeVisible()`) before asserting on items inside.
+- **Do NOT** add `reducedMotion: 'reduce'` to playwright.config.ts — breaks bits-ui portal mounting.
+
 ## Key Files
 
 - `src/lib/config.ts` — All env-var configuration (lazy getters)

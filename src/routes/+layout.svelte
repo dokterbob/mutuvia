@@ -2,8 +2,13 @@
 	import './layout.css';
 	import '@fontsource-variable/noto-sans';
 	import favicon from '$lib/assets/favicon.svg';
+	import { onMount } from 'svelte';
 
 	let { children } = $props();
+
+	onMount(() => {
+		document.body.classList.add('hydrated');
+	});
 </script>
 
 <svelte:head>
