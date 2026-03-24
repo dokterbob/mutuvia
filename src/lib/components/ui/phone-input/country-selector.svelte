@@ -49,7 +49,7 @@
 				{...props}
 				type="button"
 				variant="outline"
-				class={cn('flex shrink-0 gap-1 rounded-l-lg rounded-r-none px-3')}
+				class={cn('flex h-9 shrink-0 gap-1 rounded-l-lg rounded-r-none px-3')}
 				{disabled}
 			>
 				<Flag country={selectedCountry} />
