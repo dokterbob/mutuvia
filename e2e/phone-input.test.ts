@@ -38,12 +38,7 @@ test.describe('PhoneInput', () => {
 		await expect(page.getByPlaceholder('Search country...')).not.toBeVisible();
 	});
 
-	// KNOWN BUG: PhoneInput value binding broken — phoneValue stays null after typing
-	// due to Svelte 4/5 interop issue with svelte-tel-input. The `valid` state never
-	// becomes true so the submit button stays disabled.
-	// Fix: phone-input.svelte should initialize value = $bindable('') instead of null.
-	// See: .claude/projects/.../memory/project_playwright_test_notes.md BUG 1
-	test.fixme('valid PT number enables submit and hides or-divider', async ({ page }) => {
+	test('valid PT number enables submit and hides or-divider', async ({ page }) => {
 		await page.locator('input[type="tel"]').fill('912345678');
 		await expect(page.getByRole('button', { name: 'Send code' })).toBeEnabled();
 		await expect(page.getByText('or', { exact: true })).not.toBeVisible();
@@ -52,14 +47,12 @@ test.describe('PhoneInput', () => {
 		).not.toBeVisible();
 	});
 
-	// KNOWN BUG: same value binding issue
-	test.fixme('partial number keeps submit disabled', async ({ page }) => {
+	test('partial number keeps submit disabled', async ({ page }) => {
 		await page.locator('input[type="tel"]').fill('123');
 		await expect(page.getByRole('button', { name: 'Send code' })).toBeDisabled();
 	});
 
-	// KNOWN BUG: same value binding issue
-	test.fixme('valid NL number enables submit after country switch', async ({ page }) => {
+	test('valid NL number enables submit after country switch', async ({ page }) => {
 		const countryBtn = page.locator('button.rounded-l-lg');
 		await countryBtn.click();
 		await page.getByPlaceholder('Search country...').fill('nether');
