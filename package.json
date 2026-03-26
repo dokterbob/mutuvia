@@ -66,7 +66,10 @@
 		"pre-commit": {
 			"staged-lint": {
 				"*": "bunx prettier --write --ignore-unknown",
-				"**/*.{js,ts}": ["bun run lint:fix", "bun run check"]
+				"**/*.{js,ts}": [
+					"bun run lint:fix",
+					"bun run check"
+				]
 			}
 		},
 		"commit-msg": ""
