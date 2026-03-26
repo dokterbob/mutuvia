@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { betterAuth } from 'better-auth';
-import { phoneNumber, emailOTP } from 'better-auth/plugins';
+import { phoneNumber, emailOTP, testUtils } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from './db';
 
@@ -13,6 +13,7 @@ export const auth = betterAuth({
 		enabled: false
 	},
 	plugins: [
+		...(process.env.E2E === 'true' ? [testUtils({ captureOTP: true })] : []),
 		emailOTP({
 			sendVerificationOTP: async ({ email, otp }) => {
 				if (process.env.NODE_ENV !== 'production') {

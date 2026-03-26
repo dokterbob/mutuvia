@@ -13,7 +13,8 @@ export default defineConfig({
 		trace: 'on-first-retry'
 	},
 	webServer: {
-		command: 'bun run dev',
+		command: 'bun run db:migrate && bun run dev',
+		env: { E2E: 'true', BETTER_AUTH_URL: 'http://localhost:5173' },
 		stdout: 'pipe',
 		stderr: 'pipe',
 		timeout: 120_000,

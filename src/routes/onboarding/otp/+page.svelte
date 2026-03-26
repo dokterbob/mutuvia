@@ -27,7 +27,7 @@
 			if (data.otpMethod === 'phone') {
 				await authClient.phoneNumber.verify({ phoneNumber: data.otpDestination, code: otpCode });
 			} else {
-				await authClient.emailOtp.verifyEmail({ email: data.otpDestination, otp: otpCode });
+				await authClient.signIn.emailOtp({ email: data.otpDestination, otp: otpCode });
 			}
 			goto('/onboarding/verified', { invalidateAll: true });
 		} catch (e: unknown) {
