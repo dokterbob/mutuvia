@@ -11,6 +11,7 @@
 		"check": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy cookie preferredLanguage baseLocale && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
+		"lint:fix": "prettier --write . && eslint . --fix",
 		"format": "prettier --write .",
 		"test:unit": "bunx --bun vitest",
 		"test": "npm run test:unit -- --run",
@@ -64,9 +65,14 @@
 	"gitHooks": {
 		"pre-commit": {
 			"staged-lint": {
-				"*": "bunx prettier --write --ignore-unknown"
+				"*": "bunx prettier --write --ignore-unknown",
+				"**/*.{js,ts}": [
+					"bun run lint:fix",
+					"bun run check"
+				]
 			}
-		}
+		},
+		"commit-msg": ""
 	},
 	"dependencies": {
 		"@inlang/paraglide-js": "^2.15.1",
