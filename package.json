@@ -62,17 +62,17 @@
 		"vitest": "^4.1.0",
 		"vitest-browser-svelte": "^2.0.2"
 	},
-	"gitHooks": {
+	"git-hooks": {
 		"pre-commit": {
 			"staged-lint": {
-				"*": "bunx prettier --write --ignore-unknown",
+				"*": "bun run format",
 				"**/*.{js,ts}": [
 					"bun run lint:fix",
 					"bun run check"
 				]
 			}
 		},
-		"commit-msg": ""
+		"commit-msg": "true"
 	},
 	"dependencies": {
 		"@inlang/paraglide-js": "^2.15.1",
