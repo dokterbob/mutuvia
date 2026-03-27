@@ -32,9 +32,6 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    env:
-      QR_JWT_SECRET: 'ci-test-secret-that-is-at-least-32-chars!!'
-      DB_FILE_NAME: ci-test.db
 
     steps:
       - uses: actions/checkout@v4
@@ -58,12 +55,6 @@ jobs:
       - name: Install Playwright system dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
-
-      - name: Run database migrations
-        run: bun run db:migrate
-
-      - name: Seed test data
-        run: bun run db:seed
 
       - name: Run Playwright tests
         run: bunx playwright test
