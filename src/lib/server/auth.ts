@@ -3,6 +3,7 @@
 import { betterAuth } from 'better-auth';
 import { phoneNumber, emailOTP, testUtils } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { env } from '$env/dynamic/private';
 import { db } from './db';
 
 export const auth = betterAuth({
@@ -13,7 +14,7 @@ export const auth = betterAuth({
 		enabled: false
 	},
 	plugins: [
-		...(process.env.E2E === 'true' ? [testUtils({ captureOTP: true })] : []),
+		...(env.E2E === 'true' ? [testUtils({ captureOTP: true })] : []),
 		emailOTP({
 			sendVerificationOTP: async ({ email, otp }) => {
 				if (process.env.NODE_ENV !== 'production') {
@@ -62,5 +63,5 @@ export const auth = betterAuth({
 		expiresIn: 60 * 60 * 24 * 30, // 30 days
 		updateAge: 60 * 60 * 24 // 1 day
 	},
-	trustedOrigins: [process.env.APP_URL || 'http://localhost:5173']
+	trustedOrigins: [env.APP_URL || 'http://localhost:5173']
 });
