@@ -20,6 +20,49 @@ export async function goto(page: Page, url: string): Promise<void> {
  */
 export const TEST_EMAIL = 'e2e-onboarding@test.example';
 
+/** Stable emails for two-user send/receive flow tests. */
+export const SENDER_EMAIL = 'e2e-sender@test.example';
+export const RECEIVER_EMAIL = 'e2e-receiver@test.example';
+
+/**
+ * Run through the full onboarding flow for a given email + display name,
+ * finishing at /home. Used in beforeAll hooks to create authenticated sessions
+ * for multi-user e2e tests without repeating the onboarding steps in each test.
+ */
+export async function onboardUserViaEmail(
+	page: Page,
+	email: string,
+	displayName: string
+): Promise<void> {
+	await goto(page, '/onboarding');
+	await page.getByRole('button', { name: 'Get started' }).click();
+
+	await page.waitForURL(/\/onboarding\/consent/);
+	await page.getByRole('button', { name: 'I understand, continue' }).click();
+
+	await page.waitForURL(/\/onboarding\/phone/);
+	await page.getByRole('button', { name: 'Continue with email instead' }).click();
+
+	await page.waitForURL(/\/onboarding\/email/);
+	await page.locator('input[type="email"]').fill(email);
+	await page.getByRole('button', { name: 'Send code' }).click();
+
+	await page.waitForURL(/\/onboarding\/otp/);
+	const otp = await getOTP(page, email);
+	await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
+
+	await page.waitForURL(/\/onboarding\/verified/, { timeout: 10_000 });
+	await page.getByRole('button', { name: 'Continue' }).click();
+	await page.getByRole('button', { name: 'Got it' }).click();
+	await page.getByRole('button', { name: 'Understood' }).click();
+
+	await page.waitForURL(/\/onboarding\/name/);
+	await page.locator('input[name="displayName"]').fill(displayName);
+	await page.getByRole('button', { name: 'Enter the community' }).click();
+
+	await page.waitForURL(/\/home/, { timeout: 10_000 });
+}
+
 /**
  * Poll the dev-only OTP endpoint until the captured OTP for `identifier`
  * appears (after the client calls sendVerificationOtp). Throws if the OTP
