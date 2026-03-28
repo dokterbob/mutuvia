@@ -23,7 +23,7 @@ export const config = {
 		return parseInt(env.UNIT_DECIMAL_PLACES || '2', 10);
 	},
 	get qrTtlSeconds() {
-		return parseInt(env.QR_TTL_SECONDS || '600', 10);
+		return parseInt(env.QR_TTL_SECONDS || '259200', 10);
 	},
 	get appUrl() {
 		return env.APP_URL || 'http://localhost:5173';
