@@ -123,7 +123,7 @@ src/
 │   │   ├── balance.ts       # Balance computation, formatAmount, connections
 │   │   ├── db.ts            # Drizzle db instance (delegates to db.sqlite or db.pg)
 │   │   ├── db.sqlite.ts     # SQLite driver (bun:sqlite, WAL mode)
-│   │   ├── db.pg.ts         # PostgreSQL driver (postgres package)
+│   │   ├── db.pg.ts         # PostgreSQL driver (bun:sql)
 │   │   ├── qr.ts            # JWT sign/verify (jose)
 │   │   ├── schema.ts        # Re-exports active schema
 │   │   ├── schema.sqlite.ts # Drizzle schema for SQLite

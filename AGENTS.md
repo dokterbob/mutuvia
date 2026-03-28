@@ -27,7 +27,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Runtime**: Bun (via `svelte-adapter-bun`)
 - **UI**: shadcn-svelte + Tailwind CSS v4
 - **Auth**: Better Auth (SMS OTP via Twilio, email OTP fallback)
-- **ORM**: Drizzle ORM — SQLite (`bun:sqlite`, WAL mode, foreign keys ON) or PostgreSQL (`postgres` driver), selected via `DB_PROVIDER`
+- **ORM**: Drizzle ORM — SQLite (`bun:sqlite`, WAL mode, foreign keys ON) or PostgreSQL (`bun:sql`), selected via `DB_PROVIDER`
 - **Database**: SQLite (default) or PostgreSQL — `better-sqlite3` as devDependency for Drizzle Kit SQLite migrations; local PG via `docker compose up -d`
 - **i18n**: Paraglide JS v2 (EN, PT, NL) — translation files in `messages/`, generated output in `src/lib/paraglide/` (gitignored)
 - **QR**: jose (JWT HS256) + qrcode (client-side generation)
@@ -100,7 +100,7 @@ Run with: `bunx playwright test` (starts dev server automatically).
 - `src/lib/server/schema.pg.ts` — Drizzle schema for PostgreSQL (same tables, PG types)
 - `src/lib/server/db.ts` — Drizzle db instance (delegates to `db.sqlite.ts` or `db.pg.ts` based on `DB_PROVIDER`)
 - `src/lib/server/db.sqlite.ts` — SQLite driver setup (`bun:sqlite`, WAL mode)
-- `src/lib/server/db.pg.ts` — PostgreSQL driver setup (`postgres` package)
+- `src/lib/server/db.pg.ts` — PostgreSQL driver setup (`bun:sql`)
 - `drizzle.config.sqlite.ts` / `drizzle.config.pg.ts` — Drizzle Kit configs per provider
 - `docker-compose.yml` — Local PostgreSQL container
 - `src/lib/server/auth.ts` — Better Auth server setup
