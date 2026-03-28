@@ -1,7 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_DB_FILE, E2E_AUTH_SECRET, E2E_BASE_URL, E2E_QR_JWT_SECRET } from './e2e/config.js';
 
 export default defineConfig({
 	testDir: './e2e',
+	globalSetup: './e2e/global-setup.ts',
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
@@ -9,12 +11,19 @@ export default defineConfig({
 	reporter: 'html',
 	expect: { timeout: 10_000 },
 	use: {
-		baseURL: 'http://localhost:5173',
+		baseURL: E2E_BASE_URL,
 		trace: 'on-first-retry'
 	},
 	webServer: {
-		command: 'bun run db:migrate && bun run dev',
-		env: { E2E: 'true', BETTER_AUTH_URL: 'http://localhost:5173' },
+		command: 'bun run db:migrate && bun run dev -- --port 5174',
+		env: {
+			E2E: 'true',
+			APP_URL: E2E_BASE_URL,
+			BETTER_AUTH_URL: E2E_BASE_URL,
+			BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+			DB_FILE_NAME: E2E_DB_FILE,
+			QR_JWT_SECRET: E2E_QR_JWT_SECRET
+		},
 		stdout: 'pipe',
 		stderr: 'pipe',
 		timeout: 120_000,

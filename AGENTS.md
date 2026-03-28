@@ -50,7 +50,10 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
 ## Code Quality
 
-- **Pre-commit hook** auto-formats staged files via `bun-git-hooks` + Prettier. Installed automatically by `bun install` (via `prepare`). To skip: `SKIP_BUN_GIT_HOOKS=1 git commit`.
+- **Pre-commit hook** runs via `bun-git-hooks` (installed by `bun install`). Staged-lint rules:
+  - `*` → `bun run format` (Prettier)
+  - `**/*.{js,ts}` → `bun run lint:fix` then `bun run check` (Prettier + ESLint + svelte-check)
+  - To skip: `SKIP_BUN_GIT_HOOKS=1 git commit`
 - **Before submitting code**, run `bun run format` then `bun run lint` to catch any remaining issues.
 
 ## Scripts

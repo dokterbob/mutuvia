@@ -7,7 +7,10 @@ import { Database } from 'bun:sqlite';
 
 const dbFile = process.env.DB_FILE_NAME || 'sqlite.db';
 const sqlite = new Database(dbFile);
-sqlite.exec('PRAGMA journal_mode = WAL;');
+// Do NOT enable WAL mode here: writes must land in the main DB file so that
+// a subsequent bun:sqlite connection (the dev server) sees a fully-populated
+// database without relying on WAL replay across separate processes.
+// The dev server promotes to WAL mode after opening.
 
 const db = drizzle({ client: sqlite });
 
