@@ -145,5 +145,48 @@
 	"qr_copied": "Copiado!",
 	"qr_share": "Partilhar",
 
-	"locale_name": "Português"
+	"locale_name": "Português",
+
+	"menu_settings": "Definições",
+	"menu_faq": "Perguntas Frequentes",
+
+	"faq_title": "Perguntas Frequentes",
+
+	"faq_q_what_is_mutual_credit": "O que é crédito mútuo?",
+	"faq_a_what_is_mutual_credit": "Crédito mútuo é uma forma de uma comunidade trocar sem usar dinheiro. Quando envias crédito a alguém, estás a dizer: devo-te. Quando recebes crédito, alguém está a dizer que te deve. Nada real muda de mãos — é apenas um registo partilhado de quem deve o quê a quem.",
+
+	"faq_q_is_this_real_money": "Isto é dinheiro real?",
+	"faq_a_is_this_real_money": "Não. Nada nesta aplicação é dinheiro real. Os créditos são um registo de obrigações mútuas entre membros da comunidade. Pensa nisto como um caderno partilhado onde anotamos favores.",
+
+	"faq_q_negative_balance": "O que significa um saldo negativo? É mau?",
+	"faq_a_negative_balance": "Um saldo negativo significa que recebeste mais da comunidade do que deste até agora. Isso é completamente normal — significa apenas que a comunidade confia que vais contribuir com o tempo. Não há juros, prazo, nem penalização.",
+
+	"faq_q_someone_doesnt_give_back": "O que acontece se alguém não retribuir?",
+	"faq_a_someone_doesnt_give_back": "O sistema baseia-se na confiança e nos laços sociais. Se alguém consistentemente recebe sem dar, a comunidade pode ver o seu saldo e decidir se continua a conceder crédito. Com base no feedback da comunidade, estamos também a explorar vários mecanismos de resolução de conflitos e de feedback.",
+
+	"faq_q_who_sees_my_data": "Quem pode ver as minhas transações e saldo?",
+	"faq_a_who_sees_my_data": "Quando trocas crédito com alguém, essa pessoa pode ver o teu saldo atual. Esta transparência ajuda os membros a tomar decisões informadas. O teu histórico completo de transações é visível apenas para ti.",
+
+	"faq_q_how_to_send_receive": "Como envio ou recebo crédito?",
+	"faq_a_how_to_send_receive": "Toca em Enviar ou Receber no ecrã principal, introduz um montante e uma nota opcional, e mostra o código QR à outra pessoa. Ela digitaliza-o para completar a troca.",
+
+	"faq_q_what_is_the_note": "Para que serve o campo de nota?",
+	"faq_a_what_is_the_note": "A nota é uma descrição opcional que podes anexar a qualquer transação. Usa-a para registar para que é o crédito, ou quaisquer condições acordadas — um prazo, um serviço em troca, o que for. A nota fica associada à transação permanentemente.",
+
+	"faq_q_can_i_trust_this": "Posso confiar nisto?",
+	"faq_a_can_i_trust_this": "Todos os dados são processados e armazenados na UE. A aplicação é totalmente de código aberto, pelo que qualquer pessoa pode ler o código, verificar o que faz ou executar a sua própria instância.",
+	"faq_link_source_code": "Ver código-fonte no GitHub",
+
+	"faq_q_is_open_source": "Isto é de código aberto?",
+	"faq_a_is_open_source": "Sim. O código está licenciado sob AGPL-3.0. Qualquer comunidade pode lê-lo, auditá-lo ou executar a sua própria instância. Mudanças que afetem os teus dados ou créditos são sempre anunciadas com antecedência.",
+	"faq_link_view_on_github": "Ver no GitHub",
+
+	"faq_q_who_made_this": "Quem fez isto?",
+	"faq_a_who_made_this": "Esta aplicação foi criada por Mathijs de Bruin, com Claude (o assistente de IA da Anthropic) como colaborador de programação.",
+	"faq_link_mathijs": "Mathijs no GitHub",
+	"faq_link_claude": "Claude da Anthropic",
+
+	"faq_q_question_not_answered": "A minha pergunta não está aqui.",
+	"faq_a_question_not_answered": "Adoraríamos ouvir-te. Podes fazer uma pergunta, reportar um erro ou sugerir uma funcionalidade no GitHub.",
+	"faq_link_report_issue": "Abrir um assunto ou discussão no GitHub"
 }

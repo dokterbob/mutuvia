@@ -1,0 +1,54 @@
+name: Bug report
+description: Something not working as expected? Let us know.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem! The more detail you can give, the easier it is for us to track it down. No technical knowledge needed — just describe what happened.
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Describe what went wrong. What did you see or experience?
+      placeholder: e.g. "I tapped Send, entered an amount, but the QR code never appeared — just a blank screen."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: What should have happened instead?
+      placeholder: e.g. "A QR code should have appeared for the other person to scan."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can, describe the steps that led to the problem. (Optional, but very helpful.)
+      placeholder: |
+        1. Tap Send on the home screen
+        2. Enter an amount
+        3. Tap Generate QR
+        4. Nothing appears
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: What device were you using?
+      options:
+        - iPhone
+        - Android phone
+        - iPad or tablet
+        - Desktop / laptop
+        - Other
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+      description: If you have a screenshot or screen recording that shows the problem, paste or attach it here. (Optional.)

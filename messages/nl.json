@@ -145,5 +145,48 @@
 	"qr_copied": "Gekopieerd!",
 	"qr_share": "Delen",
 
-	"locale_name": "Nederlands"
+	"locale_name": "Nederlands",
+
+	"menu_settings": "Instellingen",
+	"menu_faq": "Veelgestelde vragen",
+
+	"faq_title": "Veelgestelde vragen",
+
+	"faq_q_what_is_mutual_credit": "Wat is wederzijds krediet?",
+	"faq_a_what_is_mutual_credit": "Wederzijds krediet is een manier voor een gemeenschap om uit te wisselen zonder geld. Wanneer je iemand krediet stuurt, zeg je: ik sta bij je in het krijt. Wanneer je krediet ontvangt, zegt iemand dat die bij jou in het krijt staat. Er verandert niets van eigenaar — het is een gedeeld register van wie wat aan wie verschuldigd is.",
+
+	"faq_q_is_this_real_money": "Is dit echt geld?",
+	"faq_a_is_this_real_money": "Nee. Niets in deze app is echt geld. Kredieten zijn een registratie van onderlinge verplichtingen tussen gemeenschapsleden. Zie het als een gedeeld notitieboek voor gunsten.",
+
+	"faq_q_negative_balance": "Wat betekent een negatief saldo? Is dat erg?",
+	"faq_a_negative_balance": "Een negatief saldo betekent dat je tot nu toe meer van de gemeenschap hebt ontvangen dan gegeven. Dat is volkomen normaal — het betekent alleen dat de gemeenschap erop vertrouwt dat je na verloop van tijd bijdraagt. Er is geen rente, geen deadline en geen boete.",
+
+	"faq_q_someone_doesnt_give_back": "Wat gebeurt er als iemand niet teruggeeft?",
+	"faq_a_someone_doesnt_give_back": "Het systeem is gebaseerd op vertrouwen en sociale banden. Als iemand consequent neemt zonder te geven, kan de gemeenschap diens saldo zien en beslissen of ze doorgaan met krediet verlenen. Op basis van feedback vanuit de gemeenschap verkennen we ook diverse mechanismen voor conflictoplossing en terugkoppeling.",
+
+	"faq_q_who_sees_my_data": "Wie kan mijn transacties en saldo zien?",
+	"faq_a_who_sees_my_data": "Wanneer je krediet uitwisselt met iemand, kan die persoon je huidige saldo zien. Deze transparantie helpt leden om weloverwogen beslissingen te nemen. Je volledige transactiegeschiedenis is alleen zichtbaar voor jou.",
+
+	"faq_q_how_to_send_receive": "Hoe verstuur of ontvang ik krediet?",
+	"faq_a_how_to_send_receive": "Tik op Versturen of Ontvangen op het startscherm, voer een bedrag en een optionele notitie in, en laat de QR-code zien aan de andere persoon. Die scant het om de uitwisseling te voltooien.",
+
+	"faq_q_what_is_the_note": "Waar is het notitieveld voor?",
+	"faq_a_what_is_the_note": "De notitie is een optionele beschrijving die je aan elke transactie kunt toevoegen. Gebruik het om vast te leggen waarvoor het krediet is, of welke voorwaarden je hebt afgesproken — een termijn, een dienst in ruil, wat dan ook. De notitie blijft permanent bij de transactie.",
+
+	"faq_q_can_i_trust_this": "Kan ik dit vertrouwen?",
+	"faq_a_can_i_trust_this": "Alle gegevens worden verwerkt en opgeslagen binnen de EU. De app is volledig open source, zodat iedereen de code kan lezen, controleren wat het doet of een eigen versie kan draaien.",
+	"faq_link_source_code": "Bekijk broncode op GitHub",
+
+	"faq_q_is_open_source": "Is dit open source?",
+	"faq_a_is_open_source": "Ja. De code is gelicenseerd onder AGPL-3.0. Elke gemeenschap kan het lezen, controleren of een eigen versie draaien. Wijzigingen die je gegevens of kredieten beïnvloeden worden altijd vooraf aangekondigd.",
+	"faq_link_view_on_github": "Bekijk op GitHub",
+
+	"faq_q_who_made_this": "Wie heeft dit gemaakt?",
+	"faq_a_who_made_this": "Deze app is gebouwd door Mathijs de Bruin, met Claude (de AI-assistent van Anthropic) als programmeersamenwerkingspartner.",
+	"faq_link_mathijs": "Mathijs op GitHub",
+	"faq_link_claude": "Claude van Anthropic",
+
+	"faq_q_question_not_answered": "Mijn vraag staat er niet bij.",
+	"faq_a_question_not_answered": "We horen graag van je. Je kunt een vraag stellen, een bug melden of een functie voorstellen op GitHub.",
+	"faq_link_report_issue": "Open een issue of discussie op GitHub"
 }
