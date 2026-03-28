@@ -11,7 +11,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';
 	const decimalPlaces = parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10);
 
-	const allTxs = db
+	const allTxs = await db
 		.select({
 			id: transactions.id,
 			fromUserId: transactions.fromUserId,
@@ -22,15 +22,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 		})
 		.from(transactions)
 		.where(or(eq(transactions.fromUserId, userId), eq(transactions.toUserId, userId)))
-		.orderBy(desc(transactions.createdAt))
-		.all();
+		.orderBy(desc(transactions.createdAt));
 
 	const otherUserIds = [
 		...new Set(allTxs.map((tx) => (tx.fromUserId === userId ? tx.toUserId : tx.fromUserId)))
-	];
+	] as string[];
 	const userMap: Record<string, string> = {};
 	for (const id of otherUserIds) {
-		const u = db.select().from(appUsers).where(eq(appUsers.id, id)).get();
+		const [u] = await db.select().from(appUsers).where(eq(appUsers.id, id)).limit(1);
 		if (u) userMap[id] = u.displayName;
 	}
 

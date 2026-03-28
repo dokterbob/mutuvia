@@ -8,13 +8,13 @@ import { eq, or, desc } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.appUser!.id;
-	const balance = getBalance(userId);
+	const balance = await getBalance(userId);
 
 	const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';
 	const decimalPlaces = parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10);
 
 	// Last 5 transactions
-	const recentTxs = db
+	const recentTxs = await db
 		.select({
 			id: transactions.id,
 			fromUserId: transactions.fromUserId,
@@ -26,18 +26,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.from(transactions)
 		.where(or(eq(transactions.fromUserId, userId), eq(transactions.toUserId, userId)))
 		.orderBy(desc(transactions.createdAt))
-		.limit(5)
-		.all();
+		.limit(5);
 
 	// Get other party names
 	const otherUserIds = recentTxs.map((tx) =>
 		tx.fromUserId === userId ? tx.toUserId : tx.fromUserId
 	);
-	const uniqueIds = [...new Set(otherUserIds)];
+	const uniqueIds = [...new Set(otherUserIds)] as string[];
 
 	const userMap: Record<string, string> = {};
 	for (const id of uniqueIds) {
-		const u = db.select().from(appUsers).where(eq(appUsers.id, id)).get();
+		const [u] = await db.select().from(appUsers).where(eq(appUsers.id, id)).limit(1);
 		if (u) userMap[id] = u.displayName;
 	}
 

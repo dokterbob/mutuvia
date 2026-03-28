@@ -10,7 +10,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 | --------------------------- | ------------------------------------ | --------------------------------------------------------------- |
 | SvelteKit / Svelte 5        | `/sveltejs/svelte`                   | Runes, components, routing                                      |
 | Svelte Docs (comprehensive) | `/websites/svelte_dev`               | 8203 snippets, tutorials + reference                            |
-| Drizzle ORM                 | `/llmstxt/orm_drizzle_team_llms_txt` | SQLite schema, migrations, queries                              |
+| Drizzle ORM                 | `/llmstxt/orm_drizzle_team_llms_txt` | SQLite + PostgreSQL schema, migrations, queries                 |
 | Better Auth                 | `/llmstxt/better-auth_llms_txt`      | Phone OTP, email OTP, Drizzle adapter                           |
 | shadcn-svelte               | `/llmstxt/shadcn-svelte_llms_txt`    | UI components, CLI, Bits UI                                     |
 | Tailwind CSS v4             | `/websites/tailwindcss`              | Utility classes, CSS variables                                  |
@@ -27,8 +27,8 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Runtime**: Bun (via `svelte-adapter-bun`)
 - **UI**: shadcn-svelte + Tailwind CSS v4
 - **Auth**: Better Auth (SMS OTP via Twilio, email OTP fallback)
-- **ORM**: Drizzle ORM with `bun:sqlite` (WAL mode, foreign keys ON)
-- **Database**: SQLite — `better-sqlite3` as devDependency for Drizzle Kit migrations
+- **ORM**: Drizzle ORM — SQLite (`bun:sqlite`, WAL mode, foreign keys ON) or PostgreSQL (`bun:sql`), selected via `DB_PROVIDER`
+- **Database**: SQLite (default) or PostgreSQL — `better-sqlite3` as devDependency for Drizzle Kit SQLite migrations; local PG via `docker compose up -d`
 - **i18n**: Paraglide JS v2 (EN, PT, NL) — translation files in `messages/`, generated output in `src/lib/paraglide/` (gitignored)
 - **QR**: jose (JWT HS256) + qrcode (client-side generation)
 
@@ -37,10 +37,11 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Bun over Node.js**: Use `bun`, `bun run`, `bun test`, `bunx` for everything
 - **Vite scripts use `bunx --bun`**: Required so `bun:sqlite` imports resolve at build time
 - **Bun loads `.env` automatically**: Don't use dotenv
+- **`DB_PROVIDER`**: Set to `sqlite` (default) or `pg`; controls which driver and schema module are loaded at runtime
 - **Balance is always computed from the ledger** — never stored
 - **Amounts are integers** (cents/smallest unit) — `formatAmount()` handles display
 - **Connections are implicit** — upserted on transaction settlement, no friend management UI
-- **Atomic settlement**: Insert transaction + update QR status + upsert connection in one SQLite transaction
+- **Atomic settlement**: Insert transaction + update QR status + upsert connection in one database transaction (SQLite or PG)
 - **QR flow uses polling** (2s interval via `/api/qr-status/[id]`), not SSE
 - **Keep README.md in sync**: When changing the tech stack, project structure, scripts, or configuration, update `README.md` to reflect the change.
 
@@ -58,18 +59,21 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
 ## Scripts
 
-| Command                   | Description                              |
-| ------------------------- | ---------------------------------------- |
-| `bun run dev`             | Start dev server (Vite + Bun)            |
-| `bun run build`           | Production build                         |
-| `bun run check`           | Type-check (svelte-check)                |
-| `bun run lint`            | Prettier + ESLint                        |
-| `bun run format`          | Auto-format                              |
-| `bun test`                | Run tests                                |
-| `bun run db:generate`     | Generate Drizzle migration               |
-| `bun run db:migrate`      | Apply migrations                         |
-| `bun run db:seed`         | Seed test data (3 users, 2 transactions) |
-| `bun run generate-secret` | Generate secure QR_JWT_SECRET            |
+| Command                      | Description                              |
+| ---------------------------- | ---------------------------------------- |
+| `bun run dev`                | Start dev server (Vite + Bun)            |
+| `bun run build`              | Production build                         |
+| `bun run check`              | Type-check (svelte-check)                |
+| `bun run lint`               | Prettier + ESLint                        |
+| `bun run format`             | Auto-format                              |
+| `bun test`                   | Run tests                                |
+| `bun run db:generate:sqlite` | Generate Drizzle migration (SQLite)      |
+| `bun run db:generate:pg`     | Generate Drizzle migration (PostgreSQL)  |
+| `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
+| `bun run db:push:pg`         | Push schema to local PG (no migration)   |
+| `bun run db:seed`            | Seed test data (3 users, 2 transactions) |
+| `docker compose up -d`       | Start local PostgreSQL container         |
+| `bun run generate-secret`    | Generate secure QR_JWT_SECRET            |
 
 ## Testing
 
@@ -91,8 +95,15 @@ Run with: `bunx playwright test` (starts dev server automatically).
 
 ## Key Files
 
-- `src/lib/config.ts` — All env-var configuration (lazy getters)
-- `src/lib/server/schema.ts` — Drizzle schema (user, session, account, verification, appUsers, transactions, pendingQr, connections)
+- `src/lib/config.ts` — All env-var configuration (lazy getters), including `dbProvider`
+- `src/lib/server/schema.ts` — Re-exports the active schema (delegates to `schema.sqlite.ts` or `schema.pg.ts`)
+- `src/lib/server/schema.sqlite.ts` — Drizzle schema for SQLite (user, session, account, verification, appUsers, transactions, pendingQr, connections)
+- `src/lib/server/schema.pg.ts` — Drizzle schema for PostgreSQL (same tables, PG types)
+- `src/lib/server/db.ts` — Drizzle db instance (delegates to `db.sqlite.ts` or `db.pg.ts` based on `DB_PROVIDER`)
+- `src/lib/server/db.sqlite.ts` — SQLite driver setup (`bun:sqlite`, WAL mode)
+- `src/lib/server/db.pg.ts` — PostgreSQL driver setup (`bun:sql`)
+- `drizzle.config.sqlite.ts` / `drizzle.config.pg.ts` — Drizzle Kit configs per provider
+- `docker-compose.yml` — Local PostgreSQL container
 - `src/lib/server/auth.ts` — Better Auth server setup
 - `src/lib/server/balance.ts` — `getBalance`, `formatAmount`, `getConnections`, `upsertConnection`
 - `src/lib/server/qr.ts` — JWT sign/verify/buildUrl with jose

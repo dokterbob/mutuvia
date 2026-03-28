@@ -4,8 +4,8 @@ import { db } from './db';
 import { transactions, connections, appUsers } from './schema';
 import { eq, or, and, sql } from 'drizzle-orm';
 
-export function getBalance(userId: string): number {
-	const result = db
+export async function getBalance(userId: string): Promise<number> {
+	const [result] = await db
 		.select({
 			balance: sql<number>`
 				COALESCE(SUM(CASE WHEN ${transactions.toUserId} = ${userId} THEN ${transactions.amount} ELSE 0 END), 0)
@@ -14,7 +14,7 @@ export function getBalance(userId: string): number {
 		})
 		.from(transactions)
 		.where(or(eq(transactions.fromUserId, userId), eq(transactions.toUserId, userId)))
-		.get();
+		.limit(1);
 
 	return result?.balance ?? 0;
 }
@@ -25,18 +25,17 @@ export function formatAmount(amount: number, decimalPlaces: number, symbol: stri
 	return `${symbol}\u00A0${formatted}`;
 }
 
-export function getConnections(userId: string) {
-	const rows = db
+export async function getConnections(userId: string) {
+	const rows = await db
 		.select()
 		.from(connections)
-		.where(or(eq(connections.userAId, userId), eq(connections.userBId, userId)))
-		.all();
+		.where(or(eq(connections.userAId, userId), eq(connections.userBId, userId)));
 
 	const connectedIds = rows.map((r) => (r.userAId === userId ? r.userBId : r.userAId));
 
 	if (connectedIds.length === 0) return [];
 
-	return db
+	return await db
 		.select()
 		.from(appUsers)
 		.where(
@@ -44,26 +43,23 @@ export function getConnections(userId: string) {
 				connectedIds.map((id) => sql`${id}`),
 				sql`, `
 			)})`
-		)
-		.all();
+		);
 }
 
-export function upsertConnection(userIdA: string, userIdB: string) {
+export async function upsertConnection(userIdA: string, userIdB: string) {
 	const [lower, higher] = userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
 
-	const existing = db
+	const [existing] = await db
 		.select()
 		.from(connections)
 		.where(and(eq(connections.userAId, lower), eq(connections.userBId, higher)))
-		.get();
+		.limit(1);
 
 	if (!existing) {
-		db.insert(connections)
-			.values({
-				userAId: lower,
-				userBId: higher,
-				createdAt: new Date()
-			})
-			.run();
+		await db.insert(connections).values({
+			userAId: lower,
+			userBId: higher,
+			createdAt: new Date()
+		});
 	}
 }
