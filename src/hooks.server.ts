@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import * as Sentry from '@sentry/sveltekit';
 import { auth } from '$lib/server/auth';
 import { db, sqlite } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
@@ -59,4 +60,5 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(i18nHandle, authHandle);
+export const handle = sequence(Sentry.sentryHandle(), i18nHandle, authHandle);
+export const handleError = Sentry.handleErrorWithSentry();

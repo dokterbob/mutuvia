@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { sentrySvelteKit } from '@sentry/sveltekit';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 
 export default defineConfig({
@@ -12,6 +13,11 @@ export default defineConfig({
 			strategy: ['cookie', 'preferredLanguage', 'baseLocale']
 		}),
 		tailwindcss(),
+		sentrySvelteKit({
+			// Source map upload requires SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT env vars.
+			// Disabled automatically when SENTRY_AUTH_TOKEN is not set.
+			autoUploadSourceMaps: !!process.env.SENTRY_AUTH_TOKEN
+		}),
 		sveltekit()
 	],
 	ssr: {
