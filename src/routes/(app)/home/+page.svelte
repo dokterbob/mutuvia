@@ -11,6 +11,25 @@
 
 	let { data } = $props();
 
+	type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+
+	function getTimeOfDay(): TimeOfDay {
+		const hour = new Date().getHours();
+		if (hour >= 5 && hour < 12) return 'morning';
+		if (hour >= 12 && hour < 17) return 'afternoon';
+		if (hour >= 17 && hour < 21) return 'evening';
+		return 'night';
+	}
+
+	const timeOfDay: TimeOfDay = $derived(getTimeOfDay());
+
+	const greetingFns = {
+		morning: m.home_greeting_morning,
+		afternoon: m.home_greeting_afternoon,
+		evening: m.home_greeting_evening,
+		night: m.home_greeting_night
+	} as const;
+
 	function timeAgo(date: Date | string): string {
 		const now = Date.now();
 		const then = new Date(date).getTime();
@@ -48,7 +67,7 @@
 		</DropdownMenu.Root>
 	</div>
 	<p class="mb-5 text-sm text-muted-foreground">
-		{m.home_greeting({ name: data.appUser?.displayName ?? '' })}
+		{greetingFns[timeOfDay]({ name: data.appUser?.displayName ?? '' })}
 	</p>
 
 	<!-- Balance card -->

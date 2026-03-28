@@ -75,7 +75,10 @@
 	"intro3_cta": "De gemeenschap betreden",
 	"intro3_back": "Terug",
 
-	"home_greeting": "Goedemorgen, {name}",
+	"home_greeting_morning": "Goedemorgen, {name}",
+	"home_greeting_afternoon": "Goedemiddag, {name}",
+	"home_greeting_evening": "Goedenavond, {name}",
+	"home_greeting_night": "Goedenacht, {name}",
 	"home_balance_label": "Je saldo",
 	"home_balance_positive": "De gemeenschap is je verschuldigd",
 	"home_balance_negative": "Je bent de gemeenschap verschuldigd",

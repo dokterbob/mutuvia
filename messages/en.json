@@ -75,7 +75,10 @@
 	"intro3_cta": "Enter the community",
 	"intro3_back": "Back",
 
-	"home_greeting": "Good morning, {name}",
+	"home_greeting_morning": "Good morning, {name}",
+	"home_greeting_afternoon": "Good afternoon, {name}",
+	"home_greeting_evening": "Good evening, {name}",
+	"home_greeting_night": "Good night, {name}",
 	"home_balance_label": "Your balance",
 	"home_balance_positive": "The community owes you",
 	"home_balance_negative": "You owe the community",
