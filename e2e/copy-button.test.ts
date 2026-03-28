@@ -14,9 +14,7 @@ import { test, expect } from '@playwright/test';
 // CopyButton renders a button with children text qr.copy_link = "Copy link".
 // After clicking, sr-only text switches to "Copied" for ~500ms then reverts to "Copy".
 
-test.describe('CopyButton', () => {
-	test.skip(true, 'Requires auth session — implement session seeding first');
-
+test.describe.skip('CopyButton', () => {
 	test('CopyButton visible after generating QR on /send', async ({ page }) => {
 		await page.goto('/send');
 		await page.locator('input[type="number"]').fill('10');
