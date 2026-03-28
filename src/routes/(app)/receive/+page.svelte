@@ -14,7 +14,7 @@
 
 	let { data, form } = $props();
 
-	type ReceiveStep = 'amount' | 'qr' | 'done';
+	type ReceiveStep = 'amount' | 'qr' | 'done' | 'declined';
 	let step = $state<ReceiveStep>('amount');
 
 	let amount = $state('');
@@ -71,6 +71,9 @@
 					completedName = json.otherName || '';
 					completedAmount = json.formattedAmount || '';
 					step = 'done';
+				} else if (json.status === 'declined') {
+					clearInterval(pollInterval!);
+					step = 'declined';
 				}
 			} catch {
 				// ignore
@@ -183,6 +186,19 @@
 					</Button>
 				</form>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Declined step -->
+	{#if step === 'declined'}
+		<div class="flex flex-1 flex-col items-center justify-center text-center">
+			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-3xl">
+				✕
+			</div>
+			<p class="mb-6 text-lg font-medium">{m.receive_declined()}</p>
+			<Button class="w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
+				{m.receive_back_home()}
+			</Button>
 		</div>
 	{/if}
 

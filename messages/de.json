@@ -103,6 +103,7 @@
 	"send_qr_expired": "Abgelaufen — tippe, um zurückzugehen.",
 	"send_cancel": "Abbrechen",
 	"send_done": "Fertig. Du hast {amount} an {name} gesendet.",
+	"send_declined": "Dein Kredit wurde abgelehnt.",
 	"send_back_home": "Zurück zur Startseite",
 
 	"receive_helper": "Gib den Betrag ein, den du anfordern möchtest.",
@@ -110,6 +111,7 @@
 	"receive_cta": "QR generieren",
 	"receive_qr_caption": "Bitte die andere Person, dies zu scannen, um dir Kredit zu senden.",
 	"receive_done": "Fertig. Du hast {amount} von {name} erhalten.",
+	"receive_declined": "Deine Zahlungsanfrage wurde abgelehnt.",
 	"receive_back_home": "Zurück zur Startseite",
 
 	"accept_send_prompt": "{name} möchte dir {amount} senden",

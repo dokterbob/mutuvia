@@ -103,6 +103,7 @@
 	"send_qr_expired": "Expirado — toca para voltar.",
 	"send_cancel": "Cancelar",
 	"send_done": "Feito. Enviaste {amount} a {name}.",
+	"send_declined": "O teu crédito foi recusado.",
 	"send_back_home": "Voltar ao início",
 
 	"receive_helper": "Introduz o montante que queres pedir.",
@@ -110,6 +111,7 @@
 	"receive_cta": "Gerar QR",
 	"receive_qr_caption": "Pede à outra pessoa para digitalizar isto e enviar-te crédito.",
 	"receive_done": "Feito. Recebeste {amount} de {name}.",
+	"receive_declined": "O teu pedido de pagamento foi recusado.",
 	"receive_back_home": "Voltar ao início",
 
 	"accept_send_prompt": "{name} quer enviar-te {amount}",
