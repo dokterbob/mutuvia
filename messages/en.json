@@ -145,5 +145,48 @@
 	"qr_copied": "Copied!",
 	"qr_share": "Share",
 
-	"locale_name": "English"
+	"locale_name": "English",
+
+	"menu_settings": "Settings",
+	"menu_faq": "FAQ",
+
+	"faq_title": "Frequently Asked Questions",
+
+	"faq_q_what_is_mutual_credit": "What is mutual credit?",
+	"faq_a_what_is_mutual_credit": "Mutual credit is a way for a community to exchange without using money. When you send someone credit, you are saying: I owe you. When you receive credit, someone is saying they owe you. Nothing real changes hands — it is a shared record of who owes what to whom.",
+
+	"faq_q_is_this_real_money": "Is this real money?",
+	"faq_a_is_this_real_money": "No. Nothing in this app is real money. Credits are a record of mutual obligations between community members. Think of it as a shared notebook where we keep track of favours.",
+
+	"faq_q_negative_balance": "What does a negative balance mean? Is that bad?",
+	"faq_a_negative_balance": "A negative balance means you have received more from the community than you have given so far. That is completely normal — it just means the community trusts you to contribute over time. There is no interest, no deadline, and no penalty.",
+
+	"faq_q_someone_doesnt_give_back": "What happens if someone does not give back?",
+	"faq_a_someone_doesnt_give_back": "The system relies on trust and social bonds. If someone consistently takes without giving, the community can see their balance and decide whether to keep extending credit. Based on community feedback, we are also exploring various conflict resolution and feedback mechanisms.",
+
+	"faq_q_who_sees_my_data": "Who can see my transactions and balance?",
+	"faq_a_who_sees_my_data": "When you exchange credit with someone, that person can see your current balance. This transparency helps members make informed decisions. Your full transaction history is visible only to you.",
+
+	"faq_q_how_to_send_receive": "How do I send or receive credit?",
+	"faq_a_how_to_send_receive": "Tap Send or Receive on the home screen, enter an amount and an optional note, then show the QR code to the other person. They scan it to complete the exchange.",
+
+	"faq_q_what_is_the_note": "What is the note field for?",
+	"faq_a_what_is_the_note": "The note is an optional description you can attach to any transaction. Use it to record what the credit is for, or any conditions you have agreed on — a timeframe, a service in return, anything. The note stays with the transaction permanently.",
+
+	"faq_q_can_i_trust_this": "Can I trust this?",
+	"faq_a_can_i_trust_this": "All data is processed and stored within the EU. The app is fully open source, so anyone can read the code, verify what it does, or run their own instance.",
+	"faq_link_source_code": "View source code on GitHub",
+
+	"faq_q_is_open_source": "Is this open source?",
+	"faq_a_is_open_source": "Yes. The code is licensed under AGPL-3.0. Any community can read it, audit it, or run their own instance. Changes that affect your data or credits are always announced in advance.",
+	"faq_link_view_on_github": "View on GitHub",
+
+	"faq_q_who_made_this": "Who made this?",
+	"faq_a_who_made_this": "This app was built by Mathijs de Bruin, with Claude (Anthropic's AI assistant) as a coding collaborator.",
+	"faq_link_mathijs": "Mathijs on GitHub",
+	"faq_link_claude": "Claude by Anthropic",
+
+	"faq_q_question_not_answered": "My question is not answered here.",
+	"faq_a_question_not_answered": "We would love to hear from you. You can ask a question, report a bug, or suggest a feature on GitHub.",
+	"faq_link_report_issue": "Open an issue or discussion on GitHub"
 }
