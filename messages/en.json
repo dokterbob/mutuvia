@@ -85,6 +85,7 @@
 	"home_balance_zero": "You're all square",
 	"home_balance_first_use": "Your balance starts at zero. Send or receive credit to get started.",
 	"home_send": "Send",
+	"home_scan": "Scan",
 	"home_receive": "Receive",
 	"home_recent": "Recent",
 	"home_see_all": "See all",
@@ -147,6 +148,12 @@
 	"history_empty": "No transactions found.",
 	"error_send_code": "Failed to send code",
 	"error_generic": "Something went wrong",
+
+	"scan_title": "Scan QR Code",
+	"scan_no_camera": "No camera found on this device",
+	"scan_permission_denied": "Camera access was denied. Please allow camera access in your browser settings.",
+	"scan_error": "Could not start the scanner",
+	"scan_invalid_qr": "Not a valid Mutuvia QR code",
 
 	"qr_copy_link": "Copy link",
 	"qr_copied": "Copied!",

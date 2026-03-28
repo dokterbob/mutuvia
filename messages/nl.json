@@ -85,6 +85,7 @@
 	"home_balance_zero": "Je staat quitte",
 	"home_balance_first_use": "Je saldo begint op nul. Verstuur of ontvang krediet om te beginnen.",
 	"home_send": "Versturen",
+	"home_scan": "Scannen",
 	"home_receive": "Ontvangen",
 	"home_recent": "Recent",
 	"home_see_all": "Alles zien",
@@ -147,6 +148,12 @@
 	"history_empty": "Geen transacties gevonden.",
 	"error_send_code": "Code versturen mislukt",
 	"error_generic": "Er ging iets mis",
+
+	"scan_title": "QR-code scannen",
+	"scan_no_camera": "Geen camera gevonden op dit apparaat",
+	"scan_permission_denied": "Cameratoegang is geweigerd. Sta cameratoegang toe in je browserinstellingen.",
+	"scan_error": "Kon de scanner niet starten",
+	"scan_invalid_qr": "Geen geldige Mutuvia QR-code",
 
 	"qr_copy_link": "Link kopiëren",
 	"qr_copied": "Gekopieerd!",
