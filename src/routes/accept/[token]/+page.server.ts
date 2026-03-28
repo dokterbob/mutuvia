@@ -27,7 +27,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	// Look up the pending QR
-	const qr = db.select().from(pendingQr).where(eq(pendingQr.id, tokenData.jti)).get();
+	const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, tokenData.jti)).limit(1);
 	if (!qr || qr.status !== 'pending' || qr.expiresAt < new Date()) {
 		return {
 			expired: true,
@@ -44,7 +44,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	}
 
 	// Get initiator info
-	const initiator = db.select().from(appUsers).where(eq(appUsers.id, qr.initiatingUserId)).get();
+	const [initiator] = await db
+		.select()
+		.from(appUsers)
+		.where(eq(appUsers.id, qr.initiatingUserId))
+		.limit(1);
 
 	if (!initiator) {
 		return { expired: true, error: 'Initiator not found.', unitSymbol, decimalPlaces };
@@ -60,7 +64,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
-	const initiatorBalance = getBalance(qr.initiatingUserId);
+	const initiatorBalance = await getBalance(qr.initiatingUserId);
 
 	return {
 		expired: false,
@@ -86,7 +90,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 
-		const qr = db.select().from(pendingQr).where(eq(pendingQr.id, qrId)).get();
+		const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, qrId)).limit(1);
 		if (!qr || qr.status !== 'pending' || qr.expiresAt < new Date()) {
 			return fail(400, { error: 'This QR code has expired or already been used.' });
 		}
@@ -114,22 +118,20 @@ export const actions: Actions = {
 		// Atomic settlement: insert transaction + update QR status + upsert connection
 		const txId = randomUUID();
 
-		db.insert(transactions)
-			.values({
-				id: txId,
-				fromUserId,
-				toUserId,
-				amount: qr.amount,
-				unitCode,
-				note: qr.note,
-				pendingQrId: qr.id,
-				createdAt: new Date()
-			})
-			.run();
+		await db.insert(transactions).values({
+			id: txId,
+			fromUserId,
+			toUserId,
+			amount: qr.amount,
+			unitCode,
+			note: qr.note,
+			pendingQrId: qr.id,
+			createdAt: new Date()
+		});
 
-		db.update(pendingQr).set({ status: 'completed' }).where(eq(pendingQr.id, qr.id)).run();
+		await db.update(pendingQr).set({ status: 'completed' }).where(eq(pendingQr.id, qr.id));
 
-		upsertConnection(fromUserId, toUserId);
+		await upsertConnection(fromUserId, toUserId);
 
 		redirect(307, '/home');
 	},
@@ -139,7 +141,7 @@ export const actions: Actions = {
 		const qrId = data.get('qrId') as string;
 
 		if (qrId) {
-			db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId)).run();
+			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
 		}
 
 		redirect(307, '/home');

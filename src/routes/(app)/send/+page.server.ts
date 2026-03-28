@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
 	consent: async ({ locals }) => {
 		const userId = locals.appUser!.id;
-		db.update(appUsers).set({ sendConsentAt: new Date() }).where(eq(appUsers.id, userId)).run();
+		await db.update(appUsers).set({ sendConsentAt: new Date() }).where(eq(appUsers.id, userId));
 		return { consented: true };
 	},
 
@@ -46,18 +46,16 @@ export const actions: Actions = {
 		const now = new Date();
 		const qrId = randomUUID();
 
-		db.insert(pendingQr)
-			.values({
-				id: qrId,
-				initiatingUserId: userId,
-				direction: 'send',
-				amount,
-				note,
-				createdAt: now,
-				expiresAt: new Date(now.getTime() + ttl * 1000),
-				status: 'pending'
-			})
-			.run();
+		await db.insert(pendingQr).values({
+			id: qrId,
+			initiatingUserId: userId,
+			direction: 'send',
+			amount,
+			note,
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + ttl * 1000),
+			status: 'pending'
+		});
 
 		const token = await signQrToken({ jti: qrId, amt: amount, dir: 'send', dn: displayName }, ttl);
 
@@ -72,7 +70,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
-			db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId)).run();
+			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
 		}
 		redirect(307, '/home');
 	}

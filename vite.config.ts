@@ -20,7 +20,7 @@ export default defineConfig({
 		sveltekit()
 	],
 	ssr: {
-		external: ['bun:sqlite']
+		external: ['bun:sqlite', 'bun:sql']
 	},
 	test: {
 		expect: { requireAssertions: true },

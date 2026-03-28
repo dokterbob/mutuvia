@@ -5,21 +5,28 @@ import { auth } from '$lib/server/auth';
 import { db, sqlite } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import type { Handle, ServerInit } from '@sveltejs/kit';
+import { config } from '$lib/config';
 import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 
 /**
  * Run Drizzle migrations once at server startup, before any request is served.
  * Using the init hook guarantees that the environment is fully set up and that
- * we are migrating the exact same SQLite connection the rest of the app uses —
- * no env-var timing issues around DB_FILE_NAME.
+ * we are migrating the exact same database connection the rest of the app uses —
+ * no env-var timing issues around DB_FILE_NAME / DATABASE_URL.
  */
-export const init: ServerInit = () => {
-	sqlite.exec('PRAGMA foreign_keys = OFF;');
-	migrate(db, { migrationsFolder: './drizzle' });
-	sqlite.exec('PRAGMA foreign_keys = ON;');
+export const init: ServerInit = async () => {
+	if (config.dbProvider === 'pg') {
+		const { migrate } = await import('drizzle-orm/bun-sql/migrator');
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		await migrate(db as any, { migrationsFolder: './drizzle/pg' });
+	} else {
+		const { migrate } = await import('drizzle-orm/bun-sqlite/migrator');
+		sqlite!.exec('PRAGMA foreign_keys = OFF;');
+		migrate(db, { migrationsFolder: './drizzle/sqlite' });
+		sqlite!.exec('PRAGMA foreign_keys = ON;');
+	}
 };
 
 const i18nHandle: Handle = ({ event, resolve }) => {

@@ -27,24 +27,22 @@ export const actions: Actions = {
 			return fail(400, { error: 'Display name must be 2–40 characters.' });
 		}
 
-		const existing = await db
+		const [existing] = await db
 			.select()
 			.from(appUsers)
 			.where(eq(appUsers.betterAuthUserId, locals.user.id))
-			.get();
+			.limit(1);
 
 		if (existing) {
 			redirect(307, '/home');
 		}
 
-		db.insert(appUsers)
-			.values({
-				id: randomUUID(),
-				betterAuthUserId: locals.user.id,
-				displayName,
-				createdAt: new Date()
-			})
-			.run();
+		await db.insert(appUsers).values({
+			id: randomUUID(),
+			betterAuthUserId: locals.user.id,
+			displayName,
+			createdAt: new Date()
+		});
 
 		redirect(307, '/home');
 	}
