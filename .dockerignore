@@ -1,0 +1,16 @@
+node_modules
+.svelte-kit
+build
+.git
+.env
+.env.test
+
+# Local SQLite databases
+*.db
+*.db-wal
+*.db-shm
+
+# Test / dev artifacts
+e2e/
+playwright-report/
+test-results/

@@ -2,9 +2,12 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
 	import { Card } from '$lib/components/ui/card';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import MenuIcon from '@lucide/svelte/icons/menu';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
 
 	let { data } = $props();
 
@@ -25,12 +28,24 @@
 		<span class="font-serif text-base text-foreground">
 			{data.appUser?.displayName ? `Mutuvia` : 'Mutuvia'}
 		</span>
-		<button
-			class="flex h-9 w-9 items-center justify-center rounded-full border bg-muted"
-			onclick={() => goto('/settings')}
-		>
-			<SettingsIcon class="h-4 w-4 text-muted-foreground" />
-		</button>
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger
+				aria-label="Menu"
+				class="flex h-9 w-9 items-center justify-center rounded-full border bg-muted"
+			>
+				<MenuIcon class="h-4 w-4 text-muted-foreground" />
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content align="end">
+				<DropdownMenu.Item onclick={() => goto('/settings')}>
+					<SettingsIcon class="h-4 w-4" />
+					{m.menu_settings()}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item onclick={() => goto('/faq')}>
+					<CircleHelpIcon class="h-4 w-4" />
+					{m.menu_faq()}
+				</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
 	</div>
 	<p class="mb-5 text-sm text-muted-foreground">
 		{m.home_greeting({ name: data.appUser?.displayName ?? '' })}
