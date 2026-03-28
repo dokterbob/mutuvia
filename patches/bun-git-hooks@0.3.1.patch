@@ -1,0 +1,83 @@
+diff --git a/node_modules/bun-git-hooks/.bun-tag-1a457d9909bbe9d1 b/.bun-tag-1a457d9909bbe9d1
+new file mode 100644
+index 0000000000000000000000000000000000000000..e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+diff --git a/dist/bin/cli.js b/dist/bin/cli.js
+index 6af4d0221e8f37664bad6e93967329b72d644187..fe9921223054474b64da5026718d89c1fbe211aa 100755
+--- a/dist/bin/cli.js
++++ b/dist/bin/cli.js
+@@ -5988,6 +5988,7 @@ import { execSync } from "child_process";
+ import fs2 from "fs";
+ import path2 from "path";
+ import process15 from "process";
++function shellQuote(f) { return "'" + f.replace(/'/g, "'\\''") + "'"; }
+ 
+ class StagedLintProcessor {
+   projectRoot;
+@@ -6067,7 +6068,7 @@ class StagedLintProcessor {
+     const content = new Map;
+     for (const file of files) {
+       try {
+-        const stagedContent = execSync(`git show :${file}`, {
++        const stagedContent = execSync(`git show :${shellQuote(file)}`, {
+           cwd: this.projectRoot,
+           encoding: "utf-8"
+         });
+@@ -6124,7 +6125,8 @@ class StagedLintProcessor {
+   }
+   async runLintCommand(command, files) {
+     try {
+-      const finalCommand = command.includes("{files}") ? command.replace("{files}", files.join(" ")) : `${command} ${files.join(" ")}`;
++      const quotedFiles = files.map((f) => shellQuote(f)).join(" ");
++      const finalCommand = command.includes("{files}") ? command.replace("{files}", quotedFiles) : `${command} ${quotedFiles}`;
+       this.log(`Running command on ${files.length} file(s): ${command}`);
+       if (this.verbose) {
+         this.log(`Files: ${files.join(", ")}`);
+@@ -6166,7 +6168,7 @@ class StagedLintProcessor {
+     if (files.length === 0)
+       return;
+     try {
+-      execSync(`git add ${files.join(" ")}`, {
++      execSync(`git add ${files.map((f) => shellQuote(f)).join(" ")}`, {
+         cwd: this.projectRoot,
+         stdio: this.verbose ? "inherit" : "pipe"
+       });
+diff --git a/dist/index.js b/dist/index.js
+index f4d0d743976b098d489349e9fa5b3c513189454a..652e227e3617a533ba1b638c72a9acde86c73983 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -5308,6 +5308,7 @@ import { execSync } from "node:child_process";
+ import fs2 from "node:fs";
+ import path2 from "node:path";
+ import process14 from "node:process";
++function shellQuote(f) { return "'" + f.replace(/'/g, "'\\''") + "'"; }
+ 
+ class StagedLintProcessor {
+   projectRoot;
+@@ -5387,7 +5388,7 @@ class StagedLintProcessor {
+     const content = new Map;
+     for (const file of files) {
+       try {
+-        const stagedContent = execSync(`git show :${file}`, {
++        const stagedContent = execSync(`git show :${shellQuote(file)}`, {
+           cwd: this.projectRoot,
+           encoding: "utf-8"
+         });
+@@ -5444,7 +5445,8 @@ class StagedLintProcessor {
+   }
+   async runLintCommand(command, files) {
+     try {
+-      const finalCommand = command.includes("{files}") ? command.replace("{files}", files.join(" ")) : `${command} ${files.join(" ")}`;
++      const quotedFiles = files.map((f) => shellQuote(f)).join(" ");
++      const finalCommand = command.includes("{files}") ? command.replace("{files}", quotedFiles) : `${command} ${quotedFiles}`;
+       this.log(`Running command on ${files.length} file(s): ${command}`);
+       if (this.verbose) {
+         this.log(`Files: ${files.join(", ")}`);
+@@ -5486,7 +5488,7 @@ class StagedLintProcessor {
+     if (files.length === 0)
+       return;
+     try {
+-      execSync(`git add ${files.join(" ")}`, {
++      execSync(`git add ${files.map((f) => shellQuote(f)).join(" ")}`, {
+         cwd: this.projectRoot,
+         stdio: this.verbose ? "inherit" : "pipe"
+       });

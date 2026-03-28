@@ -91,5 +91,8 @@
 		"jose": "^6.2.2",
 		"qrcode": "^1.5.4",
 		"svelte-tel-input": "^3.6.1"
+	},
+	"patchedDependencies": {
+		"bun-git-hooks@0.3.1": "patches/bun-git-hooks@0.3.1.patch"
 	}
 }
