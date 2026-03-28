@@ -35,16 +35,17 @@ RUN bun install --production --frozen-lockfile
 # Bundled SvelteKit server
 COPY --from=builder /app/build ./build
 
-# Drizzle migration SQL files + runner script
+# Drizzle migration SQL files (both dialects) + runner script
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts/migrate.ts ./scripts/migrate.ts
 
-# SQLite database lives on a persistent volume
+# Default to SQLite with a persistent-volume path.
+# Override DB_PROVIDER=pg and DATABASE_URL at runtime for PostgreSQL.
+ENV DB_PROVIDER=sqlite
 ENV DB_FILE_NAME=/data/sqlite.db
-VOLUME ["/data"]
 
 # svelte-adapter-bun reads PORT (default 3000)
 EXPOSE 3000
 
-# Migrate then start — bun:sqlite is a Bun built-in, no extra install needed
+# Migrate then start — migrate.ts is provider-aware (SQLite or PostgreSQL)
 CMD ["sh", "-c", "bun scripts/migrate.ts && bun build/index.js"]
