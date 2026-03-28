@@ -1,18 +1,25 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+
+	const isReview = $derived(page.url.searchParams.has('review'));
 </script>
 
 <div class="flex flex-1 flex-col">
-	<button
-		class="mb-1.5 self-end text-[13px] text-[#6B7A6E] hover:text-[#1E2820]"
-		onclick={() => goto('/onboarding/name')}
-	>
-		{m.intro2_skip()} ↗
-	</button>
+	{#if !isReview}
+		<button
+			class="mb-1.5 self-end text-[13px] text-[#6B7A6E] hover:text-[#1E2820]"
+			onclick={() => goto('/onboarding/name')}
+		>
+			{m.intro2_skip()} ↗
+		</button>
+	{:else}
+		<div class="mb-1.5"></div>
+	{/if}
 
 	<div class="mb-3 flex justify-center gap-1.5">
 		<div class="h-2 w-2 rounded-full bg-[#7A9E7E]"></div>
@@ -45,15 +52,15 @@
 	<div class="flex-1"></div>
 	<Button
 		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145]"
-		onclick={() => goto('/onboarding/name')}
+		onclick={() => goto(isReview ? '/home' : '/onboarding/name')}
 	>
-		{m.intro2_cta()}
+		{isReview ? m.how_it_works_back_home() : m.intro2_cta()}
 		<ArrowRightIcon class="ml-2 h-4 w-4" />
 	</Button>
 	<Button
 		variant="ghost"
 		class="mt-2 w-full text-sm text-[#6B7A6E]"
-		onclick={() => goto('/onboarding/intro1')}
+		onclick={() => goto(isReview ? '/onboarding/intro1?review' : '/onboarding/intro1')}
 	>
 		<ArrowLeftIcon class="mr-1 h-3 w-3" />
 		{m.intro2_back()}
