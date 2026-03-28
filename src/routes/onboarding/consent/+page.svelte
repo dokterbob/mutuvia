@@ -18,7 +18,7 @@
 	</h1>
 
 	<ul class="mb-4 space-y-0">
-		{#each [{ icon: '📒', title: m.consent_item1_title(), body: m.consent_item1_body() }, { icon: '🔒', title: m.consent_item2_title(), body: m.consent_item2_body() }, { icon: '👥', title: m.consent_item3_title(), body: m.consent_item3_body() }, { icon: '🌱', title: m.consent_item4_title(), body: m.consent_item4_body() }] as item (item.title)}
+		{#each [{ icon: '📒', title: m.consent_no_money_title(), body: m.consent_no_money_body() }, { icon: '🔒', title: m.consent_minimal_data_title(), body: m.consent_minimal_data_body() }, { icon: '👥', title: m.consent_balance_visible_title(), body: m.consent_balance_visible_body() }, { icon: '🌱', title: m.consent_open_source_title(), body: m.consent_open_source_body() }] as item (item.title)}
 			<li
 				class="flex items-start gap-3 border-b border-[#DDD8CE] py-3 text-sm text-[#3A4A3D] last:border-b-0"
 			>
