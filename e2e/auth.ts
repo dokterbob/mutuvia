@@ -17,11 +17,12 @@ import { testUtils } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
+import * as schema from '../src/lib/server/schema.js';
 import { E2E_DB_FILE, E2E_AUTH_SECRET, E2E_BASE_URL } from './config.js';
 
 export const sqlite = new Database(E2E_DB_FILE);
 
-const db = drizzle(sqlite);
+const db = drizzle(sqlite, { schema });
 
 export const auth = betterAuth({
 	database: drizzleAdapter(db, { provider: 'sqlite' }),
