@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const qr = db.select().from(pendingQr).where(eq(pendingQr.id, params.id)).get();
+	const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, params.id)).limit(1);
 	if (!qr) {
 		return json({ error: 'Not found' }, { status: 404 });
 	}
@@ -26,11 +26,19 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	if (status === 'completed') {
 		// Find the transaction linked to this QR
-		const tx = db.select().from(transactions).where(eq(transactions.pendingQrId, qr.id)).get();
+		const [tx] = await db
+			.select()
+			.from(transactions)
+			.where(eq(transactions.pendingQrId, qr.id))
+			.limit(1);
 
 		if (tx) {
 			const otherUserId = tx.fromUserId === locals.appUser?.id ? tx.toUserId : tx.fromUserId;
-			const otherUser = db.select().from(appUsers).where(eq(appUsers.id, otherUserId)).get();
+			const [otherUser] = await db
+				.select()
+				.from(appUsers)
+				.where(eq(appUsers.id, otherUserId))
+				.limit(1);
 			otherName = otherUser?.displayName || 'Unknown';
 
 			const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';

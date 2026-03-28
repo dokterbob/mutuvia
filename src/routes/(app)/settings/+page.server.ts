@@ -23,7 +23,7 @@ export const actions: Actions = {
 			return fail(400, { error: 'Display name must be 2–40 characters.' });
 		}
 
-		db.update(appUsers).set({ displayName }).where(eq(appUsers.id, locals.appUser!.id)).run();
+		await db.update(appUsers).set({ displayName }).where(eq(appUsers.id, locals.appUser!.id));
 
 		return { saved: true };
 	}
