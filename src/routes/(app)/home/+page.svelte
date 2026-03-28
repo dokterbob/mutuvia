@@ -5,11 +5,23 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
 
+	import { browser } from '$app/environment';
+
 	let { data } = $props();
+
+	let hasCamera = $state(false);
+
+	$effect(() => {
+		if (!browser) return;
+		navigator.mediaDevices?.enumerateDevices().then((devices) => {
+			hasCamera = devices.some((d) => d.kind === 'videoinput');
+		});
+	});
 
 	type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 
@@ -93,7 +105,7 @@
 	</Card>
 
 	<!-- Action buttons -->
-	<div class="mb-5 grid grid-cols-2 gap-3">
+	<div class="mb-5 grid {hasCamera ? 'grid-cols-3' : 'grid-cols-2'} gap-3">
 		<button
 			class="flex flex-col items-center gap-2 rounded-2xl border bg-muted p-4"
 			onclick={() => goto('/send')}
@@ -103,6 +115,17 @@
 			</div>
 			<span class="text-sm font-medium">{m.home_send()}</span>
 		</button>
+		{#if hasCamera}
+			<button
+				class="flex flex-col items-center gap-2 rounded-2xl border bg-muted p-4"
+				onclick={() => goto('/scan')}
+			>
+				<div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2D4A32] text-white">
+					<ScanLineIcon class="h-5 w-5" />
+				</div>
+				<span class="text-sm font-medium">{m.home_scan()}</span>
+			</button>
+		{/if}
 		<button
 			class="flex flex-col items-center gap-2 rounded-2xl border bg-muted p-4"
 			onclick={() => goto('/receive')}

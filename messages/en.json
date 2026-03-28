@@ -9,14 +9,14 @@
 
 	"consent_eyebrow": "Before you join",
 	"consent_title": "What you're agreeing to",
-	"consent_item1_title": "This records mutual debts, not money",
-	"consent_item1_body": "When someone sends you credit they are saying \"I owe you.\" No real euros are transferred.",
-	"consent_item2_title": "We store almost nothing about you",
-	"consent_item2_body": "Only your phone number and a display name. No payment details needed.",
-	"consent_item3_title": "Other members can see your balance",
-	"consent_item3_body": "When exchanging, the other person sees your balance — so they can decide whether to trust you.",
-	"consent_item4_title": "Open source and community-owned",
-	"consent_item4_body": "The code is public — anyone can read it and any community can run their own instance. Changes that affect your data or credits will always be announced in advance.",
+	"consent_no_money_title": "This records mutual debts, not money",
+	"consent_no_money_body": "When someone sends you credit they are saying \"I owe you.\" No real euros are transferred.",
+	"consent_minimal_data_title": "We store almost nothing about you",
+	"consent_minimal_data_body": "Only your phone number and a display name. No payment details needed.",
+	"consent_balance_visible_title": "Other members can see your balance",
+	"consent_balance_visible_body": "Before accepting credit from you, the other person can see your balance. This helps them verify your credibility.",
+	"consent_open_source_title": "Open source and community-owned",
+	"consent_open_source_body": "This app is free and open. Anyone can inspect how it works, and any community can run their own version.",
 	"consent_cta": "I understand, continue",
 	"consent_back": "Back",
 
@@ -85,6 +85,7 @@
 	"home_balance_zero": "You're all square",
 	"home_balance_first_use": "Your balance starts at zero. Send or receive credit to get started.",
 	"home_send": "Send",
+	"home_scan": "Scan",
 	"home_receive": "Receive",
 	"home_recent": "Recent",
 	"home_see_all": "See all",
@@ -151,6 +152,12 @@
 	"error_send_code": "Failed to send code",
 	"error_generic": "Something went wrong",
 
+	"scan_title": "Scan QR Code",
+	"scan_no_camera": "No camera found on this device",
+	"scan_permission_denied": "Camera access was denied. Please allow camera access in your browser settings.",
+	"scan_error": "Could not start the scanner",
+	"scan_invalid_qr": "Not a valid Mutuvia QR code",
+
 	"qr_copy_link": "Copy link",
 	"qr_copied": "Copied!",
 	"qr_share": "Share",
@@ -175,7 +182,7 @@
 	"faq_a_someone_doesnt_give_back": "The system relies on trust and social bonds. If someone consistently takes without giving, the community can see their balance and decide whether to keep extending credit. Based on community feedback, we are also exploring various conflict resolution and feedback mechanisms.",
 
 	"faq_q_who_sees_my_data": "Who can see my transactions and balance?",
-	"faq_a_who_sees_my_data": "When you exchange credit with someone, that person can see your current balance. This transparency helps members make informed decisions. Your full transaction history is visible only to you.",
+	"faq_a_who_sees_my_data": "Before someone accepts credit from you, they can see your current balance — this helps them decide whether to trust you. Your full transaction history is visible only to you.",
 
 	"faq_q_how_to_send_receive": "How do I send or receive credit?",
 	"faq_a_how_to_send_receive": "Tap Send or Receive on the home screen, enter an amount and an optional note, then show the QR code to the other person. They scan it to complete the exchange.",

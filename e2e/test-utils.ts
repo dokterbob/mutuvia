@@ -160,7 +160,7 @@ export async function deleteTestUser(email: string = TEST_EMAIL): Promise<void> 
 			.prepare(`DELETE FROM transactions WHERE from_user_id = ? OR to_user_id = ?`)
 			.run(appUserId, appUserId);
 		sqlite
-			.prepare(`DELETE FROM connections WHERE user_id = ? OR connected_user_id = ?`)
+			.prepare(`DELETE FROM connections WHERE user_a_id = ? OR user_b_id = ?`)
 			.run(appUserId, appUserId);
 		sqlite.prepare(`DELETE FROM pending_qr WHERE initiating_user_id = ?`).run(appUserId);
 	}

@@ -9,14 +9,14 @@
 
 	"consent_eyebrow": "Voordat je meedoet",
 	"consent_title": "Waar je mee akkoord gaat",
-	"consent_item1_title": "Dit registreert onderlinge schulden, geen geld",
-	"consent_item1_body": "Wanneer iemand je krediet stuurt, zegt die persoon \"ik sta bij je in het krijt.\" Er worden geen echte euro's overgemaakt.",
-	"consent_item2_title": "We bewaren bijna niets over je",
-	"consent_item2_body": "Alleen je telefoonnummer en een weergavenaam. Geen betalingsgegevens nodig.",
-	"consent_item3_title": "Andere leden kunnen je saldo zien",
-	"consent_item3_body": "Bij uitwisseling ziet de andere persoon je saldo — zodat ze kunnen beslissen of ze je vertrouwen.",
-	"consent_item4_title": "Open source en van de gemeenschap",
-	"consent_item4_body": "De code is openbaar — iedereen kan het lezen en elke gemeenschap kan een eigen versie draaien. Wijzigingen die je gegevens of kredieten beïnvloeden worden altijd vooraf aangekondigd.",
+	"consent_no_money_title": "Dit registreert onderlinge schulden, geen geld",
+	"consent_no_money_body": "Wanneer iemand je krediet stuurt, zegt die persoon \"ik sta bij je in het krijt.\" Er worden geen echte euro's overgemaakt.",
+	"consent_minimal_data_title": "We bewaren bijna niets over je",
+	"consent_minimal_data_body": "Alleen je telefoonnummer en een weergavenaam. Geen betalingsgegevens nodig.",
+	"consent_balance_visible_title": "Andere leden kunnen je saldo zien",
+	"consent_balance_visible_body": "Voordat iemand krediet van jou accepteert, kan die persoon je saldo zien. Dit helpt hen jouw geloofwaardigheid te beoordelen.",
+	"consent_open_source_title": "Open source en van de gemeenschap",
+	"consent_open_source_body": "Deze app is vrij en open. Iedereen kan bekijken hoe het werkt, en elke gemeenschap kan een eigen versie draaien.",
 	"consent_cta": "Ik begrijp het, doorgaan",
 	"consent_back": "Terug",
 
@@ -85,6 +85,7 @@
 	"home_balance_zero": "Je staat quitte",
 	"home_balance_first_use": "Je saldo begint op nul. Verstuur of ontvang krediet om te beginnen.",
 	"home_send": "Versturen",
+	"home_scan": "Scannen",
 	"home_receive": "Ontvangen",
 	"home_recent": "Recent",
 	"home_see_all": "Alles zien",
@@ -151,6 +152,12 @@
 	"error_send_code": "Code versturen mislukt",
 	"error_generic": "Er ging iets mis",
 
+	"scan_title": "QR-code scannen",
+	"scan_no_camera": "Geen camera gevonden op dit apparaat",
+	"scan_permission_denied": "Cameratoegang is geweigerd. Sta cameratoegang toe in je browserinstellingen.",
+	"scan_error": "Kon de scanner niet starten",
+	"scan_invalid_qr": "Geen geldige Mutuvia QR-code",
+
 	"qr_copy_link": "Link kopiëren",
 	"qr_copied": "Gekopieerd!",
 	"qr_share": "Delen",
@@ -175,7 +182,7 @@
 	"faq_a_someone_doesnt_give_back": "Het systeem is gebaseerd op vertrouwen en sociale banden. Als iemand consequent neemt zonder te geven, kan de gemeenschap diens saldo zien en beslissen of ze doorgaan met krediet verlenen. Op basis van feedback vanuit de gemeenschap verkennen we ook diverse mechanismen voor conflictoplossing en terugkoppeling.",
 
 	"faq_q_who_sees_my_data": "Wie kan mijn transacties en saldo zien?",
-	"faq_a_who_sees_my_data": "Wanneer je krediet uitwisselt met iemand, kan die persoon je huidige saldo zien. Deze transparantie helpt leden om weloverwogen beslissingen te nemen. Je volledige transactiegeschiedenis is alleen zichtbaar voor jou.",
+	"faq_a_who_sees_my_data": "Voordat iemand krediet van jou accepteert, kan die persoon je huidige saldo zien — dit helpt hen beslissen of ze je vertrouwen. Je volledige transactiegeschiedenis is alleen zichtbaar voor jou.",
 
 	"faq_q_how_to_send_receive": "Hoe verstuur of ontvang ik krediet?",
 	"faq_a_how_to_send_receive": "Tik op Versturen of Ontvangen op het startscherm, voer een bedrag en een optionele notitie in, en laat de QR-code zien aan de andere persoon. Die scant het om de uitwisseling te voltooien.",

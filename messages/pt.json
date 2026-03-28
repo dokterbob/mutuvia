@@ -9,14 +9,14 @@
 
 	"consent_eyebrow": "Antes de entrar",
 	"consent_title": "O que estás a aceitar",
-	"consent_item1_title": "Isto regista dívidas mútuas, não dinheiro",
-	"consent_item1_body": "Quando alguém te envia crédito, está a dizer \"devo-te.\" Nenhum euro real é transferido.",
-	"consent_item2_title": "Guardamos quase nada sobre ti",
-	"consent_item2_body": "Apenas o teu número de telefone e um nome para exibir. Sem dados de pagamento.",
-	"consent_item3_title": "Outros membros podem ver o teu saldo",
-	"consent_item3_body": "Ao trocar, a outra pessoa vê o teu saldo — para decidir se confia em ti.",
-	"consent_item4_title": "Código aberto e da comunidade",
-	"consent_item4_body": "O código é público — qualquer pessoa pode lê-lo e qualquer comunidade pode ter a sua instância. Mudanças que afetem os teus dados ou créditos serão sempre anunciadas com antecedência.",
+	"consent_no_money_title": "Isto regista dívidas mútuas, não dinheiro",
+	"consent_no_money_body": "Quando alguém te envia crédito, está a dizer \"devo-te.\" Nenhum euro real é transferido.",
+	"consent_minimal_data_title": "Guardamos quase nada sobre ti",
+	"consent_minimal_data_body": "Apenas o teu número de telefone e um nome para exibir. Sem dados de pagamento.",
+	"consent_balance_visible_title": "Outros membros podem ver o teu saldo",
+	"consent_balance_visible_body": "Antes de aceitar crédito teu, a outra pessoa pode ver o teu saldo. Isto ajuda-a a verificar a tua credibilidade.",
+	"consent_open_source_title": "Código aberto e da comunidade",
+	"consent_open_source_body": "Esta aplicação é livre e aberta. Qualquer pessoa pode ver como funciona, e qualquer comunidade pode ter a sua própria versão.",
 	"consent_cta": "Compreendo, continuar",
 	"consent_back": "Voltar",
 
@@ -85,6 +85,7 @@
 	"home_balance_zero": "Estás em dia",
 	"home_balance_first_use": "O teu saldo começa em zero. Envia ou recebe crédito para começar.",
 	"home_send": "Enviar",
+	"home_scan": "Digitalizar",
 	"home_receive": "Receber",
 	"home_recent": "Recentes",
 	"home_see_all": "Ver tudo",
@@ -151,6 +152,12 @@
 	"error_send_code": "Falha ao enviar código",
 	"error_generic": "Algo correu mal",
 
+	"scan_title": "Digitalizar QR",
+	"scan_no_camera": "Nenhuma câmara encontrada neste dispositivo",
+	"scan_permission_denied": "O acesso à câmara foi negado. Permite o acesso à câmara nas definições do navegador.",
+	"scan_error": "Não foi possível iniciar o scanner",
+	"scan_invalid_qr": "Código QR inválido para o Mutuvia",
+
 	"qr_copy_link": "Copiar link",
 	"qr_copied": "Copiado!",
 	"qr_share": "Partilhar",
@@ -175,7 +182,7 @@
 	"faq_a_someone_doesnt_give_back": "O sistema baseia-se na confiança e nos laços sociais. Se alguém consistentemente recebe sem dar, a comunidade pode ver o seu saldo e decidir se continua a conceder crédito. Com base no feedback da comunidade, estamos também a explorar vários mecanismos de resolução de conflitos e de feedback.",
 
 	"faq_q_who_sees_my_data": "Quem pode ver as minhas transações e saldo?",
-	"faq_a_who_sees_my_data": "Quando trocas crédito com alguém, essa pessoa pode ver o teu saldo atual. Esta transparência ajuda os membros a tomar decisões informadas. O teu histórico completo de transações é visível apenas para ti.",
+	"faq_a_who_sees_my_data": "Antes de alguém aceitar crédito teu, pode ver o teu saldo atual — isso ajuda-a a decidir se confia em ti. O teu histórico completo de transações é visível apenas para ti.",
 
 	"faq_q_how_to_send_receive": "Como envio ou recebo crédito?",
 	"faq_a_how_to_send_receive": "Toca em Enviar ou Receber no ecrã principal, introduz um montante e uma nota opcional, e mostra o código QR à outra pessoa. Ela digitaliza-o para completar a troca.",
