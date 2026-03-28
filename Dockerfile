@@ -9,8 +9,17 @@ RUN apk add --no-cache python3=3.12.12-r0 make=4.4.1-r3 g++=14.2.0-r6
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
+# Sentry release tracking: .git is excluded from the build context,
+# so the vite plugin can't auto-detect the commit SHA. Pass it explicitly.
+ARG SENTRY_RELEASE
+ARG SENTRY_AUTH_TOKEN
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
+ENV SENTRY_RELEASE=$SENTRY_RELEASE
+
 # Copy source and build
 # svelte-adapter-bun uses esbuild to bundle the server into build/
+# Source maps are uploaded to Sentry during build, not needed at runtime.
 COPY . .
 RUN bun run build
 
