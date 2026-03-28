@@ -14,7 +14,7 @@
 
 	let { data, form } = $props();
 
-	type SendStep = 'consent' | 'amount' | 'qr' | 'done';
+	type SendStep = 'consent' | 'amount' | 'qr' | 'done' | 'declined';
 	let step = $state<SendStep>(data.needsConsent ? 'consent' : 'amount');
 
 	let amount = $state('');
@@ -75,6 +75,9 @@
 					completedName = data.otherName || '';
 					completedAmount = data.formattedAmount || '';
 					step = 'done';
+				} else if (data.status === 'declined') {
+					clearInterval(pollInterval!);
+					step = 'declined';
 				}
 			} catch {
 				// ignore polling errors
@@ -211,6 +214,19 @@
 					</Button>
 				</form>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Declined step -->
+	{#if step === 'declined'}
+		<div class="flex flex-1 flex-col items-center justify-center text-center">
+			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-3xl">
+				✕
+			</div>
+			<p class="mb-6 text-lg font-medium">{m.send_declined()}</p>
+			<Button class="w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
+				{m.send_back_home()}
+			</Button>
 		</div>
 	{/if}
 

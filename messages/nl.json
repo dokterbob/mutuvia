@@ -103,6 +103,7 @@
 	"send_qr_expired": "Verlopen — tik om terug te gaan.",
 	"send_cancel": "Annuleren",
 	"send_done": "Klaar. Je hebt {amount} gestuurd naar {name}.",
+	"send_declined": "Je krediet is geweigerd.",
 	"send_back_home": "Terug naar home",
 
 	"receive_helper": "Voer het bedrag in dat je wilt vragen.",
@@ -110,6 +111,7 @@
 	"receive_cta": "QR genereren",
 	"receive_qr_caption": "Vraag de andere persoon om dit te scannen om je krediet te sturen.",
 	"receive_done": "Klaar. Je hebt {amount} ontvangen van {name}.",
+	"receive_declined": "Je betalingsverzoek is geweigerd.",
 	"receive_back_home": "Terug naar home",
 
 	"accept_send_prompt": "{name} wil je {amount} sturen",

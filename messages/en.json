@@ -103,6 +103,7 @@
 	"send_qr_expired": "Expired — tap to go back.",
 	"send_cancel": "Cancel",
 	"send_done": "Done. You sent {amount} to {name}.",
+	"send_declined": "Your credit was declined.",
 	"send_back_home": "Back to home",
 
 	"receive_helper": "Enter the amount you'd like to request.",
@@ -110,6 +111,7 @@
 	"receive_cta": "Generate QR",
 	"receive_qr_caption": "Ask the other person to scan this to send you credit.",
 	"receive_done": "Done. You received {amount} from {name}.",
+	"receive_declined": "Your payment request was declined.",
 	"receive_back_home": "Back to home",
 
 	"accept_send_prompt": "{name} wants to send you {amount}",
