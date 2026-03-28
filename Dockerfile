@@ -3,7 +3,7 @@ FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Build tools required to compile better-sqlite3 (devDep used by drizzle-kit)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3=3.12.12-r0 make=4.4.1-r3 g++=14.2.0-r6
 
 # Install all dependencies (devDeps required for build/type-gen)
 COPY package.json bun.lock ./
