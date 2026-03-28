@@ -58,17 +58,18 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
 ## Scripts
 
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `bun run dev`         | Start dev server (Vite + Bun)            |
-| `bun run build`       | Production build                         |
-| `bun run check`       | Type-check (svelte-check)                |
-| `bun run lint`        | Prettier + ESLint                        |
-| `bun run format`      | Auto-format                              |
-| `bun test`            | Run tests                                |
-| `bun run db:generate` | Generate Drizzle migration               |
-| `bun run db:migrate`  | Apply migrations                         |
-| `bun run db:seed`     | Seed test data (3 users, 2 transactions) |
+| Command                   | Description                              |
+| ------------------------- | ---------------------------------------- |
+| `bun run dev`             | Start dev server (Vite + Bun)            |
+| `bun run build`           | Production build                         |
+| `bun run check`           | Type-check (svelte-check)                |
+| `bun run lint`            | Prettier + ESLint                        |
+| `bun run format`          | Auto-format                              |
+| `bun test`                | Run tests                                |
+| `bun run db:generate`     | Generate Drizzle migration               |
+| `bun run db:migrate`      | Apply migrations                         |
+| `bun run db:seed`         | Seed test data (3 users, 2 transactions) |
+| `bun run generate-secret` | Generate secure QR_JWT_SECRET            |
 
 ## Testing
 

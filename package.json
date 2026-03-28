@@ -19,7 +19,8 @@
 		"test:e2e:ui": "bun playwright test --ui",
 		"db:generate": "bun drizzle-kit generate",
 		"db:migrate": "bun scripts/migrate.ts",
-		"db:seed": "bun scripts/seed.ts"
+		"db:seed": "bun scripts/seed.ts",
+		"generate-secret": "bun scripts/generate-secret.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.2",

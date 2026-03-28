@@ -16,7 +16,8 @@ bun install
 
 # Set up environment
 cp .env.example .env
-# Edit .env — at minimum set QR_JWT_SECRET (32+ chars)
+# Generate a secure QR_JWT_SECRET and add it to .env:
+echo "QR_JWT_SECRET=$(bun run generate-secret)" >> .env
 
 # Run database migration
 bun run db:migrate
@@ -45,7 +46,7 @@ docker run -d \
   --name mutuvia \
   -p 3000:3000 \
   -v mutuvia-data:/data \
-  -e QR_JWT_SECRET=<min-32-char-secret> \
+  -e QR_JWT_SECRET=$(bun run generate-secret) \
   -e APP_URL=https://your-domain \
   -e BETTER_AUTH_URL=https://your-domain \
   mutuvia
@@ -96,18 +97,19 @@ The server listens on port `3000` by default. Override with `-e PORT=<port>`.
 
 ## Scripts
 
-| Command               | Description                   |
-| --------------------- | ----------------------------- |
-| `bun run dev`         | Start development server      |
-| `bun run build`       | Production build              |
-| `bun run preview`     | Preview production build      |
-| `bun run check`       | Type-check (svelte-check)     |
-| `bun run lint`        | Prettier + ESLint             |
-| `bun run format`      | Auto-format                   |
-| `bun test`            | Run tests                     |
-| `bun run db:generate` | Generate Drizzle migration    |
-| `bun run db:migrate`  | Apply migrations (bun:sqlite) |
-| `bun run db:seed`     | Seed test data                |
+| Command                   | Description                     |
+| ------------------------- | ------------------------------- |
+| `bun run dev`             | Start development server        |
+| `bun run build`           | Production build                |
+| `bun run preview`         | Preview production build        |
+| `bun run check`           | Type-check (svelte-check)       |
+| `bun run lint`            | Prettier + ESLint               |
+| `bun run format`          | Auto-format                     |
+| `bun test`                | Run tests                       |
+| `bun run db:generate`     | Generate Drizzle migration      |
+| `bun run db:migrate`      | Apply migrations (bun:sqlite)   |
+| `bun run db:seed`         | Seed test data                  |
+| `bun run generate-secret` | Generate a secure QR_JWT_SECRET |
 
 ---
 
