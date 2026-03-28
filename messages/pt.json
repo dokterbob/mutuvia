@@ -75,7 +75,10 @@
 	"intro3_cta": "Entrar na comunidade",
 	"intro3_back": "Voltar",
 
-	"home_greeting": "Bom dia, {name}",
+	"home_greeting_morning": "Bom dia, {name}",
+	"home_greeting_afternoon": "Boa tarde, {name}",
+	"home_greeting_evening": "Boa noite, {name}",
+	"home_greeting_night": "Boa noite, {name}",
 	"home_balance_label": "O teu saldo",
 	"home_balance_positive": "A comunidade deve-te",
 	"home_balance_negative": "Tu deves à comunidade",

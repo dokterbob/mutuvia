@@ -75,7 +75,10 @@
 	"intro3_cta": "Der Gemeinschaft beitreten",
 	"intro3_back": "Zurück",
 
-	"home_greeting": "Guten Morgen, {name}",
+	"home_greeting_morning": "Guten Morgen, {name}",
+	"home_greeting_afternoon": "Guten Tag, {name}",
+	"home_greeting_evening": "Guten Abend, {name}",
+	"home_greeting_night": "Gute Nacht, {name}",
 	"home_balance_label": "Dein Guthaben",
 	"home_balance_positive": "Die Gemeinschaft schuldet dir",
 	"home_balance_negative": "Du schuldest der Gemeinschaft",

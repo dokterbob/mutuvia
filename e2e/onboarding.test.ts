@@ -56,7 +56,9 @@ test.describe.serial('Onboarding flow', () => {
 
 		// ── Home ──────────────────────────────────────────────────────────────────
 		await expect(page).toHaveURL(/\/home/, { timeout: 10_000 });
-		await expect(page.getByText('Good morning, E2E Tester')).toBeVisible();
+		await expect(
+			page.getByText(/Good (morning|afternoon|evening|night), E2E Tester/)
+		).toBeVisible();
 	});
 
 	test('fully onboarded user is redirected away from onboarding', async ({ page }) => {
