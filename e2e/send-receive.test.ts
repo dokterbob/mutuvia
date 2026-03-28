@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext } from '@playwright/test';
-import { goto, onboardUserViaEmail, SENDER_EMAIL, RECEIVER_EMAIL } from './test-utils';
+import { goto, setupAuthenticatedUser, SENDER_EMAIL, RECEIVER_EMAIL } from './test-utils.js';
 
 const SENDER_NAME = 'Test Sender';
 const RECEIVER_NAME = 'Test Receiver';
@@ -8,18 +8,19 @@ test.describe.serial('Send / Receive flow', () => {
 	let senderStorage: Awaited<ReturnType<BrowserContext['storageState']>>;
 	let receiverStorage: Awaited<ReturnType<BrowserContext['storageState']>>;
 
-	// Users are created in beforeAll; cleanup happens via globalSetup (deletes
-	// test.db) on the next Playwright run rather than via in-test API calls.
+	// Users are created programmatically (no onboarding UI) and their session
+	// cookies are injected directly into browser contexts. Cleanup happens via
+	// globalSetup (deletes test.db) on the next Playwright run.
 	test.beforeAll(async ({ browser }, testInfo) => {
 		const baseURL = testInfo.project.use.baseURL!;
 
 		const senderCtx = await browser.newContext({ baseURL });
-		await onboardUserViaEmail(await senderCtx.newPage(), SENDER_EMAIL, SENDER_NAME);
+		await setupAuthenticatedUser(senderCtx, SENDER_EMAIL, SENDER_NAME);
 		senderStorage = await senderCtx.storageState();
 		await senderCtx.close();
 
 		const receiverCtx = await browser.newContext({ baseURL });
-		await onboardUserViaEmail(await receiverCtx.newPage(), RECEIVER_EMAIL, RECEIVER_NAME);
+		await setupAuthenticatedUser(receiverCtx, RECEIVER_EMAIL, RECEIVER_NAME);
 		receiverStorage = await receiverCtx.storageState();
 		await receiverCtx.close();
 	});

@@ -1,4 +1,6 @@
-import type { Page } from '@playwright/test';
+import type { Page, BrowserContext } from '@playwright/test';
+import type { TestHelpers } from 'better-auth/plugins';
+import { auth, sqlite } from './auth.js';
 
 /**
  * Navigate to a URL and wait for SvelteKit hydration to complete before
@@ -24,10 +26,120 @@ export const TEST_EMAIL = 'e2e-onboarding@test.example';
 export const SENDER_EMAIL = 'e2e-sender@test.example';
 export const RECEIVER_EMAIL = 'e2e-receiver@test.example';
 
+// ── TestHelpers accessor ──────────────────────────────────────────────────────
+
+async function getTest(): Promise<TestHelpers> {
+	const ctx = await auth.$context;
+	return (ctx as { test: TestHelpers }).test;
+}
+
+// ── OTP helpers ───────────────────────────────────────────────────────────────
+
+/**
+ * Poll the verification table directly until the OTP for `email` appears.
+ * Better Auth stores the OTP in plain-text as the first `:` -delimited segment
+ * of `verification.value` under the identifier `sign-in-otp-<email>`.
+ */
+export async function getOTP(
+	email: string,
+	{ timeout = 10_000, interval = 500 }: { timeout?: number; interval?: number } = {}
+): Promise<string> {
+	const identifier = `sign-in-otp-${email}`;
+	const stmt = sqlite.prepare<{ value: string }, [string]>(
+		`SELECT value FROM verification WHERE identifier = ? ORDER BY created_at DESC LIMIT 1`
+	);
+
+	const deadline = Date.now() + timeout;
+	while (Date.now() < deadline) {
+		const row = stmt.get(identifier);
+		if (row) return row.value.split(':')[0];
+		await new Promise((r) => setTimeout(r, interval));
+	}
+	throw new Error(`OTP for ${email} not captured within ${timeout}ms`);
+}
+
+/**
+ * Clear all OTP verification records from the database. Call between tests to
+ * prevent a stale OTP from a previous test from being read.
+ */
+export function clearOTPs(): void {
+	sqlite.exec(`DELETE FROM verification WHERE identifier LIKE '%-otp-%'`);
+}
+
+// ── User helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Create a fully-initialised test user: a Better Auth user (via testUtils) and
+ * a matching app_users record. Returns the Better Auth user ID.
+ */
+export async function createTestUser(email: string, displayName: string): Promise<string> {
+	const test = await getTest();
+	const user = test.createUser({ email, emailVerified: true, name: displayName });
+	await test.saveUser(user);
+
+	const id = crypto.randomUUID();
+	const now = Math.floor(Date.now() / 1000);
+	sqlite
+		.prepare(
+			`INSERT INTO app_users (id, better_auth_user_id, display_name, created_at)
+			 VALUES (?, ?, ?, ?)`
+		)
+		.run(id, user.id, displayName, now);
+
+	return user.id;
+}
+
+/**
+ * Delete the test user (and all dependent records) by email. Safe to call when
+ * the user does not exist.
+ */
+export async function deleteTestUser(email: string = TEST_EMAIL): Promise<void> {
+	const row = sqlite
+		.prepare<{ id: string }, [string]>(`SELECT id FROM user WHERE email = ?`)
+		.get(email);
+	if (!row) return;
+
+	const userId = row.id;
+	sqlite.prepare(`DELETE FROM app_users WHERE better_auth_user_id = ?`).run(userId);
+
+	const test = await getTest();
+	await test.deleteUser(userId);
+}
+
+// ── Auth / session helpers ────────────────────────────────────────────────────
+
+/**
+ * Get Playwright-compatible session cookies for `userId`. The returned array
+ * is directly usable with `context.addCookies()`.
+ */
+export async function getAuthCookies(
+	userId: string
+): Promise<Awaited<ReturnType<TestHelpers['getCookies']>>> {
+	const test = await getTest();
+	return test.getCookies({ userId, domain: 'localhost' });
+}
+
+/**
+ * Programmatically create a user and inject auth cookies into `context`.
+ * Returns the userId so the caller can reference it if needed.
+ */
+export async function setupAuthenticatedUser(
+	context: BrowserContext,
+	email: string,
+	displayName: string
+): Promise<string> {
+	const userId = await createTestUser(email, displayName);
+	const cookies = await getAuthCookies(userId);
+	await context.addCookies(cookies);
+	return userId;
+}
+
+// ── Onboarding UI helper ──────────────────────────────────────────────────────
+
 /**
  * Run through the full onboarding flow for a given email + display name,
- * finishing at /home. Used in beforeAll hooks to create authenticated sessions
- * for multi-user e2e tests without repeating the onboarding steps in each test.
+ * finishing at /home. Used only when the onboarding UI itself is under test.
+ * For other test setups, prefer setupAuthenticatedUser().
  */
 export async function onboardUserViaEmail(
 	page: Page,
@@ -48,7 +160,7 @@ export async function onboardUserViaEmail(
 	await page.getByRole('button', { name: 'Send code' }).click();
 
 	await page.waitForURL(/\/onboarding\/otp/);
-	const otp = await getOTP(page, email);
+	const otp = await getOTP(email);
 	await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
 
 	await page.waitForURL(/\/onboarding\/verified/, { timeout: 10_000 });
@@ -61,36 +173,4 @@ export async function onboardUserViaEmail(
 	await page.getByRole('button', { name: 'Enter the community' }).click();
 
 	await page.waitForURL(/\/home/, { timeout: 10_000 });
-}
-
-/**
- * Poll the dev-only OTP endpoint until the captured OTP for `identifier`
- * appears (after the client calls sendVerificationOtp). Throws if the OTP
- * doesn't arrive within the timeout.
- */
-export async function getOTP(
-	page: Page,
-	identifier: string,
-	{ timeout = 10_000, interval = 500 }: { timeout?: number; interval?: number } = {}
-): Promise<string> {
-	const deadline = Date.now() + timeout;
-	while (Date.now() < deadline) {
-		const res = await page.request.get(
-			`/api/test/otp?identifier=${encodeURIComponent(identifier)}`
-		);
-		if (res.ok()) {
-			const { otp } = await res.json();
-			return otp as string;
-		}
-		await page.waitForTimeout(interval);
-	}
-	throw new Error(`OTP for ${identifier} not captured within ${timeout}ms`);
-}
-
-/**
- * Remove the test user (and all dependent records) via the dev-only cleanup
- * endpoint. Safe to call when the user doesn't exist.
- */
-export async function deleteTestUser(page: Page, email: string = TEST_EMAIL): Promise<void> {
-	await page.request.delete(`/api/test/users?email=${encodeURIComponent(email)}`);
 }

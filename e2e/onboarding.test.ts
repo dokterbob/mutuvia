@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { goto, getOTP, deleteTestUser, TEST_EMAIL } from './test-utils';
+import { goto, getOTP, deleteTestUser, clearOTPs, TEST_EMAIL } from './test-utils.js';
 
 test.describe.serial('Onboarding flow', () => {
-	test.afterEach(async ({ page }) => {
-		await deleteTestUser(page, TEST_EMAIL);
+	test.afterEach(async () => {
+		await deleteTestUser(TEST_EMAIL);
+		clearOTPs();
 	});
 
 	test('complete onboarding via email — happy path', async ({ page }) => {
@@ -28,7 +29,7 @@ test.describe.serial('Onboarding flow', () => {
 
 		// ── OTP ───────────────────────────────────────────────────────────────────
 		await expect(page).toHaveURL(/\/onboarding\/otp/);
-		const otp = await getOTP(page, TEST_EMAIL);
+		const otp = await getOTP(TEST_EMAIL);
 		// The OTP input is a single hidden input overlaid on the digit boxes.
 		// pressSequentially fires individual input events which trigger auto-submit.
 		await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
@@ -69,7 +70,7 @@ test.describe.serial('Onboarding flow', () => {
 		await page.locator('input[type="email"]').fill(TEST_EMAIL);
 		await page.getByRole('button', { name: 'Send code' }).click();
 		await expect(page).toHaveURL(/\/onboarding\/otp/);
-		const otp = await getOTP(page, TEST_EMAIL);
+		const otp = await getOTP(TEST_EMAIL);
 		await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
 		await expect(page).toHaveURL(/\/onboarding\/verified/, { timeout: 10_000 });
 		await page.getByRole('button', { name: 'Continue' }).click();

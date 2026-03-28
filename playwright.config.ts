@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_DB_FILE, E2E_AUTH_SECRET, E2E_BASE_URL, E2E_QR_JWT_SECRET } from './e2e/config.js';
 
 export default defineConfig({
 	testDir: './e2e',
@@ -10,18 +11,18 @@ export default defineConfig({
 	reporter: 'html',
 	expect: { timeout: 10_000 },
 	use: {
-		baseURL: 'http://localhost:5174',
+		baseURL: E2E_BASE_URL,
 		trace: 'on-first-retry'
 	},
 	webServer: {
 		command: 'bun run db:migrate && bun run dev -- --port 5174',
 		env: {
 			E2E: 'true',
-			APP_URL: 'http://localhost:5174',
-			BETTER_AUTH_URL: 'http://localhost:5174',
-			BETTER_AUTH_SECRET: 'e2e-test-only-better-auth-secret-not-for-production!!',
-			DB_FILE_NAME: 'test.db',
-			QR_JWT_SECRET: 'e2e-test-only-secret-do-not-use-in-production!!'
+			APP_URL: E2E_BASE_URL,
+			BETTER_AUTH_URL: E2E_BASE_URL,
+			BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+			DB_FILE_NAME: E2E_DB_FILE,
+			QR_JWT_SECRET: E2E_QR_JWT_SECRET
 		},
 		stdout: 'pipe',
 		stderr: 'pipe',
