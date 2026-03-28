@@ -3,7 +3,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals, cookies }) => {
+export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	if (locals.session && locals.appUser) {
 		const returnTo = cookies.get('qr_return_to');
 		if (
@@ -16,7 +16,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			cookies.delete('qr_skip_intros', { path: '/' });
 			redirect(307, returnTo);
 		}
-		redirect(307, '/home');
+		if (!url.searchParams.has('review')) {
+			redirect(307, '/home');
+		}
 	}
 	return {
 		isAuthenticated: !!locals.session,

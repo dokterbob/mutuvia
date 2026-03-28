@@ -136,9 +136,6 @@
 	"settings_title": "Settings",
 	"settings_display_name": "Display name",
 	"settings_language": "Language",
-	"settings_sign_out": "Sign out",
-	"settings_about": "About",
-	"settings_about_text": "{appName} is a mutual credit ledger for communities. No real money moves — credit records mutual obligations between members.",
 	"settings_save": "Save",
 	"settings_saved": "Saved!",
 
@@ -166,6 +163,18 @@
 
 	"menu_settings": "Settings",
 	"menu_faq": "FAQ",
+	"menu_how_it_works": "How it works",
+	"menu_about": "About",
+	"menu_open_source": "Open Source",
+	"menu_sign_out": "Sign out",
+
+	"about_title": "About",
+	"about_description": "{appName} is a mutual credit ledger for communities. No real money moves — credit records mutual obligations between members.",
+	"about_built_by": "Built by",
+	"about_with_ai": "with Claude (Anthropic's AI assistant) as a coding collaborator",
+	"about_open_source": "Licensed under AGPL-3.0",
+
+	"how_it_works_back_home": "Back to home",
 
 	"faq_title": "Frequently Asked Questions",
 

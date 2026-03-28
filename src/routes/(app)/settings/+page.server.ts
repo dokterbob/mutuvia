@@ -8,9 +8,7 @@ import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	return {
-		appUser: locals.appUser!,
-		communityDocUrl: process.env.PUBLIC_COMMUNITY_DOC_URL || '',
-		appName: process.env.PUBLIC_APP_NAME || 'Mutuvia'
+		appUser: locals.appUser!
 	};
 };
 

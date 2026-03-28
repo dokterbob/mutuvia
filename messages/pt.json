@@ -136,9 +136,6 @@
 	"settings_title": "Definições",
 	"settings_display_name": "Nome de exibição",
 	"settings_language": "Idioma",
-	"settings_sign_out": "Sair",
-	"settings_about": "Sobre",
-	"settings_about_text": "{appName} é um livro de crédito mútuo para comunidades. Nenhum dinheiro real se move — o crédito regista obrigações mútuas entre membros.",
 	"settings_save": "Guardar",
 	"settings_saved": "Guardado!",
 
@@ -166,6 +163,18 @@
 
 	"menu_settings": "Definições",
 	"menu_faq": "Perguntas Frequentes",
+	"menu_how_it_works": "Como funciona",
+	"menu_about": "Sobre",
+	"menu_open_source": "Código Aberto",
+	"menu_sign_out": "Sair",
+
+	"about_title": "Sobre",
+	"about_description": "{appName} é um livro de crédito mútuo para comunidades. Nenhum dinheiro real se move — o crédito regista obrigações mútuas entre membros.",
+	"about_built_by": "Criado por",
+	"about_with_ai": "com Claude (o assistente de IA da Anthropic) como colaborador de programação",
+	"about_open_source": "Licenciado sob AGPL-3.0",
+
+	"how_it_works_back_home": "Voltar ao início",
 
 	"faq_title": "Perguntas Frequentes",
 
