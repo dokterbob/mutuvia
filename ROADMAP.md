@@ -71,7 +71,7 @@ Ordered roughly by community value and implementation readiness. See [section 12
 - [ ] **Cooperative legal entity integration** — Compliance reporting.
 - [ ] **Multi-community support** — Multiple ledgers per deployment.
 - [ ] **Sustainability / credit contributions** — Optional credit ask from active users.
-- [ ] **PWA / offline mode** — Service worker, offline transaction queuing.
+- [ ] **PWA offline transactions** — Offline transaction queuing (installable PWA shell + offline fallback page already done).
 
 ---
 

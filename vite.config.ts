@@ -3,6 +3,13 @@ import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+
+function hashFile(path: string): string {
+	return createHash('md5').update(readFileSync(path)).digest('hex').slice(0, 8);
+}
 
 export default defineConfig({
 	plugins: [
@@ -17,7 +24,38 @@ export default defineConfig({
 			// Disabled automatically when SENTRY_AUTH_TOKEN is not set.
 			autoUploadSourceMaps: !!process.env.SENTRY_AUTH_TOKEN
 		}),
-		sveltekit()
+		sveltekit(),
+		SvelteKitPWA({
+			registerType: 'autoUpdate',
+			manifest: {
+				name: 'Mutuvia',
+				short_name: 'Mutuvia',
+				description: 'Mutual credit for your community',
+				theme_color: '#2D4A32',
+				background_color: '#ffffff',
+				display: 'standalone',
+				start_url: '/'
+			},
+			pwaAssets: {
+				preset: 'minimal-2023',
+				image: 'static/favicon.svg',
+				overrideManifestIcons: true
+			},
+			workbox: {
+				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
+				additionalManifestEntries: [
+					{ url: '/offline.html', revision: hashFile('static/offline.html') }
+				],
+				navigateFallback: '/offline.html',
+				navigateFallbackDenylist: [/^\/api\//, /^\/sentry-tunnel/],
+				runtimeCaching: [
+					{
+						urlPattern: /^\/api\//,
+						handler: 'NetworkOnly'
+					}
+				]
+			}
+		})
 	],
 	ssr: {
 		external: ['bun:sqlite', 'bun:sql']

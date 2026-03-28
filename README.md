@@ -113,6 +113,7 @@ docker compose --profile postgres up -d
 | i18n          | Paraglide JS v2 (EN, PT, NL)                                                    |
 | QR            | jose (JWT) + qrcode                                                             |
 | Observability | Sentry (optional — error tracking + feedback widget)                            |
+| PWA           | vite-plugin-pwa (`@vite-pwa/sveltekit`) — installable, offline fallback page    |
 
 ---
 
