@@ -97,23 +97,24 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	};
 };
 
+function setQrReturnCookies(
+	cookies: import('@sveltejs/kit').Cookies,
+	token: string,
+	skipIntros: boolean
+) {
+	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: 600 };
+	cookies.set('qr_return_to', `/accept/${token}`, opts);
+	if (skipIntros) cookies.set('qr_skip_intros', '1', opts);
+}
+
 export const actions: Actions = {
 	startFastTrack: async ({ params, cookies }) => {
-		const returnUrl = `/accept/${params.token}`;
-		const cookieOpts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: 600 };
-		cookies.set('return_to', returnUrl, cookieOpts);
-		cookies.set('skip_intros', '1', cookieOpts);
+		setQrReturnCookies(cookies, params.token, true);
 		redirect(307, '/onboarding/phone');
 	},
 
 	startFullOnboarding: async ({ params, cookies }) => {
-		const returnUrl = `/accept/${params.token}`;
-		cookies.set('return_to', returnUrl, {
-			path: '/',
-			httpOnly: true,
-			sameSite: 'lax',
-			maxAge: 600
-		});
+		setQrReturnCookies(cookies, params.token, false);
 		redirect(307, '/onboarding');
 	},
 

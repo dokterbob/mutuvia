@@ -1,4 +1,5 @@
 import type { Page, BrowserContext } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import type { TestHelpers } from 'better-auth/plugins';
 import * as jose from 'jose';
 import { auth, sqlite } from './auth.js';
@@ -148,6 +149,22 @@ export async function deleteTestUser(email: string = TEST_EMAIL): Promise<void> 
 	if (!row) return;
 
 	const userId = row.id;
+
+	// Delete app_users dependents before deleting the app_users row itself
+	const appUserRow = sqlite
+		.prepare<{ id: string }, [string]>(`SELECT id FROM app_users WHERE better_auth_user_id = ?`)
+		.get(userId);
+	if (appUserRow) {
+		const appUserId = appUserRow.id;
+		sqlite
+			.prepare(`DELETE FROM transactions WHERE from_user_id = ? OR to_user_id = ?`)
+			.run(appUserId, appUserId);
+		sqlite
+			.prepare(`DELETE FROM connections WHERE user_id = ? OR connected_user_id = ?`)
+			.run(appUserId, appUserId);
+		sqlite.prepare(`DELETE FROM pending_qr WHERE initiating_user_id = ?`).run(appUserId);
+	}
+
 	sqlite.prepare(`DELETE FROM app_users WHERE better_auth_user_id = ?`).run(userId);
 
 	const test = await getTest();
@@ -222,3 +239,18 @@ export async function onboardUserViaEmail(
 
 	await page.waitForURL(/\/home/, { timeout: 10_000 });
 }
+
+// ── Playwright fixtures ───────────────────────────────────────────────────────
+
+/**
+ * Custom test fixture that provides a fresh unauthenticated browser context
+ * as `secondContext`. The context is automatically closed after each test,
+ * eliminating the need for try/finally blocks.
+ */
+export const test = base.extend<{ secondContext: import('@playwright/test').BrowserContext }>({
+	secondContext: async ({ browser }, use, testInfo) => {
+		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
+		await use(ctx);
+		await ctx.close();
+	}
+});

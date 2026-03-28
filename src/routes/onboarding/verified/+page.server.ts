@@ -4,6 +4,6 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ cookies }) => {
 	return {
-		skipIntros: cookies.get('skip_intros') === '1'
+		skipIntros: cookies.get('qr_skip_intros') === '1'
 	};
 };

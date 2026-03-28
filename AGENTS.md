@@ -86,6 +86,8 @@ Run with: `bunx playwright test` (starts dev server automatically).
 
 **Always use subagents for Playwright browser inspection** — Playwright MCP tools are context-heavy.
 
+**Always use subagents for writing or editing E2E tests** — Playwright test files are context-heavy and burn tokens quickly in the main conversation.
+
 ### Key patterns
 
 - **Hydration**: Use `goto()` from `e2e/test-utils.ts` instead of `page.goto()` — waits for `body.hydrated` before returning. bits-ui components aren't active until hydration completes.

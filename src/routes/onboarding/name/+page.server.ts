@@ -8,11 +8,16 @@ import { randomUUID } from 'crypto';
 import type { Cookies } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 
-function consumeReturnTo(cookies: Cookies): string | null {
-	const returnTo = cookies.get('return_to');
-	if (returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')) {
-		cookies.delete('return_to', { path: '/' });
-		cookies.delete('skip_intros', { path: '/' });
+function consumeQrReturnTo(cookies: Cookies): string | null {
+	const returnTo = cookies.get('qr_return_to');
+	if (
+		returnTo &&
+		returnTo.startsWith('/') &&
+		!returnTo.startsWith('//') &&
+		!returnTo.startsWith('/onboarding')
+	) {
+		cookies.delete('qr_return_to', { path: '/' });
+		cookies.delete('qr_skip_intros', { path: '/' });
 		return returnTo;
 	}
 	return null;
@@ -45,7 +50,7 @@ export const actions: Actions = {
 			.limit(1);
 
 		if (existing) {
-			redirect(307, consumeReturnTo(cookies) ?? '/home');
+			redirect(307, consumeQrReturnTo(cookies) ?? '/home');
 		}
 
 		await db.insert(appUsers).values({
@@ -55,6 +60,6 @@ export const actions: Actions = {
 			createdAt: new Date()
 		});
 
-		redirect(307, consumeReturnTo(cookies) ?? '/home');
+		redirect(307, consumeQrReturnTo(cookies) ?? '/home');
 	}
 };
