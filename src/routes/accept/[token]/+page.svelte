@@ -5,15 +5,16 @@
 	import { Card } from '$lib/components/ui/card';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import XIcon from '@lucide/svelte/icons/x';
+	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import { browser } from '$app/environment';
 
 	let { data, form } = $props();
 
-	// First-time notice (localStorage)
+	// First-time notice (localStorage) — only shown to authenticated users
 	let showNotice = $state(false);
 
 	$effect(() => {
-		if (browser && !data.expired) {
+		if (browser && !data.expired && !data.needsAuth) {
 			const dismissed = localStorage.getItem('mutuvia_accept_notice_dismissed');
 			if (!dismissed) {
 				showNotice = true;
@@ -27,6 +28,28 @@
 	}
 </script>
 
+{#snippet transactionSummary()}
+	<h1 class="mb-4 font-serif text-2xl font-semibold">
+		{#if data.direction === 'send'}
+			{m.accept_send_prompt({
+				name: data.initiatorName ?? '',
+				amount: data.formattedAmount ?? ''
+			})}
+		{:else}
+			{m.accept_receive_prompt({
+				name: data.initiatorName ?? '',
+				amount: data.formattedAmount ?? ''
+			})}
+		{/if}
+	</h1>
+
+	{#if data.note}
+		<Card class="mb-4 rounded-xl bg-muted p-4">
+			<p class="text-sm text-foreground italic">"{data.note}"</p>
+		</Card>
+	{/if}
+{/snippet}
+
 <div class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 pt-14 pb-8">
 	{#if data.expired}
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
@@ -36,27 +59,46 @@
 			<p class="mb-2 text-lg font-medium">{m.accept_expired()}</p>
 			<p class="text-sm text-muted-foreground">{data.error}</p>
 		</div>
-	{:else}
+	{:else if data.needsAuth}
+		<!-- Unauthenticated view: show transaction details + sign-in CTAs -->
 		<div class="flex flex-1 flex-col">
-			<h1 class="mb-4 font-serif text-2xl font-semibold">
-				{#if data.direction === 'send'}
-					{m.accept_send_prompt({
-						name: data.initiatorName ?? '',
-						amount: data.formattedAmount ?? ''
-					})}
-				{:else}
-					{m.accept_receive_prompt({
-						name: data.initiatorName ?? '',
-						amount: data.formattedAmount ?? ''
-					})}
-				{/if}
-			</h1>
+			{@render transactionSummary()}
 
-			{#if data.note}
-				<Card class="mb-4 rounded-xl bg-muted p-4">
-					<p class="text-sm text-foreground italic">"{data.note}"</p>
-				</Card>
-			{/if}
+			<p class="mb-6 text-sm text-muted-foreground">{m.accept_sign_in_required()}</p>
+
+			<div class="flex-1"></div>
+
+			<form method="POST" action="?/startFastTrack" use:enhance>
+				<Button
+					type="submit"
+					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
+				>
+					<CheckIcon class="mr-2 h-5 w-5" />
+					{m.accept_fast_cta()}
+				</Button>
+			</form>
+
+			<form method="POST" action="?/startFullOnboarding" use:enhance class="mt-2">
+				<Button type="submit" variant="outline" class="w-full rounded-xl py-6 text-base">
+					{m.accept_full_onboarding_cta()}
+					<ArrowRightIcon class="ml-2 h-4 w-4" />
+				</Button>
+			</form>
+
+			<!-- Decline is intentionally available to unauthenticated users — they should
+			     be able to dismiss a QR without signing in. -->
+			<form method="POST" action="?/decline" use:enhance class="mt-2">
+				<input type="hidden" name="qrId" value={data.qrId} />
+				<Button type="submit" variant="ghost" class="w-full text-sm text-muted-foreground">
+					<XIcon class="mr-1 h-4 w-4" />
+					{m.accept_decline()}
+				</Button>
+			</form>
+		</div>
+	{:else}
+		<!-- Authenticated view: accept/decline -->
+		<div class="flex flex-1 flex-col">
+			{@render transactionSummary()}
 
 			<p class="mb-4 text-sm text-muted-foreground">
 				{m.accept_balance_label({

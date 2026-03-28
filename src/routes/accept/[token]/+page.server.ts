@@ -37,13 +37,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
-	// If not authenticated, redirect to onboarding, then back here
-	if (!locals.session || !locals.appUser) {
-		const returnUrl = `/accept/${params.token}`;
-		redirect(307, `/onboarding?return=${encodeURIComponent(returnUrl)}`);
-	}
-
-	// Get initiator info
+	// Get initiator info (needed for both authenticated and unauthenticated views)
 	const [initiator] = await db
 		.select()
 		.from(appUsers)
@@ -54,8 +48,29 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		return { expired: true, error: 'Initiator not found.', unitSymbol, decimalPlaces };
 	}
 
-	// Prevent self-acceptance
-	if (locals.appUser.id === qr.initiatingUserId) {
+	const needsAuth = !locals.session || !locals.appUser;
+
+	if (needsAuth) {
+		// Return enough info to show the transaction preview. qrId is included only for the
+		// Decline action; the Accept action enforces auth server-side and is not rendered here.
+		// The startFastTrack / startFullOnboarding actions handle the auth redirect.
+		return {
+			expired: false,
+			needsAuth: true,
+			qrId: qr.id,
+			direction: qr.direction,
+			amount: qr.amount,
+			formattedAmount: formatAmount(qr.amount, decimalPlaces, unitSymbol),
+			note: qr.note,
+			initiatorName: initiator.displayName,
+			token: params.token,
+			unitSymbol,
+			decimalPlaces
+		};
+	}
+
+	// Prevent self-acceptance (appUser is non-null here: needsAuth guard above returned early)
+	if (locals.appUser!.id === qr.initiatingUserId) {
 		return {
 			expired: true,
 			error: 'You cannot accept your own QR code.',
@@ -68,6 +83,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	return {
 		expired: false,
+		needsAuth: false,
 		qrId: qr.id,
 		direction: qr.direction,
 		amount: qr.amount,
@@ -82,6 +98,25 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
+	startFastTrack: async ({ params, cookies }) => {
+		const returnUrl = `/accept/${params.token}`;
+		const cookieOpts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: 600 };
+		cookies.set('return_to', returnUrl, cookieOpts);
+		cookies.set('skip_intros', '1', cookieOpts);
+		redirect(307, '/onboarding/phone');
+	},
+
+	startFullOnboarding: async ({ params, cookies }) => {
+		const returnUrl = `/accept/${params.token}`;
+		cookies.set('return_to', returnUrl, {
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			maxAge: 600
+		});
+		redirect(307, '/onboarding');
+	},
+
 	accept: async ({ request, locals }) => {
 		if (!locals.session || !locals.appUser) {
 			error(401, 'Not authenticated');

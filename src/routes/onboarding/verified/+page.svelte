@@ -4,6 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CheckIcon from '@lucide/svelte/icons/check';
+
+	let { data } = $props();
 </script>
 
 <div class="flex flex-1 flex-col items-center justify-center text-center">
@@ -20,7 +22,7 @@
 	</p>
 	<Button
 		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145]"
-		onclick={() => goto('/onboarding/intro1')}
+		onclick={() => goto(data.skipIntros ? '/onboarding/name' : '/onboarding/intro1')}
 	>
 		{m.verified_cta()}
 		<ArrowRightIcon class="ml-2 h-4 w-4" />
