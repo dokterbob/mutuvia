@@ -14,9 +14,9 @@
 	"consent_item2_title": "We bewaren bijna niets over je",
 	"consent_item2_body": "Alleen je telefoonnummer en een weergavenaam. Geen betalingsgegevens nodig.",
 	"consent_item3_title": "Andere leden kunnen je saldo zien",
-	"consent_item3_body": "Bij uitwisseling ziet de andere persoon je saldo — zodat ze kunnen beslissen of ze je vertrouwen.",
+	"consent_item3_body": "Voordat iemand krediet van jou accepteert, kan die persoon je saldo zien. Dit helpt hen jouw geloofwaardigheid te beoordelen.",
 	"consent_item4_title": "Open source en van de gemeenschap",
-	"consent_item4_body": "De code is openbaar — iedereen kan het lezen en elke gemeenschap kan een eigen versie draaien. Wijzigingen die je gegevens of kredieten beïnvloeden worden altijd vooraf aangekondigd.",
+	"consent_item4_body": "Deze app is vrij en open. Iedereen kan bekijken hoe het werkt, en elke gemeenschap kan een eigen versie draaien.",
 	"consent_cta": "Ik begrijp het, doorgaan",
 	"consent_back": "Terug",
 
@@ -172,7 +172,7 @@
 	"faq_a_someone_doesnt_give_back": "Het systeem is gebaseerd op vertrouwen en sociale banden. Als iemand consequent neemt zonder te geven, kan de gemeenschap diens saldo zien en beslissen of ze doorgaan met krediet verlenen. Op basis van feedback vanuit de gemeenschap verkennen we ook diverse mechanismen voor conflictoplossing en terugkoppeling.",
 
 	"faq_q_who_sees_my_data": "Wie kan mijn transacties en saldo zien?",
-	"faq_a_who_sees_my_data": "Wanneer je krediet uitwisselt met iemand, kan die persoon je huidige saldo zien. Deze transparantie helpt leden om weloverwogen beslissingen te nemen. Je volledige transactiegeschiedenis is alleen zichtbaar voor jou.",
+	"faq_a_who_sees_my_data": "Voordat iemand krediet van jou accepteert, kan die persoon je huidige saldo zien — dit helpt hen beslissen of ze je vertrouwen. Je volledige transactiegeschiedenis is alleen zichtbaar voor jou.",
 
 	"faq_q_how_to_send_receive": "Hoe verstuur of ontvang ik krediet?",
 	"faq_a_how_to_send_receive": "Tik op Versturen of Ontvangen op het startscherm, voer een bedrag en een optionele notitie in, en laat de QR-code zien aan de andere persoon. Die scant het om de uitwisseling te voltooien.",
