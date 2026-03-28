@@ -29,7 +29,7 @@
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
-	let canShare = $derived(browser && 'share' in navigator);
+	let canShare = $derived(browser && typeof navigator.share === 'function');
 
 	$effect(() => {
 		if (form?.qrUrl) {

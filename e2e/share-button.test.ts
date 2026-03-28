@@ -90,7 +90,9 @@ test.describe.serial('Share button', () => {
 			storageState: userStorage,
 			baseURL
 		});
-		// Explicitly remove navigator.share
+		// Shadow navigator.share with a non-function to simulate absence.
+		// The component checks typeof navigator.share === 'function', so setting
+		// it to undefined (rather than deleting it) is sufficient.
 		await ctx.addInitScript(() => {
 			Object.defineProperty(navigator, 'share', {
 				value: undefined,
