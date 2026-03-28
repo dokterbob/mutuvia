@@ -7,13 +7,13 @@
 	let invalidMessage: string | undefined = $state();
 	let invalidTimeout: ReturnType<typeof setTimeout> | undefined;
 
-	function handleScan(data: string) {
+	function handleScan(data: string): boolean {
 		try {
 			const url = new URL(data);
 			const match = url.pathname.match(/^\/accept\/(.+)$/);
 			if (match) {
 				goto(`/accept/${match[1]}`);
-				return;
+				return true;
 			}
 		} catch {
 			// Not a URL
@@ -24,6 +24,7 @@
 		invalidTimeout = setTimeout(() => {
 			invalidMessage = undefined;
 		}, 3000);
+		return false;
 	}
 </script>
 

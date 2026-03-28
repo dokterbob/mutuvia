@@ -3,7 +3,8 @@
 	import { BarcodeDetector } from 'barcode-detector/ponyfill';
 
 	interface Props {
-		onScan: (data: string) => void;
+		/** Return true to accept the scan and stop, false to reject and keep scanning. */
+		onScan: (data: string) => boolean;
 		onError?: (error: Error) => void;
 	}
 
@@ -62,9 +63,11 @@
 				try {
 					const results = await detector.detect(videoEl);
 					if (results.length > 0 && !cancelled) {
-						scanning = false;
-						onScan(results[0].rawValue);
-						return;
+						const accepted = onScan(results[0].rawValue);
+						if (accepted) {
+							scanning = false;
+							return;
+						}
 					}
 				} catch {
 					// Detection failed on this frame, continue
