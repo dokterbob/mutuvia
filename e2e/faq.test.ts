@@ -1,7 +1,6 @@
-import { test, expect, type BrowserContext } from '@playwright/test';
-import { goto, setupAuthenticatedUser } from './test-utils.js';
+import { expect, type BrowserContext } from '@playwright/test';
+import { test, goto, setupAuthenticatedUser } from './test-utils.js';
 
-const FAQ_EMAIL = 'e2e-faq@test.example';
 const FAQ_NAME = 'FAQ User';
 
 // FAQ page is public — no auth required.
@@ -64,9 +63,9 @@ test.describe('FAQ page (public)', () => {
 test.describe('FAQ hamburger menu (authenticated)', () => {
 	let storage: Awaited<ReturnType<BrowserContext['storageState']>>;
 
-	test.beforeAll(async ({ browser }, testInfo) => {
+	test.beforeAll(async ({ browser, email }, testInfo) => {
 		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
-		await setupAuthenticatedUser(ctx, FAQ_EMAIL, FAQ_NAME);
+		await setupAuthenticatedUser(ctx, email('user'), FAQ_NAME);
 		storage = await ctx.storageState();
 		await ctx.close();
 	});

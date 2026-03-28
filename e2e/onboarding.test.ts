@@ -1,13 +1,13 @@
-import { test, expect } from '@playwright/test';
-import { goto, getOTP, deleteTestUser, clearOTPs, TEST_EMAIL } from './test-utils.js';
+import { expect } from '@playwright/test';
+import { test, goto, getOTP, deleteTestUser, clearOTPs } from './test-utils.js';
 
 test.describe.serial('Onboarding flow', () => {
-	test.afterEach(async () => {
-		await deleteTestUser(TEST_EMAIL);
+	test.afterEach(async ({ email }) => {
+		await deleteTestUser(email('user'));
 		clearOTPs();
 	});
 
-	test('complete onboarding via email — happy path', async ({ page }) => {
+	test('complete onboarding via email — happy path', async ({ page, email }) => {
 		// ── Welcome ──────────────────────────────────────────────────────────────
 		await goto(page, '/onboarding');
 		await expect(page.getByRole('heading', { name: /Together, we are more/i })).toBeVisible();
@@ -24,12 +24,12 @@ test.describe.serial('Onboarding flow', () => {
 
 		// ── Email ─────────────────────────────────────────────────────────────────
 		await expect(page).toHaveURL(/\/onboarding\/email/);
-		await page.locator('input[type="email"]').fill(TEST_EMAIL);
+		await page.locator('input[type="email"]').fill(email('user'));
 		await page.getByRole('button', { name: 'Send code' }).click();
 
 		// ── OTP ───────────────────────────────────────────────────────────────────
 		await expect(page).toHaveURL(/\/onboarding\/otp/);
-		const otp = await getOTP(TEST_EMAIL);
+		const otp = await getOTP(email('user'));
 		// The OTP input is a single hidden input overlaid on the digit boxes.
 		// pressSequentially fires individual input events which trigger auto-submit.
 		await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
@@ -61,7 +61,7 @@ test.describe.serial('Onboarding flow', () => {
 		).toBeVisible();
 	});
 
-	test('fully onboarded user is redirected away from onboarding', async ({ page }) => {
+	test('fully onboarded user is redirected away from onboarding', async ({ page, email }) => {
 		// Run the full flow first to create the user + appUser
 		await goto(page, '/onboarding');
 		await page.getByRole('button', { name: 'Get started' }).click();
@@ -69,10 +69,10 @@ test.describe.serial('Onboarding flow', () => {
 		await page.getByRole('button', { name: 'I understand, continue' }).click();
 		await expect(page).toHaveURL(/\/onboarding\/phone/);
 		await page.getByRole('button', { name: 'Continue with email instead' }).click();
-		await page.locator('input[type="email"]').fill(TEST_EMAIL);
+		await page.locator('input[type="email"]').fill(email('user'));
 		await page.getByRole('button', { name: 'Send code' }).click();
 		await expect(page).toHaveURL(/\/onboarding\/otp/);
-		const otp = await getOTP(TEST_EMAIL);
+		const otp = await getOTP(email('user'));
 		await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
 		await expect(page).toHaveURL(/\/onboarding\/verified/, { timeout: 10_000 });
 		await page.getByRole('button', { name: 'Continue' }).click();

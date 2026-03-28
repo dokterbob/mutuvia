@@ -1,9 +1,12 @@
 import type { Page, BrowserContext } from '@playwright/test';
 import { test as base } from '@playwright/test';
+import { basename } from 'path';
 import type { TestHelpers } from 'better-auth/plugins';
 import * as jose from 'jose';
 import { auth, sqlite } from './auth.js';
 import { E2E_BASE_URL, E2E_QR_JWT_SECRET } from './config.js';
+
+export { expect } from '@playwright/test';
 
 /**
  * Navigate to a URL and wait for SvelteKit hydration to complete before
@@ -19,18 +22,8 @@ export async function goto(page: Page, url: string): Promise<void> {
 	await page.locator('body.hydrated').waitFor();
 }
 
-/**
- * A stable email address used for e2e onboarding tests. Cleaned up after each
- * test via deleteTestUser().
- */
-export const TEST_EMAIL = 'e2e-onboarding@test.example';
-
-/** Stable emails for two-user send/receive flow tests. */
-export const SENDER_EMAIL = 'e2e-sender@test.example';
-export const RECEIVER_EMAIL = 'e2e-receiver@test.example';
-
-/** Stable email for the unauthenticated QR scanner in qr-onboarding tests. */
-export const SCANNER_EMAIL = 'e2e-scanner@test.example';
+// Each test file gets unique emails via the `email` fixture.
+// Do NOT add shared email exports here — they cause parallel collisions.
 
 // ── TestHelpers accessor ──────────────────────────────────────────────────────
 
@@ -142,7 +135,7 @@ export async function createTestUser(email: string, displayName: string): Promis
  * Delete the test user (and all dependent records) by email. Safe to call when
  * the user does not exist.
  */
-export async function deleteTestUser(email: string = TEST_EMAIL): Promise<void> {
+export async function deleteTestUser(email: string): Promise<void> {
 	const row = sqlite
 		.prepare<{ id: string }, [string]>(`SELECT id FROM user WHERE email = ?`)
 		.get(email);
@@ -246,8 +239,19 @@ export async function onboardUserViaEmail(
  * Custom test fixture that provides a fresh unauthenticated browser context
  * as `secondContext`. The context is automatically closed after each test,
  * eliminating the need for try/finally blocks.
+ *
+ * Also provides an `email` fixture that derives unique email addresses from the
+ * test filename, preventing parallel test collisions.
  */
-export const test = base.extend<{ secondContext: import('@playwright/test').BrowserContext }>({
+export const test = base.extend<{
+	email: (role: string) => string;
+	secondContext: import('@playwright/test').BrowserContext;
+}>({
+	// eslint-disable-next-line no-empty-pattern
+	email: async ({}: object, use, testInfo) => {
+		const prefix = basename(testInfo.file).replace(/\.test\.ts$/, '');
+		await use((role: string) => `e2e-${prefix}-${role}@test.example`);
+	},
 	secondContext: async ({ browser }, use, testInfo) => {
 		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
 		await use(ctx);

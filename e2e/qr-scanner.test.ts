@@ -1,5 +1,5 @@
-import { test, expect, chromium, type BrowserContext } from '@playwright/test';
-import { setupAuthenticatedUser, SENDER_EMAIL } from './test-utils.js';
+import { expect, chromium, type BrowserContext } from '@playwright/test';
+import { test, setupAuthenticatedUser } from './test-utils.js';
 import QRCode from 'qrcode';
 import { execSync } from 'child_process';
 import { mkdtempSync, unlinkSync, rmSync } from 'fs';
@@ -8,7 +8,6 @@ import { join } from 'path';
 
 const SENDER_NAME = 'QR Sender';
 const RECEIVER_NAME = 'QR Scanner';
-const SCANNER_EMAIL = 'e2e-qr-scanner@test.example';
 
 /**
  * Generate a .y4m fake webcam video file containing a QR code for the given URL.
@@ -40,16 +39,16 @@ test.describe.serial('QR scanner E2E', () => {
 	let senderStorage: Awaited<ReturnType<BrowserContext['storageState']>>;
 	let scannerStorage: Awaited<ReturnType<BrowserContext['storageState']>>;
 
-	test.beforeAll(async ({ browser }, testInfo) => {
+	test.beforeAll(async ({ browser, email }, testInfo) => {
 		const baseURL = testInfo.project.use.baseURL!;
 
 		const senderCtx = await browser.newContext({ baseURL });
-		await setupAuthenticatedUser(senderCtx, SENDER_EMAIL, SENDER_NAME);
+		await setupAuthenticatedUser(senderCtx, email('sender'), SENDER_NAME);
 		senderStorage = await senderCtx.storageState();
 		await senderCtx.close();
 
 		const scannerCtx = await browser.newContext({ baseURL });
-		await setupAuthenticatedUser(scannerCtx, SCANNER_EMAIL, RECEIVER_NAME);
+		await setupAuthenticatedUser(scannerCtx, email('scanner'), RECEIVER_NAME);
 		scannerStorage = await scannerCtx.storageState();
 		await scannerCtx.close();
 	});
