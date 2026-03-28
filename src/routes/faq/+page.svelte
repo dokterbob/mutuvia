@@ -8,7 +8,10 @@
 
 <div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
 	<div class="mb-6 flex items-center gap-3">
-		<button onclick={() => goto('/home')} class="text-muted-foreground">
+		<button
+			onclick={() => (history.length > 1 ? history.back() : goto('/'))}
+			class="text-muted-foreground"
+		>
 			<ArrowLeftIcon class="h-5 w-5" />
 		</button>
 		<h1 class="font-serif text-xl font-semibold">{m.faq_title()}</h1>
