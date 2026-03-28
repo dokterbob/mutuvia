@@ -124,6 +124,9 @@
 	"accept_cta": "Accept",
 	"accept_decline": "Decline",
 	"accept_expired": "This link has expired or is invalid.",
+	"accept_sign_in_required": "Sign in to accept this transaction.",
+	"accept_fast_cta": "Accept and sign in",
+	"accept_full_onboarding_cta": "How it works",
 
 	"history_title": "Transaction history",
 	"history_all": "All",

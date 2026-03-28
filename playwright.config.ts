@@ -15,7 +15,7 @@ export default defineConfig({
 		trace: 'on-first-retry'
 	},
 	webServer: {
-		command: 'bun run db:migrate && bun run dev -- --port 5174',
+		command: `rm -f ${E2E_DB_FILE} ${E2E_DB_FILE}-wal ${E2E_DB_FILE}-shm && bun run db:migrate && bun run dev -- --port 5174`,
 		env: {
 			E2E: 'true',
 			APP_URL: E2E_BASE_URL,

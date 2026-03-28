@@ -123,6 +123,9 @@
 	"accept_cta": "Annehmen",
 	"accept_decline": "Ablehnen",
 	"accept_expired": "Dieser Link ist abgelaufen oder ungültig.",
+	"accept_sign_in_required": "Melden Sie sich an, um diese Transaktion zu akzeptieren.",
+	"accept_fast_cta": "Akzeptieren und anmelden",
+	"accept_full_onboarding_cta": "So funktioniert's",
 
 	"history_title": "Transaktionsverlauf",
 	"history_all": "Alle",

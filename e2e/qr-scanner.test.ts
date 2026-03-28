@@ -8,7 +8,7 @@ import { join } from 'path';
 
 const SENDER_NAME = 'QR Sender';
 const RECEIVER_NAME = 'QR Scanner';
-const SCANNER_EMAIL = 'e2e-scanner@test.example';
+const SCANNER_EMAIL = 'e2e-qr-scanner@test.example';
 
 /**
  * Generate a .y4m fake webcam video file containing a QR code for the given URL.

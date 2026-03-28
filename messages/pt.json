@@ -124,6 +124,9 @@
 	"accept_cta": "Aceitar",
 	"accept_decline": "Recusar",
 	"accept_expired": "Este link expirou ou é inválido.",
+	"accept_sign_in_required": "Inicie sessão para aceitar esta transação.",
+	"accept_fast_cta": "Aceitar e iniciar sessão",
+	"accept_full_onboarding_cta": "Como funciona",
 
 	"history_title": "Histórico de transações",
 	"history_all": "Todas",

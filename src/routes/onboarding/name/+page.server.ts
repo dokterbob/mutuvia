@@ -5,7 +5,23 @@ import { db } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
+import type { Cookies } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+
+function consumeQrReturnTo(cookies: Cookies): string | null {
+	const returnTo = cookies.get('qr_return_to');
+	if (
+		returnTo &&
+		returnTo.startsWith('/') &&
+		!returnTo.startsWith('//') &&
+		!returnTo.startsWith('/onboarding')
+	) {
+		cookies.delete('qr_return_to', { path: '/' });
+		cookies.delete('qr_skip_intros', { path: '/' });
+		return returnTo;
+	}
+	return null;
+}
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { isAuthenticated } = await parent();
@@ -15,7 +31,7 @@ export const load: PageServerLoad = async ({ parent }) => {
 };
 
 export const actions: Actions = {
-	createProfile: async ({ request, locals }) => {
+	createProfile: async ({ request, locals, cookies }) => {
 		if (!locals.session || !locals.user) {
 			return fail(401, { error: 'Session expired. Please sign in again.' });
 		}
@@ -34,7 +50,7 @@ export const actions: Actions = {
 			.limit(1);
 
 		if (existing) {
-			redirect(307, '/home');
+			redirect(307, consumeQrReturnTo(cookies) ?? '/home');
 		}
 
 		await db.insert(appUsers).values({
@@ -44,6 +60,6 @@ export const actions: Actions = {
 			createdAt: new Date()
 		});
 
-		redirect(307, '/home');
+		redirect(307, consumeQrReturnTo(cookies) ?? '/home');
 	}
 };

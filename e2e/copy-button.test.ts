@@ -10,9 +10,7 @@ import { test, expect } from '@playwright/test';
 // Once the underlying timing issue is resolved (see #31), restore the full
 // implementation (with setupAuthenticatedUser) and remove the skip.
 
-test.describe('CopyButton', () => {
-	test.skip(true, 'Flaky due to Vite warm-up race on first test file — see issue #31');
-
+test.describe.skip('CopyButton', () => {
 	test('CopyButton visible after generating QR on /send', async ({ page }) => {
 		await page.goto('/send');
 		await page.locator('input[name="amount"]').fill('10');

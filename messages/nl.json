@@ -124,6 +124,9 @@
 	"accept_cta": "Accepteren",
 	"accept_decline": "Weigeren",
 	"accept_expired": "Deze link is verlopen of ongeldig.",
+	"accept_sign_in_required": "Log in om deze transactie te accepteren.",
+	"accept_fast_cta": "Accepteren en inloggen",
+	"accept_full_onboarding_cta": "Hoe het werkt",
 
 	"history_title": "Transactiegeschiedenis",
 	"history_all": "Alles",

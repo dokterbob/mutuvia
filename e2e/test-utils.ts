@@ -1,6 +1,9 @@
 import type { Page, BrowserContext } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import type { TestHelpers } from 'better-auth/plugins';
+import * as jose from 'jose';
 import { auth, sqlite } from './auth.js';
+import { E2E_BASE_URL, E2E_QR_JWT_SECRET } from './config.js';
 
 /**
  * Navigate to a URL and wait for SvelteKit hydration to complete before
@@ -26,11 +29,57 @@ export const TEST_EMAIL = 'e2e-onboarding@test.example';
 export const SENDER_EMAIL = 'e2e-sender@test.example';
 export const RECEIVER_EMAIL = 'e2e-receiver@test.example';
 
+/** Stable email for the unauthenticated QR scanner in qr-onboarding tests. */
+export const SCANNER_EMAIL = 'e2e-scanner@test.example';
+
 // ── TestHelpers accessor ──────────────────────────────────────────────────────
 
 async function getTest(): Promise<TestHelpers> {
 	const ctx = await auth.$context;
 	return (ctx as { test: TestHelpers }).test;
+}
+
+// ── QR helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Look up the app_users.id for a given Better Auth user ID.
+ */
+export function getAppUserId(betterAuthUserId: string): string {
+	const row = sqlite
+		.prepare<{ id: string }, [string]>(`SELECT id FROM app_users WHERE better_auth_user_id = ?`)
+		.get(betterAuthUserId);
+	if (!row) throw new Error(`No app_users row for betterAuthUserId=${betterAuthUserId}`);
+	return row.id;
+}
+
+/**
+ * Insert a pending QR row and sign a JWT for it. Returns { token, qrId }.
+ * Uses the same JWT format as src/lib/server/qr.ts (HS256, issuer=appUrl).
+ */
+export async function createPendingQr(
+	initiatingAppUserId: string,
+	senderName: string
+): Promise<{ token: string; qrId: string }> {
+	const qrId = crypto.randomUUID();
+	const now = Math.floor(Date.now() / 1000);
+
+	sqlite
+		.prepare(
+			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, status, created_at, expires_at)
+			 VALUES (?, ?, 'send', 500, 'pending', ?, ?)`
+		)
+		.run(qrId, initiatingAppUserId, now, now + 600);
+
+	const secret = new TextEncoder().encode(E2E_QR_JWT_SECRET);
+	const token = await new jose.SignJWT({ amt: 500, dir: 'send', dn: senderName })
+		.setProtectedHeader({ alg: 'HS256' })
+		.setJti(qrId)
+		.setIssuer(E2E_BASE_URL)
+		.setIssuedAt()
+		.setExpirationTime('600s')
+		.sign(secret);
+
+	return { token, qrId };
 }
 
 // ── OTP helpers ───────────────────────────────────────────────────────────────
@@ -100,6 +149,22 @@ export async function deleteTestUser(email: string = TEST_EMAIL): Promise<void> 
 	if (!row) return;
 
 	const userId = row.id;
+
+	// Delete app_users dependents before deleting the app_users row itself
+	const appUserRow = sqlite
+		.prepare<{ id: string }, [string]>(`SELECT id FROM app_users WHERE better_auth_user_id = ?`)
+		.get(userId);
+	if (appUserRow) {
+		const appUserId = appUserRow.id;
+		sqlite
+			.prepare(`DELETE FROM transactions WHERE from_user_id = ? OR to_user_id = ?`)
+			.run(appUserId, appUserId);
+		sqlite
+			.prepare(`DELETE FROM connections WHERE user_a_id = ? OR user_b_id = ?`)
+			.run(appUserId, appUserId);
+		sqlite.prepare(`DELETE FROM pending_qr WHERE initiating_user_id = ?`).run(appUserId);
+	}
+
 	sqlite.prepare(`DELETE FROM app_users WHERE better_auth_user_id = ?`).run(userId);
 
 	const test = await getTest();
@@ -174,3 +239,18 @@ export async function onboardUserViaEmail(
 
 	await page.waitForURL(/\/home/, { timeout: 10_000 });
 }
+
+// ── Playwright fixtures ───────────────────────────────────────────────────────
+
+/**
+ * Custom test fixture that provides a fresh unauthenticated browser context
+ * as `secondContext`. The context is automatically closed after each test,
+ * eliminating the need for try/finally blocks.
+ */
+export const test = base.extend<{ secondContext: import('@playwright/test').BrowserContext }>({
+	secondContext: async ({ browser }, use, testInfo) => {
+		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
+		await use(ctx);
+		await ctx.close();
+	}
+});
