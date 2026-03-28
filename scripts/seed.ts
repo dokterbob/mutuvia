@@ -69,8 +69,12 @@ if (provider === 'pg') {
 		createdAt: now
 	});
 
-	await db.insert(connections).values({ userAId: 'app-user-1', userBId: 'app-user-2', createdAt: now });
-	await db.insert(connections).values({ userAId: 'app-user-2', userBId: 'app-user-3', createdAt: now });
+	await db
+		.insert(connections)
+		.values({ userAId: 'app-user-1', userBId: 'app-user-2', createdAt: now });
+	await db
+		.insert(connections)
+		.values({ userAId: 'app-user-2', userBId: 'app-user-3', createdAt: now });
 
 	await client.end();
 } else {
@@ -120,8 +124,12 @@ if (provider === 'pg') {
 		createdAt: now
 	});
 
-	await db.insert(connections).values({ userAId: 'app-user-1', userBId: 'app-user-2', createdAt: now });
-	await db.insert(connections).values({ userAId: 'app-user-2', userBId: 'app-user-3', createdAt: now });
+	await db
+		.insert(connections)
+		.values({ userAId: 'app-user-1', userBId: 'app-user-2', createdAt: now });
+	await db
+		.insert(connections)
+		.values({ userAId: 'app-user-2', userBId: 'app-user-3', createdAt: now });
 
 	sqlite.close();
 }

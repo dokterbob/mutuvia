@@ -36,36 +36,36 @@ In development, SMS and email OTP codes are logged to the console (no Twilio cre
 
 ## Tech Stack
 
-| Layer         | Choice                                               |
-| ------------- | ---------------------------------------------------- |
-| Framework     | SvelteKit (Svelte 5 with Runes)                      |
-| Runtime       | Bun (via svelte-adapter-bun)                         |
-| UI            | shadcn-svelte + Tailwind CSS v4                      |
-| Auth          | Better Auth (SMS OTP via Twilio, email OTP fallback) |
-| ORM           | Drizzle ORM                                          |
+| Layer         | Choice                                                                          |
+| ------------- | ------------------------------------------------------------------------------- |
+| Framework     | SvelteKit (Svelte 5 with Runes)                                                 |
+| Runtime       | Bun (via svelte-adapter-bun)                                                    |
+| UI            | shadcn-svelte + Tailwind CSS v4                                                 |
+| Auth          | Better Auth (SMS OTP via Twilio, email OTP fallback)                            |
+| ORM           | Drizzle ORM                                                                     |
 | Database      | SQLite (default, WAL mode, via bun:sqlite) or PostgreSQL (via `DB_PROVIDER=pg`) |
-| i18n          | Paraglide JS v2 (EN, PT, NL)                         |
-| QR            | jose (JWT) + qrcode                                  |
-| Observability | Sentry (optional — error tracking + feedback widget) |
+| i18n          | Paraglide JS v2 (EN, PT, NL)                                                    |
+| QR            | jose (JWT) + qrcode                                                             |
+| Observability | Sentry (optional — error tracking + feedback widget)                            |
 
 ---
 
 ## Scripts
 
-| Command               | Description                   |
-| --------------------- | ----------------------------- |
-| `bun run dev`         | Start development server      |
-| `bun run build`       | Production build              |
-| `bun run preview`     | Preview production build      |
-| `bun run check`       | Type-check (svelte-check)     |
-| `bun run lint`        | Prettier + ESLint             |
-| `bun run format`      | Auto-format                   |
-| `bun test`            | Run tests                     |
-| `bun run db:generate:sqlite` | Generate Drizzle migration (SQLite)     |
-| `bun run db:generate:pg`    | Generate Drizzle migration (PostgreSQL) |
-| `bun run db:migrate`        | Apply migrations (honours `DB_PROVIDER`) |
-| `bun run db:push:pg`        | Push schema to local PG (no migration)  |
-| `bun run db:seed`           | Seed test data                          |
+| Command                      | Description                              |
+| ---------------------------- | ---------------------------------------- |
+| `bun run dev`                | Start development server                 |
+| `bun run build`              | Production build                         |
+| `bun run preview`            | Preview production build                 |
+| `bun run check`              | Type-check (svelte-check)                |
+| `bun run lint`               | Prettier + ESLint                        |
+| `bun run format`             | Auto-format                              |
+| `bun test`                   | Run tests                                |
+| `bun run db:generate:sqlite` | Generate Drizzle migration (SQLite)      |
+| `bun run db:generate:pg`     | Generate Drizzle migration (PostgreSQL)  |
+| `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
+| `bun run db:push:pg`         | Push schema to local PG (no migration)   |
+| `bun run db:seed`            | Seed test data                           |
 
 ---
 

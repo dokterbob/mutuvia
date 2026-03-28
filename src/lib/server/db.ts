@@ -6,9 +6,7 @@ import type { Database } from 'bun:sqlite';
 import type * as SqliteSchema from './schema.sqlite';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mod: any = config.dbProvider === 'pg'
-	? await import('./db.pg')
-	: await import('./db.sqlite');
+const mod: any = config.dbProvider === 'pg' ? await import('./db.pg') : await import('./db.sqlite');
 
 // Typed as the SQLite dialect for static analysis — at runtime the PG dialect is
 // structurally identical (same column names/types), so query inference is correct.

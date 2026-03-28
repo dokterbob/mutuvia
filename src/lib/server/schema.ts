@@ -3,9 +3,7 @@
 import { config } from '$lib/config';
 
 const mod =
-	config.dbProvider === 'pg'
-		? await import('./schema.pg')
-		: await import('./schema.sqlite');
+	config.dbProvider === 'pg' ? await import('./schema.pg') : await import('./schema.sqlite');
 
 // Type-assert to SQLite types for static analysis — runtime exports are dialect-correct.
 type SqliteSchema = typeof import('./schema.sqlite');
