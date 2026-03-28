@@ -7,6 +7,7 @@ RUN apk add --no-cache python3=3.12.12-r0 make=4.4.1-r3 g++=14.2.0-r6
 
 # Install all dependencies (devDeps required for build/type-gen)
 COPY package.json bun.lock ./
+COPY patches/ patches/
 RUN bun install --frozen-lockfile
 
 # Sentry release tracking: .git is excluded from the build context,
@@ -30,6 +31,7 @@ WORKDIR /app
 # Install production deps only (migrate.ts imports drizzle-orm/bun-sqlite,
 # which is not bundled by the vite build)
 COPY package.json bun.lock ./
+COPY patches/ patches/
 RUN bun install --production --frozen-lockfile
 
 # Bundled SvelteKit server
