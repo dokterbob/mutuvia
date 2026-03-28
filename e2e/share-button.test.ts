@@ -1,16 +1,15 @@
-import { test, expect, type BrowserContext } from '@playwright/test';
-import { goto, setupAuthenticatedUser } from './test-utils.js';
+import { expect, type BrowserContext } from '@playwright/test';
+import { test, goto, setupAuthenticatedUser } from './test-utils.js';
 
-const TEST_EMAIL = 'e2e-share-button@test.example';
 const TEST_NAME = 'Share Tester';
 
 test.describe.serial('Share button', () => {
 	let userStorage: Awaited<ReturnType<BrowserContext['storageState']>>;
 
-	test.beforeAll(async ({ browser }, testInfo) => {
+	test.beforeAll(async ({ browser, email }, testInfo) => {
 		const baseURL = testInfo.project.use.baseURL!;
 		const ctx = await browser.newContext({ baseURL });
-		await setupAuthenticatedUser(ctx, TEST_EMAIL, TEST_NAME);
+		await setupAuthenticatedUser(ctx, email('user'), TEST_NAME);
 		userStorage = await ctx.storageState();
 		await ctx.close();
 	});

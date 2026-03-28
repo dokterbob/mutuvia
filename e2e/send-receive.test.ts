@@ -1,5 +1,5 @@
-import { test, expect, type BrowserContext } from '@playwright/test';
-import { goto, setupAuthenticatedUser, SENDER_EMAIL, RECEIVER_EMAIL } from './test-utils.js';
+import { expect, type BrowserContext } from '@playwright/test';
+import { test, goto, setupAuthenticatedUser } from './test-utils.js';
 
 const SENDER_NAME = 'Test Sender';
 const RECEIVER_NAME = 'Test Receiver';
@@ -11,16 +11,16 @@ test.describe.serial('Send / Receive flow', () => {
 	// Users are created programmatically (no onboarding UI) and their session
 	// cookies are injected directly into browser contexts. Cleanup happens via
 	// globalSetup (deletes test.db) on the next Playwright run.
-	test.beforeAll(async ({ browser }, testInfo) => {
+	test.beforeAll(async ({ browser, email }, testInfo) => {
 		const baseURL = testInfo.project.use.baseURL!;
 
 		const senderCtx = await browser.newContext({ baseURL });
-		await setupAuthenticatedUser(senderCtx, SENDER_EMAIL, SENDER_NAME);
+		await setupAuthenticatedUser(senderCtx, email('sender'), SENDER_NAME);
 		senderStorage = await senderCtx.storageState();
 		await senderCtx.close();
 
 		const receiverCtx = await browser.newContext({ baseURL });
-		await setupAuthenticatedUser(receiverCtx, RECEIVER_EMAIL, RECEIVER_NAME);
+		await setupAuthenticatedUser(receiverCtx, email('receiver'), RECEIVER_NAME);
 		receiverStorage = await receiverCtx.storageState();
 		await receiverCtx.close();
 	});
