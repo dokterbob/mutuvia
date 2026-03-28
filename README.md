@@ -80,16 +80,17 @@ The server listens on port `3000` by default. Override with `-e PORT=<port>`.
 
 ## Tech Stack
 
-| Layer     | Choice                                               |
-| --------- | ---------------------------------------------------- |
-| Framework | SvelteKit (Svelte 5 with Runes)                      |
-| Runtime   | Bun (via svelte-adapter-bun)                         |
-| UI        | shadcn-svelte + Tailwind CSS v4                      |
-| Auth      | Better Auth (SMS OTP via Twilio, email OTP fallback) |
-| ORM       | Drizzle ORM                                          |
-| Database  | SQLite (WAL mode, via bun:sqlite)                    |
-| i18n      | Paraglide JS v2 (EN, PT, NL)                         |
-| QR        | jose (JWT) + qrcode                                  |
+| Layer         | Choice                                               |
+| ------------- | ---------------------------------------------------- |
+| Framework     | SvelteKit (Svelte 5 with Runes)                      |
+| Runtime       | Bun (via svelte-adapter-bun)                         |
+| UI            | shadcn-svelte + Tailwind CSS v4                      |
+| Auth          | Better Auth (SMS OTP via Twilio, email OTP fallback) |
+| ORM           | Drizzle ORM                                          |
+| Database      | SQLite (WAL mode, via bun:sqlite)                    |
+| i18n          | Paraglide JS v2 (EN, PT, NL)                         |
+| QR            | jose (JWT) + qrcode                                  |
+| Observability | Sentry (optional — error tracking + feedback widget) |
 
 ---
 
