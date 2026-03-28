@@ -46,5 +46,15 @@ export const config = {
 	},
 	get twilioPhoneNumber() {
 		return env.TWILIO_PHONE_NUMBER || '';
+	},
+	// ── Database ──
+	get dbProvider() {
+		return (env.DB_PROVIDER || 'sqlite') as 'sqlite' | 'pg';
+	},
+	get dbFileName() {
+		return env.DB_FILE_NAME || 'sqlite.db';
+	},
+	get databaseUrl() {
+		return env.DATABASE_URL || 'postgres://mutuvia:mutuvia@localhost:5432/mutuvia';
 	}
 };

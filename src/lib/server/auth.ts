@@ -4,10 +4,11 @@ import { betterAuth } from 'better-auth';
 import { phoneNumber, emailOTP } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from './db';
+import { config } from '$lib/config';
 
 export const auth = betterAuth({
 	database: drizzleAdapter(db, {
-		provider: 'sqlite'
+		provider: config.dbProvider
 	}),
 	emailAndPassword: {
 		enabled: false

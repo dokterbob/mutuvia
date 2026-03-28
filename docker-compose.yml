@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Local PostgreSQL for development. Start with: docker compose up -d
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: mutuvia
+      POSTGRES_USER: mutuvia
+      POSTGRES_PASSWORD: mutuvia
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

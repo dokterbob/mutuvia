@@ -36,18 +36,16 @@ export const actions: Actions = {
 		const now = new Date();
 		const qrId = randomUUID();
 
-		db.insert(pendingQr)
-			.values({
-				id: qrId,
-				initiatingUserId: userId,
-				direction: 'receive',
-				amount,
-				note,
-				createdAt: now,
-				expiresAt: new Date(now.getTime() + ttl * 1000),
-				status: 'pending'
-			})
-			.run();
+		await db.insert(pendingQr).values({
+			id: qrId,
+			initiatingUserId: userId,
+			direction: 'receive',
+			amount,
+			note,
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + ttl * 1000),
+			status: 'pending'
+		});
 
 		const token = await signQrToken(
 			{ jti: qrId, amt: amount, dir: 'receive', dn: displayName },
@@ -65,7 +63,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
-			db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId)).run();
+			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
 		}
 		redirect(307, '/home');
 	}
