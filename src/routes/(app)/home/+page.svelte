@@ -30,6 +30,7 @@
 		</span>
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger
+				aria-label="Menu"
 				class="flex h-9 w-9 items-center justify-center rounded-full border bg-muted"
 			>
 				<MenuIcon class="h-4 w-4 text-muted-foreground" />
