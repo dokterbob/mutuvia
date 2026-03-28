@@ -70,7 +70,7 @@ test.describe('FAQ hamburger menu (authenticated)', () => {
 		await ctx.close();
 	});
 
-	test('hamburger menu opens with Settings and FAQ items', async ({ browser }, testInfo) => {
+	test('hamburger menu shows all items', async ({ browser }, testInfo) => {
 		const ctx = await browser.newContext({
 			storageState: storage,
 			baseURL: testInfo.project.use.baseURL!
@@ -82,6 +82,10 @@ test.describe('FAQ hamburger menu (authenticated)', () => {
 			await expect(page.getByRole('menu')).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /settings/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /faq/i })).toBeVisible();
+			await expect(page.getByRole('menuitem', { name: /how it works/i })).toBeVisible();
+			await expect(page.getByRole('menuitem', { name: /about/i })).toBeVisible();
+			await expect(page.getByRole('link', { name: /open source/i })).toBeVisible();
+			await expect(page.getByRole('menuitem', { name: /sign out/i })).toBeVisible();
 		} finally {
 			await ctx.close();
 		}
@@ -118,6 +122,64 @@ test.describe('FAQ hamburger menu (authenticated)', () => {
 			await expect(page).toHaveURL(/\/faq/);
 		} finally {
 			await ctx.close();
+		}
+	});
+
+	test('How it works navigates to /onboarding/intro1?review', async ({ browser }, testInfo) => {
+		const ctx = await browser.newContext({
+			storageState: storage,
+			baseURL: testInfo.project.use.baseURL!
+		});
+		const page = await ctx.newPage();
+		try {
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
+			await page.getByRole('menuitem', { name: /how it works/i }).click();
+			await expect(page).toHaveURL(/\/onboarding\/intro1/);
+		} finally {
+			await ctx.close();
+		}
+	});
+
+	test('About navigates to /about', async ({ browser }, testInfo) => {
+		const ctx = await browser.newContext({
+			storageState: storage,
+			baseURL: testInfo.project.use.baseURL!
+		});
+		const page = await ctx.newPage();
+		try {
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
+			await page.getByRole('menuitem', { name: /about/i }).click();
+			await expect(page).toHaveURL(/\/about/);
+		} finally {
+			await ctx.close();
+		}
+	});
+
+	test('Sign out navigates to /onboarding', async ({ browser }, testInfo) => {
+		const signOutEmail = 'e2e-faq-signout@test.example';
+		const signOutName = 'FAQ Signout User';
+		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
+		await setupAuthenticatedUser(ctx, signOutEmail, signOutName);
+		const signOutStorage = await ctx.storageState();
+		await ctx.close();
+
+		const authCtx = await browser.newContext({
+			storageState: signOutStorage,
+			baseURL: testInfo.project.use.baseURL!
+		});
+		const page = await authCtx.newPage();
+		try {
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
+			await page.getByRole('menuitem', { name: /sign out/i }).click();
+			await expect(page).toHaveURL(/\/onboarding/);
+		} finally {
+			await authCtx.close();
 		}
 	});
 });
