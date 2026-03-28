@@ -16,7 +16,8 @@ bun install
 
 # Set up environment
 cp .env.example .env
-# Edit .env — at minimum set QR_JWT_SECRET (32+ chars)
+# Generate a secure QR_JWT_SECRET and add it to .env:
+echo "QR_JWT_SECRET=$(bun run generate-secret)" >> .env
 
 # Run database migration
 bun run db:migrate
@@ -43,7 +44,8 @@ Two deployment profiles are available. Choose **SQLite** for simplicity (single 
 ```bash
 # 1. Create your .env from the template
 cp .env.docker.example .env
-# Edit .env — set APP_URL, QR_JWT_SECRET, BETTER_AUTH_SECRET at minimum
+# Edit .env — set APP_URL, and generate secrets:
+#   bun run generate-secret  # paste output into QR_JWT_SECRET and BETTER_AUTH_SECRET
 
 # 2a. SQLite deployment
 docker compose --profile sqlite up -d
@@ -130,6 +132,7 @@ docker compose --profile postgres up -d
 | `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
 | `bun run db:push:pg`         | Push schema to local PG (no migration)   |
 | `bun run db:seed`            | Seed test data                           |
+| `bun run generate-secret`    | Generate a secure QR_JWT_SECRET          |
 
 ---
 

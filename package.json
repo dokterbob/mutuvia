@@ -22,7 +22,8 @@
 		"db:generate": "echo 'Use db:generate:sqlite or db:generate:pg'",
 		"db:migrate": "bun scripts/migrate.ts",
 		"db:seed": "bun scripts/seed.ts",
-		"db:push:pg": "bun drizzle-kit push --config drizzle.config.pg.ts"
+		"db:push:pg": "bun drizzle-kit push --config drizzle.config.pg.ts",
+		"generate-secret": "bun scripts/generate-secret.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.2",
