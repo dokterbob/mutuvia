@@ -80,7 +80,7 @@
 	</div>
 
 	<!-- OTP input -->
-	<div class="relative mx-auto mb-2 flex justify-center gap-2.5">
+	<div class="relative mx-auto mb-6 flex justify-center gap-2.5">
 		<input
 			type="text"
 			inputmode="numeric"
