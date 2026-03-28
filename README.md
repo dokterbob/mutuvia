@@ -16,7 +16,8 @@ bun install
 
 # Set up environment
 cp .env.example .env
-# Edit .env — at minimum set QR_JWT_SECRET (32+ chars)
+# Generate a secure QR_JWT_SECRET and add it to .env:
+echo "QR_JWT_SECRET=$(bun run generate-secret)" >> .env
 
 # Run database migration
 bun run db:migrate
@@ -34,47 +35,68 @@ In development, SMS and email OTP codes are logged to the console (no Twilio cre
 
 ---
 
-## Deployment (Docker)
+## Deployment (Docker Compose)
 
-### Build & run
+Two deployment profiles are available. Choose **SQLite** for simplicity (single node, data in a volume) or **PostgreSQL** for scalability.
+
+### Quick start
 
 ```bash
-docker build -t mutuvia .
+# 1. Create your .env from the template
+cp .env.docker.example .env
+# Edit .env — set APP_URL, and generate secrets:
+#   bun run generate-secret  # paste output into QR_JWT_SECRET and BETTER_AUTH_SECRET
 
-docker run -d \
-  --name mutuvia \
-  -p 3000:3000 \
-  -v mutuvia-data:/data \
-  -e QR_JWT_SECRET=<min-32-char-secret> \
-  -e APP_URL=https://your-domain \
-  -e BETTER_AUTH_URL=https://your-domain \
-  mutuvia
+# 2a. SQLite deployment
+docker compose --profile sqlite up -d
+
+# 2b. PostgreSQL deployment (also set POSTGRES_PASSWORD in .env)
+docker compose --profile postgres up -d
 ```
 
-The SQLite database is stored in `/data/sqlite.db` inside the container. Mount a named volume (or bind mount) at `/data` to persist data across restarts. **Migrations run automatically on startup** — the container is safe to restart or redeploy without manual migration steps.
+**Migrations run automatically on startup.** The container is safe to restart or redeploy.
 
-The server listens on port `3000` by default. Override with `-e PORT=<port>`.
+The server listens on port `3000` by default. Override with `PORT=<port>` in `.env`.
+
+### SQLite
+
+Data is stored in `/data/sqlite.db` inside the container, backed by a named Docker volume (`sqlite-data`). No extra services required.
+
+```bash
+docker compose --profile sqlite up -d
+```
+
+### PostgreSQL
+
+Starts the app and a managed Postgres 17 container. The app waits for Postgres to be healthy before starting.
+
+```bash
+# Set POSTGRES_PASSWORD in .env (defaults to 'mutuvia' if unset — change in production)
+docker compose --profile postgres up -d
+```
 
 ### Environment variables
 
-| Variable                   | Required | Default                  | Description                                                             |
-| -------------------------- | -------- | ------------------------ | ----------------------------------------------------------------------- |
-| `QR_JWT_SECRET`            | **Yes**  | —                        | Min 32 chars. Signs QR JWT tokens.                                      |
-| `APP_URL`                  | **Yes**  | `http://localhost:5173`  | Public base URL. Used in QR links.                                      |
-| `BETTER_AUTH_URL`          | **Yes**  | —                        | Same as `APP_URL`. Required by Better Auth for callbacks and redirects. |
-| `TWILIO_ACCOUNT_SID`       | Prod     | —                        | SMS OTP delivery. Omit in dev — OTPs log to console.                    |
-| `TWILIO_AUTH_TOKEN`        | Prod     | —                        | Twilio auth token.                                                      |
-| `TWILIO_PHONE_NUMBER`      | Prod     | —                        | Sender number in E.164 format (e.g. `+15550001234`).                    |
-| `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.                                  |
-| `PORT`                     | No       | `3000`                   | Server listen port.                                                     |
-| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                                            |
-| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.` | Tagline fallback (localized via i18n).                                  |
-| `UNIT_CODE`                | No       | `EUR`                    | ISO 4217 code or custom unit identifier.                                |
-| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                      | Displayed unit symbol.                                                  |
-| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                   | Lowercase singular name for the unit.                                   |
-| `UNIT_DECIMAL_PLACES`      | No       | `2`                      | Decimal places used by `formatAmount()`.                                |
-| `QR_TTL_SECONDS`           | No       | `600`                    | QR token validity window in seconds.                                    |
-| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                        | URL linked in Settings → About.                                         |
+| Variable                   | Required | Default                  | Description                                          |
+| -------------------------- | -------- | ------------------------ | ---------------------------------------------------- |
+| `QR_JWT_SECRET`            | **Yes**  | —                        | Min 32 chars. Signs QR JWT tokens.                   |
+| `BETTER_AUTH_SECRET`       | **Yes**  | —                        | Min 32 chars. Signs Better Auth sessions.            |
+| `APP_URL`                  | **Yes**  | `http://localhost:5173`  | Public base URL. Used in QR links.                   |
+| `BETTER_AUTH_URL`          | **Yes**  | —                        | Same as `APP_URL`. Required by Better Auth.          |
+| `POSTGRES_PASSWORD`        | PG only  | `mutuvia`                | Postgres password. Change in production.             |
+| `TWILIO_ACCOUNT_SID`       | Prod     | —                        | SMS OTP delivery. Omit in dev — OTPs log to console. |
+| `TWILIO_AUTH_TOKEN`        | Prod     | —                        | Twilio auth token.                                   |
+| `TWILIO_PHONE_NUMBER`      | Prod     | —                        | Sender number in E.164 format (`+15550001234`).      |
+| `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.               |
+| `PORT`                     | No       | `3000`                   | Server listen port.                                  |
+| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                         |
+| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.` | Tagline fallback (localized via i18n).               |
+| `UNIT_CODE`                | No       | `EUR`                    | ISO 4217 code or custom unit identifier.             |
+| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                      | Displayed unit symbol.                               |
+| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                   | Lowercase singular name for the unit.                |
+| `UNIT_DECIMAL_PLACES`      | No       | `2`                      | Decimal places used by `formatAmount()`.             |
+| `QR_TTL_SECONDS`           | No       | `600`                    | QR token validity window in seconds.                 |
+| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                        | URL linked in Settings → About.                      |
 
 ---
 
@@ -110,6 +132,7 @@ The server listens on port `3000` by default. Override with `-e PORT=<port>`.
 | `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
 | `bun run db:push:pg`         | Push schema to local PG (no migration)   |
 | `bun run db:seed`            | Seed test data                           |
+| `bun run generate-secret`    | Generate a secure QR_JWT_SECRET          |
 
 ---
 
@@ -127,15 +150,13 @@ Key settings for rebranding:
 
 - `DB_PROVIDER` — `sqlite` (default) or `pg`
 
-### PostgreSQL (local)
-
-A `docker-compose.yml` is included for local development with PostgreSQL:
+### PostgreSQL (local development)
 
 ```bash
-# Start the PostgreSQL container
-docker compose up -d
+# Start a local PostgreSQL container on port 5432
+docker compose --profile dev up -d
 
-# Set DB_PROVIDER and DATABASE_URL in .env, then push the schema
+# Set in .env:
 DB_PROVIDER=pg
 DATABASE_URL=postgres://mutuvia:mutuvia@localhost:5432/mutuvia
 

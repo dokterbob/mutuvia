@@ -1,8 +1,67 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Local PostgreSQL for development. Start with: docker compose up -d
+#
+# Mutuvia — Docker Compose
+#
+# Deployment profiles:
+#   docker compose --profile sqlite up    # SQLite (simple, single-node)
+#   docker compose --profile postgres up  # PostgreSQL (scalable)
+#
+# Local development (PG only, no app container):
+#   docker compose --profile dev up -d
+#
+# Before running a deployment profile, copy .env.docker.example to .env and fill in the required values.
 
 services:
+  # ── SQLite deployment ────────────────────────────────────────────────────────
+  app-sqlite:
+    profiles: ['sqlite']
+    build: .
+    env_file: .env
+    environment:
+      DB_PROVIDER: sqlite
+      DB_FILE_NAME: /data/sqlite.db
+    volumes:
+      - sqlite-data:/data
+    ports:
+      - '${PORT:-3000}:3000'
+    restart: unless-stopped
+
+  # ── PostgreSQL deployment ────────────────────────────────────────────────────
+  app-postgres:
+    profiles: ['postgres']
+    build: .
+    env_file: .env
+    environment:
+      DB_PROVIDER: pg
+      DATABASE_URL: postgresql://mutuvia:${POSTGRES_PASSWORD:-mutuvia}@postgres:5432/mutuvia
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '${PORT:-3000}:3000'
+    restart: unless-stopped
+
   postgres:
+    profiles: ['postgres']
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: mutuvia
+      POSTGRES_USER: mutuvia
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mutuvia}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mutuvia']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Local development PostgreSQL ─────────────────────────────────────────────
+  # Start with: docker compose --profile dev up -d
+  # Then set DB_PROVIDER=pg and DATABASE_URL=postgres://mutuvia:mutuvia@localhost:5432/mutuvia in .env
+  postgres-dev:
+    profiles: ['dev']
     image: postgres:17-alpine
     ports:
       - '5432:5432'
@@ -11,7 +70,10 @@ services:
       POSTGRES_USER: mutuvia
       POSTGRES_PASSWORD: mutuvia
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata-dev:/var/lib/postgresql/data
+    restart: unless-stopped
 
 volumes:
-  pgdata:
+  sqlite-data:
+  pg-data:
+  pgdata-dev:

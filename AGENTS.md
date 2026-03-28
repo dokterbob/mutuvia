@@ -73,6 +73,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 | `bun run db:push:pg`         | Push schema to local PG (no migration)   |
 | `bun run db:seed`            | Seed test data (3 users, 2 transactions) |
 | `docker compose up -d`       | Start local PostgreSQL container         |
+| `bun run generate-secret`    | Generate secure QR_JWT_SECRET            |
 
 ## Testing
 

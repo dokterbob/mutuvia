@@ -6,26 +6,8 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import XIcon from '@lucide/svelte/icons/x';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
-	import { browser } from '$app/environment';
 
 	let { data, form } = $props();
-
-	// First-time notice (localStorage) — only shown to authenticated users
-	let showNotice = $state(false);
-
-	$effect(() => {
-		if (browser && !data.expired && !data.needsAuth) {
-			const dismissed = localStorage.getItem('mutuvia_accept_notice_dismissed');
-			if (!dismissed) {
-				showNotice = true;
-			}
-		}
-	});
-
-	function dismissNotice() {
-		showNotice = false;
-		localStorage.setItem('mutuvia_accept_notice_dismissed', 'true');
-	}
 </script>
 
 {#snippet transactionSummary()}
@@ -100,23 +82,32 @@
 		<div class="flex flex-1 flex-col">
 			{@render transactionSummary()}
 
-			<p class="mb-4 text-sm text-muted-foreground">
+			<p class="mb-2 text-sm text-muted-foreground">
 				{m.accept_balance_label({
 					name: data.initiatorName ?? '',
 					balance: data.initiatorBalance ?? ''
 				})}
 			</p>
 
-			{#if showNotice}
-				<Card class="mb-4 rounded-xl border-blue-200 bg-blue-50 p-4">
-					<p class="mb-2 text-sm text-blue-900">
-						{m.accept_first_time_notice()}
-					</p>
-					<button class="text-xs font-medium text-blue-700 hover:underline" onclick={dismissNotice}>
-						{m.common_dismiss()}
-					</button>
-				</Card>
-			{/if}
+			<p class="mb-4 text-sm text-muted-foreground">
+				{#if data.direction === 'send'}
+					{m.accept_send_balance_impact({
+						name: data.initiatorName ?? '',
+						amount: data.formattedAmount ?? ''
+					})}
+				{:else}
+					{m.accept_receive_balance_impact({
+						name: data.initiatorName ?? '',
+						amount: data.formattedAmount ?? ''
+					})}
+				{/if}
+			</p>
+
+			<Card class="mb-4 rounded-xl border-blue-200 bg-blue-50 p-4">
+				<p class="text-sm text-blue-900">
+					{m.accept_first_time_notice()}
+				</p>
+			</Card>
 
 			{#if form?.error}
 				<p class="mb-3 text-sm text-red-600">{form.error}</p>
