@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
+	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
@@ -9,6 +10,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
+	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
 
@@ -27,6 +29,7 @@
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
+	let canShare = $derived(browser && 'share' in navigator);
 
 	$effect(() => {
 		if (form?.qrUrl) {
@@ -168,8 +171,9 @@
 						<CopyButton text={qrUrl} variant="outline" class="flex-1 rounded-xl text-sm">
 							{m.qr_copy_link()}
 						</CopyButton>
-						{#if typeof navigator !== 'undefined' && 'share' in navigator}
+						{#if canShare}
 							<Button variant="outline" class="flex-1 rounded-xl text-sm" onclick={shareLink}>
+								<ShareIcon class="mr-2 h-4 w-4" />
 								{m.qr_share()}
 							</Button>
 						{/if}

@@ -1,47 +1,88 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type BrowserContext } from '@playwright/test';
+import { goto, setupAuthenticatedUser } from './test-utils.js';
 
-// AUTH REQUIRED: /send and /receive are behind the (app) layout guard.
-// The (app)/+layout.server.ts redirects to /onboarding if no session exists.
-//
-// The seed script (scripts/seed.ts) creates users and appUsers but NOT sessions.
-// To enable these tests, one of these approaches is needed:
-//   1. Extend seed.ts to insert a row into the `session` table and inject
-//      the token via page.context().addCookies() with cookie name `better-auth.session_token`
-//   2. Create a Playwright fixture that calls Better Auth's API to mint a session
-//   3. Add a dev-only API endpoint that creates sessions for testing
-//
-// The QR generate button text is send.cta = "Generate QR" (EN).
-// CopyButton renders a button with children text qr.copy_link = "Copy link".
-// After clicking, sr-only text switches to "Copied" for ~500ms then reverts to "Copy".
+const TEST_EMAIL = 'e2e-copy-button@test.example';
+const TEST_NAME = 'Copy Tester';
 
-test.describe('CopyButton', () => {
-	test.skip(true, 'Requires auth session — implement session seeding first');
+test.describe.serial('CopyButton', () => {
+	let userStorage: Awaited<ReturnType<BrowserContext['storageState']>>;
 
-	test('CopyButton visible after generating QR on /send', async ({ page }) => {
-		await page.goto('/send');
-		await page.locator('input[type="number"]').fill('10');
-		await page.getByRole('button', { name: 'Generate QR' }).click();
-		await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+	test.beforeAll(async ({ browser }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({ baseURL });
+		await setupAuthenticatedUser(ctx, TEST_EMAIL, TEST_NAME);
+		userStorage = await ctx.storageState();
+		await ctx.close();
 	});
 
-	test('clicking CopyButton shows copied state briefly', async ({ page }) => {
-		await page.goto('/send');
-		await page.locator('input[type="number"]').fill('10');
-		await page.getByRole('button', { name: 'Generate QR' }).click();
+	test('CopyButton visible after generating QR on /send', async ({ browser }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({ storageState: userStorage, baseURL });
+		const page = await ctx.newPage();
 
-		const copyBtn = page.getByRole('button', { name: /copy link/i });
-		await copyBtn.click();
-		// UseClipboard sets status='success' → sr-only text changes to "Copied"
-		await expect(copyBtn.locator('.sr-only')).toHaveText('Copied');
-		// After animationDuration (~500ms) reverts
-		await page.waitForTimeout(700);
-		await expect(copyBtn.locator('.sr-only')).toHaveText('Copy');
+		try {
+			await goto(page, '/send');
+
+			const consentBtn = page.getByRole('button', { name: "I understand, let's go" });
+			if (await consentBtn.isVisible()) {
+				await consentBtn.click();
+			}
+
+			await page.locator('input[name="amount"]').fill('10');
+			await page.getByRole('button', { name: 'Generate QR' }).click();
+
+			await expect(page.getByText(/\/accept\//)).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+		} finally {
+			await ctx.close();
+		}
 	});
 
-	test('CopyButton visible on /receive after generating QR', async ({ page }) => {
-		await page.goto('/receive');
-		await page.locator('input[type="number"]').fill('5');
-		await page.getByRole('button', { name: 'Generate QR' }).click();
-		await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+	test('clicking CopyButton shows copied state briefly', async ({ browser }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({ storageState: userStorage, baseURL });
+		const page = await ctx.newPage();
+
+		try {
+			await goto(page, '/send');
+
+			const consentBtn = page.getByRole('button', { name: "I understand, let's go" });
+			if (await consentBtn.isVisible()) {
+				await consentBtn.click();
+			}
+
+			await page.locator('input[name="amount"]').fill('10');
+			await page.getByRole('button', { name: 'Generate QR' }).click();
+
+			await expect(page.getByText(/\/accept\//)).toBeVisible({ timeout: 10_000 });
+
+			const copyBtn = page.getByRole('button', { name: /copy link/i });
+			await copyBtn.click();
+			// UseClipboard sets status='success' → sr-only text changes to "Copied"
+			await expect(copyBtn.locator('.sr-only')).toHaveText('Copied');
+			// After animationDuration (~500ms) reverts
+			await page.waitForTimeout(700);
+			await expect(copyBtn.locator('.sr-only')).toHaveText('Copy');
+		} finally {
+			await ctx.close();
+		}
+	});
+
+	test('CopyButton visible on /receive after generating QR', async ({ browser }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({ storageState: userStorage, baseURL });
+		const page = await ctx.newPage();
+
+		try {
+			await goto(page, '/receive');
+
+			await page.locator('input[name="amount"]').fill('5');
+			await page.getByRole('button', { name: 'Generate QR' }).click();
+
+			await expect(page.getByText(/\/accept\//)).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+		} finally {
+			await ctx.close();
+		}
 	});
 });
