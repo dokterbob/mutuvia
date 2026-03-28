@@ -34,6 +34,50 @@ In development, SMS and email OTP codes are logged to the console (no Twilio cre
 
 ---
 
+## Deployment (Docker)
+
+### Build & run
+
+```bash
+docker build -t mutuvia .
+
+docker run -d \
+  --name mutuvia \
+  -p 3000:3000 \
+  -v mutuvia-data:/data \
+  -e QR_JWT_SECRET=<min-32-char-secret> \
+  -e APP_URL=https://your-domain \
+  -e BETTER_AUTH_URL=https://your-domain \
+  mutuvia
+```
+
+The SQLite database is stored in `/data/sqlite.db` inside the container. Mount a named volume (or bind mount) at `/data` to persist data across restarts. **Migrations run automatically on startup** — the container is safe to restart or redeploy without manual migration steps.
+
+The server listens on port `3000` by default. Override with `-e PORT=<port>`.
+
+### Environment variables
+
+| Variable                   | Required | Default                  | Description                                                             |
+| -------------------------- | -------- | ------------------------ | ----------------------------------------------------------------------- |
+| `QR_JWT_SECRET`            | **Yes**  | —                        | Min 32 chars. Signs QR JWT tokens.                                      |
+| `APP_URL`                  | **Yes**  | `http://localhost:5173`  | Public base URL. Used in QR links.                                      |
+| `BETTER_AUTH_URL`          | **Yes**  | —                        | Same as `APP_URL`. Required by Better Auth for callbacks and redirects. |
+| `TWILIO_ACCOUNT_SID`       | Prod     | —                        | SMS OTP delivery. Omit in dev — OTPs log to console.                    |
+| `TWILIO_AUTH_TOKEN`        | Prod     | —                        | Twilio auth token.                                                      |
+| `TWILIO_PHONE_NUMBER`      | Prod     | —                        | Sender number in E.164 format (e.g. `+15550001234`).                    |
+| `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.                                  |
+| `PORT`                     | No       | `3000`                   | Server listen port.                                                     |
+| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                                            |
+| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.` | Tagline fallback (localized via i18n).                                  |
+| `UNIT_CODE`                | No       | `EUR`                    | ISO 4217 code or custom unit identifier.                                |
+| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                      | Displayed unit symbol.                                                  |
+| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                   | Lowercase singular name for the unit.                                   |
+| `UNIT_DECIMAL_PLACES`      | No       | `2`                      | Decimal places used by `formatAmount()`.                                |
+| `QR_TTL_SECONDS`           | No       | `600`                    | QR token validity window in seconds.                                    |
+| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                        | URL linked in Settings → About.                                         |
+
+---
+
 ## Tech Stack
 
 | Layer     | Choice                                               |
