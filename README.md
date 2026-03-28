@@ -16,7 +16,8 @@ bun install
 
 # Set up environment
 cp .env.example .env
-# Edit .env — at minimum set QR_JWT_SECRET (32+ chars)
+# Generate a secure QR_JWT_SECRET and add it to .env:
+echo "QR_JWT_SECRET=$(bun run generate-secret)" >> .env
 
 # Run database migration
 bun run db:migrate
@@ -45,7 +46,7 @@ docker run -d \
   --name mutuvia \
   -p 3000:3000 \
   -v mutuvia-data:/data \
-  -e QR_JWT_SECRET=<min-32-char-secret> \
+  -e QR_JWT_SECRET=$(bun run generate-secret) \
   -e APP_URL=https://your-domain \
   -e BETTER_AUTH_URL=https://your-domain \
   mutuvia
@@ -110,6 +111,7 @@ The server listens on port `3000` by default. Override with `-e PORT=<port>`.
 | `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
 | `bun run db:push:pg`         | Push schema to local PG (no migration)   |
 | `bun run db:seed`            | Seed test data                           |
+| `bun run generate-secret`    | Generate a secure QR_JWT_SECRET          |
 
 ---
 
