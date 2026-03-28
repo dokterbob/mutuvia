@@ -85,6 +85,7 @@
 	"home_balance_zero": "Estás em dia",
 	"home_balance_first_use": "O teu saldo começa em zero. Envia ou recebe crédito para começar.",
 	"home_send": "Enviar",
+	"home_scan": "Digitalizar",
 	"home_receive": "Receber",
 	"home_recent": "Recentes",
 	"home_see_all": "Ver tudo",
@@ -147,6 +148,12 @@
 	"history_empty": "Nenhuma transação encontrada.",
 	"error_send_code": "Falha ao enviar código",
 	"error_generic": "Algo correu mal",
+
+	"scan_title": "Digitalizar QR",
+	"scan_no_camera": "Nenhuma câmara encontrada neste dispositivo",
+	"scan_permission_denied": "O acesso à câmara foi negado. Permite o acesso à câmara nas definições do navegador.",
+	"scan_error": "Não foi possível iniciar o scanner",
+	"scan_invalid_qr": "Código QR inválido para o Mutuvia",
 
 	"qr_copy_link": "Copiar link",
 	"qr_copied": "Copiado!",
