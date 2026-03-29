@@ -135,9 +135,6 @@
 	"settings_title": "Einstellungen",
 	"settings_display_name": "Anzeigename",
 	"settings_language": "Sprache",
-	"settings_sign_out": "Abmelden",
-	"settings_about": "Über",
-	"settings_about_text": "{appName} ist ein Gegenseitigkeitskredit-Register für Gemeinschaften. Es bewegt sich kein echtes Geld — Kredit erfasst gegenseitige Verpflichtungen zwischen Mitgliedern.",
 	"settings_save": "Speichern",
 	"settings_saved": "Gespeichert!",
 
@@ -186,5 +183,17 @@
 	"faq_link_mathijs": "Mathijs auf GitHub",
 	"faq_link_claude": "Claude von Anthropic",
 	"menu_faq": "FAQ",
-	"menu_settings": "Einstellungen"
+	"menu_settings": "Einstellungen",
+	"menu_how_it_works": "So funktioniert es",
+	"menu_about": "Über",
+	"menu_open_source": "Open Source",
+	"menu_sign_out": "Abmelden",
+
+	"about_title": "Über",
+	"about_description": "{appName} ist ein Gegenseitigkeitskredit-Register für Gemeinschaften. Es bewegt sich kein echtes Geld — Kredit erfasst gegenseitige Verpflichtungen zwischen Mitgliedern.",
+	"about_built_by": "Erstellt von",
+	"about_with_ai": "mit Claude (dem KI-Assistenten von Anthropic) als Programmierkollaborateur",
+	"about_open_source": "Lizenziert unter AGPL-3.0",
+
+	"how_it_works_back_home": "Zurück zur Startseite"
 }

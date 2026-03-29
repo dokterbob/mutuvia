@@ -94,6 +94,7 @@ Run with: `bunx playwright test` (starts dev server automatically).
 - **Hydration**: Use `goto()` from `e2e/test-utils.ts` instead of `page.goto()` — waits for `body.hydrated` before returning. bits-ui components aren't active until hydration completes.
 - **bits-ui portals**: Wait for portal content to mount after clicking a trigger (e.g. `await expect(page.getByRole('menu')).toBeVisible()`) before asserting on items inside.
 - **Do NOT** add `reducedMotion: 'reduce'` to playwright.config.ts — breaks bits-ui portal mounting.
+- **Thread safety**: Tests run in parallel locally (`fullyParallel: true`). Use the `email` fixture (from `e2e/test-utils.ts`) in all test files — it derives unique addresses from the test filename, making collisions impossible: `email('sender')` → `e2e-{filename}-sender@test.example`. Never add shared email exports to `test-utils.ts`.
 
 ## Key Files
 

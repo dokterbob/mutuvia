@@ -49,5 +49,8 @@ ENV DB_FILE_NAME=/data/sqlite.db
 # svelte-adapter-bun reads PORT (default 3000)
 EXPOSE 3000
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
 # Migrate then start — migrate.ts is provider-aware (SQLite or PostgreSQL)
 CMD ["sh", "-c", "bun scripts/migrate.ts && bun build/index.js"]

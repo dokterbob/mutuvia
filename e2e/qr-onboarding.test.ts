@@ -5,8 +5,6 @@ import {
 	test,
 	goto,
 	setupAuthenticatedUser,
-	SENDER_EMAIL,
-	SCANNER_EMAIL,
 	createPendingQr,
 	getAppUserId,
 	getOTP,
@@ -20,10 +18,10 @@ const SCANNER_NAME = 'QR Scanner';
 test.describe.serial('QR scan → onboarding → accept', () => {
 	let senderAppUserId: string;
 
-	test.beforeAll(async ({ browser }, testInfo) => {
+	test.beforeAll(async ({ browser, email }, testInfo) => {
 		const baseURL = testInfo.project.use.baseURL!;
 		const senderCtx = await browser.newContext({ baseURL });
-		const senderBaUserId = await setupAuthenticatedUser(senderCtx, SENDER_EMAIL, SENDER_NAME);
+		const senderBaUserId = await setupAuthenticatedUser(senderCtx, email('sender'), SENDER_NAME);
 		senderAppUserId = getAppUserId(senderBaUserId);
 		await senderCtx.close();
 	});
@@ -32,12 +30,13 @@ test.describe.serial('QR scan → onboarding → accept', () => {
 		clearOTPs();
 	});
 
-	test.afterEach(async () => {
-		await deleteTestUser(SCANNER_EMAIL);
+	test.afterEach(async ({ email }) => {
+		await deleteTestUser(email('scanner'));
 	});
 
 	test('unauthenticated scanner sees transaction info then completes fast-track onboarding', async ({
-		secondContext
+		secondContext,
+		email
 	}) => {
 		// Create a pending QR from the sender
 		const { token } = await createPendingQr(senderAppUserId, SENDER_NAME);
@@ -64,12 +63,12 @@ test.describe.serial('QR scan → onboarding → accept', () => {
 		// Switch to email for testability
 		await page.getByRole('button', { name: /continue with email/i }).click();
 		await page.waitForURL(/\/onboarding\/email/);
-		await page.locator('input[type="email"]').fill(SCANNER_EMAIL);
+		await page.locator('input[type="email"]').fill(email('scanner'));
 		await page.getByRole('button', { name: /send code/i }).click();
 
 		// OTP
 		await page.waitForURL(/\/onboarding\/otp/);
-		const otp = await getOTP(SCANNER_EMAIL);
+		const otp = await getOTP(email('scanner'));
 		await page.locator('input[inputmode="numeric"]').pressSequentially(otp);
 
 		// Verified — fast track skips the intro slides

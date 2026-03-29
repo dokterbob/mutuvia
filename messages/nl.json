@@ -136,9 +136,6 @@
 	"settings_title": "Instellingen",
 	"settings_display_name": "Weergavenaam",
 	"settings_language": "Taal",
-	"settings_sign_out": "Uitloggen",
-	"settings_about": "Over",
-	"settings_about_text": "{appName} is een wederzijds kredietregister voor gemeenschappen. Er beweegt geen echt geld — krediet registreert onderlinge verplichtingen tussen leden.",
 	"settings_save": "Opslaan",
 	"settings_saved": "Opgeslagen!",
 
@@ -166,6 +163,18 @@
 
 	"menu_settings": "Instellingen",
 	"menu_faq": "Veelgestelde vragen",
+	"menu_how_it_works": "Hoe het werkt",
+	"menu_about": "Info",
+	"menu_open_source": "Open Source",
+	"menu_sign_out": "Uitloggen",
+
+	"about_title": "Info",
+	"about_description": "{appName} is een wederzijds kredietregister voor gemeenschappen. Er beweegt geen echt geld — krediet registreert onderlinge verplichtingen tussen leden.",
+	"about_built_by": "Gemaakt door",
+	"about_with_ai": "met Claude (de AI-assistent van Anthropic) als programmeersamenwerkingspartner",
+	"about_open_source": "Gelicenseerd onder AGPL-3.0",
+
+	"how_it_works_back_home": "Terug naar home",
 
 	"faq_title": "Veelgestelde vragen",
 
