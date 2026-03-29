@@ -39,7 +39,6 @@ services:
     env_file: .env
     environment:
       DB_PROVIDER: pg
-      DATABASE_URL: postgresql://mutuvia:${POSTGRES_PASSWORD:-mutuvia}@postgres:5432/mutuvia
     depends_on:
       postgres:
         condition: service_healthy
