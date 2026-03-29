@@ -8,7 +8,8 @@ if (provider === 'pg') {
 	const { migrate } = await import('drizzle-orm/bun-sql/migrator');
 	const { SQL } = await import('bun');
 
-	const url = process.env.DATABASE_URL || 'postgres://mutuvia:mutuvia@localhost:5432/mutuvia';
+	const url = process.env.DATABASE_URL;
+	if (!url) throw new Error('DATABASE_URL is required when DB_PROVIDER=pg');
 	const client = new SQL(url);
 	const db = drizzle({ client });
 

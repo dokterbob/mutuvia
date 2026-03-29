@@ -55,6 +55,8 @@ export const config = {
 		return env.DB_FILE_NAME || 'sqlite.db';
 	},
 	get databaseUrl() {
-		return env.DATABASE_URL || 'postgres://mutuvia:mutuvia@localhost:5432/mutuvia';
+		const url = env.DATABASE_URL;
+		if (!url) throw new Error('DATABASE_URL is required when DB_PROVIDER=pg');
+		return url;
 	}
 };
