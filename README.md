@@ -50,7 +50,7 @@ cp .env.docker.example .env
 # 2a. SQLite deployment
 docker compose --profile sqlite up -d
 
-# 2b. PostgreSQL deployment (also set POSTGRES_PASSWORD in .env)
+# 2b. PostgreSQL deployment (also set DATABASE_URL and POSTGRES_PASSWORD in .env)
 docker compose --profile postgres up -d
 ```
 
@@ -71,32 +71,33 @@ docker compose --profile sqlite up -d
 Starts the app and a managed Postgres 17 container. The app waits for Postgres to be healthy before starting.
 
 ```bash
-# Set POSTGRES_PASSWORD in .env (defaults to 'mutuvia' if unset — change in production)
+# Set DATABASE_URL and POSTGRES_PASSWORD in .env (must use the same password — see .env.docker.example)
 docker compose --profile postgres up -d
 ```
 
 ### Environment variables
 
-| Variable                   | Required | Default                  | Description                                          |
-| -------------------------- | -------- | ------------------------ | ---------------------------------------------------- |
-| `QR_JWT_SECRET`            | **Yes**  | —                        | Min 32 chars. Signs QR JWT tokens.                   |
-| `BETTER_AUTH_SECRET`       | **Yes**  | —                        | Min 32 chars. Signs Better Auth sessions.            |
-| `APP_URL`                  | **Yes**  | `http://localhost:5173`  | Public base URL. Used in QR links.                   |
-| `BETTER_AUTH_URL`          | **Yes**  | —                        | Same as `APP_URL`. Required by Better Auth.          |
-| `POSTGRES_PASSWORD`        | PG only  | `mutuvia`                | Postgres password. Change in production.             |
-| `TWILIO_ACCOUNT_SID`       | Prod     | —                        | SMS OTP delivery. Omit in dev — OTPs log to console. |
-| `TWILIO_AUTH_TOKEN`        | Prod     | —                        | Twilio auth token.                                   |
-| `TWILIO_PHONE_NUMBER`      | Prod     | —                        | Sender number in E.164 format (`+15550001234`).      |
-| `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.               |
-| `PORT`                     | No       | `3000`                   | Server listen port.                                  |
-| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                         |
-| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.` | Tagline fallback (localized via i18n).               |
-| `UNIT_CODE`                | No       | `EUR`                    | ISO 4217 code or custom unit identifier.             |
-| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                      | Displayed unit symbol.                               |
-| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                   | Lowercase singular name for the unit.                |
-| `UNIT_DECIMAL_PLACES`      | No       | `2`                      | Decimal places used by `formatAmount()`.             |
-| `QR_TTL_SECONDS`           | No       | `600`                    | QR token validity window in seconds.                 |
-| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                        | URL linked in Settings → About.                      |
+| Variable                   | Required | Default                  | Description                                                                                         |
+| -------------------------- | -------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `QR_JWT_SECRET`            | **Yes**  | —                        | Min 32 chars. Signs QR JWT tokens.                                                                  |
+| `BETTER_AUTH_SECRET`       | **Yes**  | —                        | Min 32 chars. Signs Better Auth sessions.                                                           |
+| `APP_URL`                  | **Yes**  | `http://localhost:5173`  | Public base URL. Used in QR links.                                                                  |
+| `BETTER_AUTH_URL`          | **Yes**  | —                        | Same as `APP_URL`. Required by Better Auth.                                                         |
+| `DATABASE_URL`             | PG only  | —                        | Full PostgreSQL connection URL including password.                                                  |
+| `POSTGRES_PASSWORD`        | PG only  | `mutuvia`                | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`. |
+| `TWILIO_ACCOUNT_SID`       | Prod     | —                        | SMS OTP delivery. Omit in dev — OTPs log to console.                                                |
+| `TWILIO_AUTH_TOKEN`        | Prod     | —                        | Twilio auth token.                                                                                  |
+| `TWILIO_PHONE_NUMBER`      | Prod     | —                        | Sender number in E.164 format (`+15550001234`).                                                     |
+| `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.                                                              |
+| `PORT`                     | No       | `3000`                   | Server listen port.                                                                                 |
+| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                                                                        |
+| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.` | Tagline fallback (localized via i18n).                                                              |
+| `UNIT_CODE`                | No       | `EUR`                    | ISO 4217 code or custom unit identifier.                                                            |
+| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                      | Displayed unit symbol.                                                                              |
+| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                   | Lowercase singular name for the unit.                                                               |
+| `UNIT_DECIMAL_PLACES`      | No       | `2`                      | Decimal places used by `formatAmount()`.                                                            |
+| `QR_TTL_SECONDS`           | No       | `600`                    | QR token validity window in seconds.                                                                |
+| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                        | URL linked in Settings → About.                                                                     |
 
 ---
 
