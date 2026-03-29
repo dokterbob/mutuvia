@@ -15,9 +15,11 @@ export default defineConfig({
 		trace: 'on-first-retry'
 	},
 	webServer: {
-		command: `rm -f ${E2E_DB_FILE} ${E2E_DB_FILE}-wal ${E2E_DB_FILE}-shm && bun run db:migrate && bun run dev -- --port 5174`,
+		command: `rm -f ${E2E_DB_FILE} ${E2E_DB_FILE}-wal ${E2E_DB_FILE}-shm && bun run db:migrate && bun run build && bun ./build/index.js`,
 		env: {
 			E2E: 'true',
+			PORT: '5174',
+			ORIGIN: E2E_BASE_URL,
 			APP_URL: E2E_BASE_URL,
 			BETTER_AUTH_URL: E2E_BASE_URL,
 			BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
@@ -26,10 +28,10 @@ export default defineConfig({
 		},
 		stdout: 'pipe',
 		stderr: 'pipe',
-		timeout: 120_000,
+		timeout: 180_000,
 		gracefulShutdown: { signal: 'SIGINT', timeout: 3000 },
 		wait: {
-			stdout: /ready in/
+			stdout: /Listening/
 		}
 	},
 	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
