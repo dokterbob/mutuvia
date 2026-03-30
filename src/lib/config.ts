@@ -38,14 +38,8 @@ export const config = {
 		}
 		return secret;
 	},
-	get twilioAccountSid() {
-		return env.TWILIO_ACCOUNT_SID || '';
-	},
-	get twilioAuthToken() {
-		return env.TWILIO_AUTH_TOKEN || '';
-	},
-	get twilioPhoneNumber() {
-		return env.TWILIO_PHONE_NUMBER || '';
+	get preludeApiToken() {
+		return env.PRELUDE_API_TOKEN || '';
 	},
 	// ── Database ──
 	get dbProvider() {

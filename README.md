@@ -31,7 +31,7 @@ bun run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-In development, SMS and email OTP codes are logged to the console (no Twilio credentials needed).
+In development, SMS and email OTP codes are logged to the console (no Prelude credentials needed).
 
 ---
 
@@ -85,9 +85,7 @@ docker compose --profile postgres up -d
 | `BETTER_AUTH_URL`          | **Yes**  | —                        | Same as `APP_URL`. Required by Better Auth.                                                         |
 | `DATABASE_URL`             | PG only  | —                        | Full PostgreSQL connection URL including password.                                                  |
 | `POSTGRES_PASSWORD`        | PG only  | `mutuvia`                | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`. |
-| `TWILIO_ACCOUNT_SID`       | Prod     | —                        | SMS OTP delivery. Omit in dev — OTPs log to console.                                                |
-| `TWILIO_AUTH_TOKEN`        | Prod     | —                        | Twilio auth token.                                                                                  |
-| `TWILIO_PHONE_NUMBER`      | Prod     | —                        | Sender number in E.164 format (`+15550001234`).                                                     |
+| `PRELUDE_API_TOKEN`        | Prod     | —                        | SMS OTP delivery via Prelude Verify. Omit in dev — OTPs log to console.                             |
 | `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.                                                              |
 | `PORT`                     | No       | `3000`                   | Server listen port.                                                                                 |
 | `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                                                                        |
@@ -108,7 +106,7 @@ docker compose --profile postgres up -d
 | Framework     | SvelteKit (Svelte 5 with Runes)                                                 |
 | Runtime       | Bun (via svelte-adapter-bun)                                                    |
 | UI            | shadcn-svelte + Tailwind CSS v4                                                 |
-| Auth          | Better Auth (SMS OTP via Twilio, email OTP fallback)                            |
+| Auth          | Better Auth (SMS OTP via Prelude Verify, email OTP fallback)                    |
 | ORM           | Drizzle ORM                                                                     |
 | Database      | SQLite (default, WAL mode, via bun:sqlite) or PostgreSQL (via `DB_PROVIDER=pg`) |
 | i18n          | Paraglide JS v2 (EN, PT, NL)                                                    |
