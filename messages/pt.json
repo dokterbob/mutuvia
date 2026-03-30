@@ -46,6 +46,7 @@
 	"otp_countdown": "{seconds}s",
 	"otp_cta": "Verificar",
 	"otp_back": "Voltar",
+	"otp_invalid_code": "Código inválido. Tente novamente.",
 
 	"verified_title": "Verificado",
 	"verified_body": "O teu número está confirmado. Vamos configurar tudo.",

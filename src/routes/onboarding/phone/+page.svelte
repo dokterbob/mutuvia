@@ -18,13 +18,12 @@
 		if (!phoneValue) return;
 		isLoading = true;
 		authError = '';
-		try {
-			await authClient.phoneNumber.sendOtp({ phoneNumber: phoneValue });
+		const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: phoneValue });
+		isLoading = false;
+		if (error) {
+			authError = error.message || m.error_send_code();
+		} else {
 			goto(`/onboarding/otp?dest=${encodeURIComponent(phoneValue)}&method=phone`);
-		} catch (e: unknown) {
-			authError = e instanceof Error ? e.message : m.error_send_code();
-		} finally {
-			isLoading = false;
 		}
 	}
 </script>
