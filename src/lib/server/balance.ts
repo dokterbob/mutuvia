@@ -19,12 +19,6 @@ export async function getBalance(userId: string): Promise<number> {
 	return result?.balance ?? 0;
 }
 
-export function formatAmount(amount: number, decimalPlaces: number, symbol: string): string {
-	const value = amount / Math.pow(10, decimalPlaces);
-	const formatted = value.toFixed(decimalPlaces);
-	return `${symbol}\u00A0${formatted}`;
-}
-
 export async function getConnections(userId: string) {
 	const rows = await db
 		.select()
