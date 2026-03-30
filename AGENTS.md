@@ -26,7 +26,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Framework**: SvelteKit (Svelte 5 with Runes) via Vite
 - **Runtime**: Bun (via `svelte-adapter-bun`)
 - **UI**: shadcn-svelte + Tailwind CSS v4
-- **Auth**: Better Auth (SMS OTP via Twilio, email OTP fallback)
+- **Auth**: Better Auth (SMS OTP via Prelude Verify, email OTP fallback)
 - **ORM**: Drizzle ORM — SQLite (`bun:sqlite`, WAL mode, foreign keys ON) or PostgreSQL (`bun:sql`), selected via `DB_PROVIDER`
 - **Database**: SQLite (default) or PostgreSQL — `better-sqlite3` as devDependency for Drizzle Kit SQLite migrations; local PG via `docker compose up -d`
 - **i18n**: Paraglide JS v2 (EN, PT, NL) — translation files in `messages/`, generated output in `src/lib/paraglide/` (gitignored)
