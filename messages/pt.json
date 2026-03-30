@@ -214,5 +214,10 @@
 
 	"faq_q_question_not_answered": "A minha pergunta não está aqui.",
 	"faq_a_question_not_answered": "Adoraríamos ouvir-te. Podes fazer uma pergunta, reportar um erro ou sugerir uma funcionalidade no GitHub.",
-	"faq_link_report_issue": "Abrir um assunto ou discussão no GitHub"
+	"faq_link_report_issue": "Abrir um assunto ou discussão no GitHub",
+
+	"og_send_title": "Pagamento de {amount}",
+	"og_receive_title": "Pedido de {amount}",
+	"og_description": "Crédito mútuo para a tua comunidade",
+	"og_expired_title": "Link expirado"
 }

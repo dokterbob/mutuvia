@@ -195,5 +195,10 @@
 	"about_with_ai": "mit Claude (dem KI-Assistenten von Anthropic) als Programmierkollaborateur",
 	"about_open_source": "Lizenziert unter AGPL-3.0",
 
-	"how_it_works_back_home": "Zurück zur Startseite"
+	"how_it_works_back_home": "Zurück zur Startseite",
+
+	"og_send_title": "Zahlung von {amount}",
+	"og_receive_title": "Anforderung von {amount}",
+	"og_description": "Gegenseitiger Kredit für deine Gemeinschaft",
+	"og_expired_title": "Link abgelaufen"
 }

@@ -214,5 +214,10 @@
 
 	"faq_q_question_not_answered": "Mijn vraag staat er niet bij.",
 	"faq_a_question_not_answered": "We horen graag van je. Je kunt een vraag stellen, een bug melden of een functie voorstellen op GitHub.",
-	"faq_link_report_issue": "Open een issue of discussie op GitHub"
+	"faq_link_report_issue": "Open een issue of discussie op GitHub",
+
+	"og_send_title": "Betaling van {amount}",
+	"og_receive_title": "Verzoek voor {amount}",
+	"og_description": "Wederzijds krediet voor jouw gemeenschap",
+	"og_expired_title": "Link verlopen"
 }
