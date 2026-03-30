@@ -222,5 +222,12 @@
 	"og_send_title": "Payment of {amount}",
 	"og_receive_title": "Request for {amount}",
 	"og_description": "Mutual credit for your community",
-	"og_expired_title": "Link expired"
+	"og_expired_title": "Link expired",
+
+	"error_not_found_title": "Page not found",
+	"error_not_found_body": "We couldn't find this page. It may have moved or no longer exists.",
+	"error_server_title": "Something went wrong",
+	"error_server_body": "We've been notified and are looking into it. Please try again.",
+	"error_go_home": "Go to home",
+	"error_try_again": "Try again"
 }

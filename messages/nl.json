@@ -222,5 +222,12 @@
 	"og_send_title": "Betaling van {amount}",
 	"og_receive_title": "Verzoek voor {amount}",
 	"og_description": "Wederzijds krediet voor jouw gemeenschap",
-	"og_expired_title": "Link verlopen"
+	"og_expired_title": "Link verlopen",
+
+	"error_not_found_title": "Pagina niet gevonden",
+	"error_not_found_body": "We konden deze pagina niet vinden. Mogelijk is deze verplaatst of bestaat deze niet meer.",
+	"error_server_title": "Er ging iets mis",
+	"error_server_body": "We zijn op de hoogte gebracht en kijken ernaar. Probeer het opnieuw.",
+	"error_go_home": "Naar startpagina",
+	"error_try_again": "Opnieuw proberen"
 }
