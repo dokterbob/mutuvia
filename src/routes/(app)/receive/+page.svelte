@@ -110,7 +110,13 @@
 		<h1 class="mb-4 font-serif text-2xl font-semibold">{m.home_receive()}</h1>
 		<p class="mb-4 text-sm text-muted-foreground">{m.receive_helper()}</p>
 
-		<form method="POST" action="?/createQr" use:enhance>
+		<form
+			method="POST"
+			action="?/createQr"
+			use:enhance={() =>
+				async ({ update }) =>
+					update({ reset: false })}
+		>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-2xl font-medium text-muted-foreground">{data.unitSymbol}</span>
