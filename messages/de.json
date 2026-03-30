@@ -200,5 +200,12 @@
 	"og_send_title": "Zahlung von {amount}",
 	"og_receive_title": "Anforderung von {amount}",
 	"og_description": "Gegenseitiger Kredit für deine Gemeinschaft",
-	"og_expired_title": "Link abgelaufen"
+	"og_expired_title": "Link abgelaufen",
+
+	"error_not_found_title": "Seite nicht gefunden",
+	"error_not_found_body": "Wir konnten diese Seite nicht finden. Sie wurde möglicherweise verschoben oder existiert nicht mehr.",
+	"error_server_title": "Etwas ist schiefgelaufen",
+	"error_server_body": "Wir wurden benachrichtigt und arbeiten daran. Bitte versuche es erneut.",
+	"error_go_home": "Zur Startseite",
+	"error_try_again": "Erneut versuchen"
 }

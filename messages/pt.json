@@ -222,5 +222,12 @@
 	"og_send_title": "Pagamento de {amount}",
 	"og_receive_title": "Pedido de {amount}",
 	"og_description": "Crédito mútuo para a tua comunidade",
-	"og_expired_title": "Link expirado"
+	"og_expired_title": "Link expirado",
+
+	"error_not_found_title": "Página não encontrada",
+	"error_not_found_body": "Não conseguimos encontrar esta página. Pode ter sido movida ou já não existir.",
+	"error_server_title": "Algo correu mal",
+	"error_server_body": "Já fomos notificados e estamos a investigar. Por favor, tenta novamente.",
+	"error_go_home": "Ir para o início",
+	"error_try_again": "Tentar novamente"
 }
