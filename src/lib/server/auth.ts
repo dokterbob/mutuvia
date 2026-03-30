@@ -12,6 +12,7 @@ import { config } from '$lib/config';
 const prelude = config.preludeApiToken ? new Prelude({ apiToken: config.preludeApiToken }) : null;
 
 export const auth = betterAuth({
+	baseURL: config.appUrl,
 	database: drizzleAdapter(db, {
 		provider: config.dbProvider
 	}),
@@ -72,5 +73,5 @@ export const auth = betterAuth({
 		expiresIn: 60 * 60 * 24 * 30, // 30 days
 		updateAge: 60 * 60 * 24 // 1 day
 	},
-	trustedOrigins: [process.env.APP_URL || 'http://localhost:5173']
+	trustedOrigins: [config.appUrl]
 });

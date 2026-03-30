@@ -26,7 +26,7 @@ export const config = {
 		return parseInt(env.QR_TTL_SECONDS || '259200', 10);
 	},
 	get appUrl() {
-		return env.APP_URL || 'http://localhost:5173';
+		return env.APP_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
 	},
 	get communityDocUrl() {
 		return publicEnv.PUBLIC_COMMUNITY_DOC_URL || '';

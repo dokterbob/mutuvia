@@ -3,9 +3,28 @@ import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import type { ViteDevServer } from 'vite';
+
+// In dev, populate APP_URL from Vite's resolved URLs so that mobile testing
+// (--host) works without manual config. Prefer the network (LAN) URL.
+const devUrlPlugin = {
+	name: 'dev-url',
+	configureServer(server: ViteDevServer) {
+		server.httpServer?.once('listening', () => {
+			if (!process.env.APP_URL) {
+				const url = server.resolvedUrls?.network[0] ?? server.resolvedUrls?.local[0];
+				if (url) {
+					process.env.APP_URL = url.replace(/\/$/, '');
+					console.log(`\n  APP_URL → ${process.env.APP_URL}\n`);
+				}
+			}
+		});
+	}
+};
 
 export default defineConfig({
 	plugins: [
+		devUrlPlugin,
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide',
