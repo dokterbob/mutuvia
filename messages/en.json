@@ -158,6 +158,8 @@
 	"qr_copy_link": "Copy link",
 	"qr_copied": "Copied!",
 	"qr_share": "Share",
+	"qr_share_text": "{amount} of credit through {appName}.",
+	"qr_share_text_with_note": "{amount} of credit through {appName} — {note}",
 
 	"locale_name": "English",
 
