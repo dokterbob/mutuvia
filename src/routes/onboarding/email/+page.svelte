@@ -14,13 +14,15 @@
 	async function sendEmailOtp() {
 		isLoading = true;
 		authError = '';
-		try {
-			await authClient.emailOtp.sendVerificationOtp({ email: emailAddress, type: 'sign-in' });
+		const { error } = await authClient.emailOtp.sendVerificationOtp({
+			email: emailAddress,
+			type: 'sign-in'
+		});
+		isLoading = false;
+		if (error) {
+			authError = error.message || m.error_send_code();
+		} else {
 			goto(`/onboarding/otp?dest=${encodeURIComponent(emailAddress)}&method=email`);
-		} catch (e: unknown) {
-			authError = e instanceof Error ? e.message : m.error_send_code();
-		} finally {
-			isLoading = false;
 		}
 	}
 </script>
