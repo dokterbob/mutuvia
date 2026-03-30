@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import * as Sentry from '@sentry/sveltekit';
+import { env } from '$env/dynamic/public';
 
-const dsn = import.meta.env.PUBLIC_SENTRY_DSN;
+const dsn = env.PUBLIC_SENTRY_DSN;
 
 if (dsn) {
 	Sentry.init({
