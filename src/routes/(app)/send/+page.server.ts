@@ -14,6 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		needsConsent,
+		appName: process.env.PUBLIC_APP_NAME || 'Mutuvia',
 		unitSymbol: process.env.PUBLIC_UNIT_SYMBOL || '€',
 		decimalPlaces: parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10),
 		qrTtlSeconds: parseInt(process.env.QR_TTL_SECONDS || '600', 10)

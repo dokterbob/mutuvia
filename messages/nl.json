@@ -158,6 +158,8 @@
 	"qr_copy_link": "Link kopiëren",
 	"qr_copied": "Gekopieerd!",
 	"qr_share": "Delen",
+	"qr_share_text": "{amount} aan krediet via {appName}.",
+	"qr_share_text_with_note": "{amount} aan krediet via {appName} — {note}",
 
 	"locale_name": "Nederlands",
 
