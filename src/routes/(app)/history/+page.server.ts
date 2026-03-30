@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { PageServerLoad } from './$types';
-import { formatAmount } from '$lib/server/balance';
+import { formatAmount } from '$lib/server/format';
 import { db } from '$lib/server/db';
 import { transactions, appUsers } from '$lib/server/schema';
 import { eq, or, desc } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.appUser!.id;
-	const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';
-	const decimalPlaces = parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10);
 
 	const allTxs = await db
 		.select({
@@ -41,7 +39,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			type: isSender ? ('sent' as const) : ('received' as const),
 			otherName: userMap[otherId] || 'Unknown',
 			amount: isSender ? -tx.amount : tx.amount,
-			formattedAmount: formatAmount(isSender ? -tx.amount : tx.amount, decimalPlaces, unitSymbol),
+			formattedAmount: formatAmount(isSender ? -tx.amount : tx.amount),
 			note: tx.note,
 			createdAt: tx.createdAt
 		};

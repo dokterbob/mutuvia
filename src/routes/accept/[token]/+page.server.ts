@@ -5,14 +5,13 @@ import { db } from '$lib/server/db';
 import { pendingQr, transactions, appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { verifyQrToken } from '$lib/server/qr';
-import { getBalance, formatAmount, upsertConnection } from '$lib/server/balance';
+import { getBalance, upsertConnection } from '$lib/server/balance';
+import { formatAmount } from '$lib/server/format';
+import { config } from '$lib/config';
 import { randomUUID } from 'crypto';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';
-	const decimalPlaces = parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10);
-
 	// Client-side pre-check hint: try to decode JWT claims without verification
 	let tokenData;
 	try {
@@ -20,9 +19,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	} catch {
 		return {
 			expired: true,
-			error: 'This link has expired or is invalid.',
-			unitSymbol,
-			decimalPlaces
+			error: 'This link has expired or is invalid.'
 		};
 	}
 
@@ -31,9 +28,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!qr || qr.status !== 'pending' || qr.expiresAt < new Date()) {
 		return {
 			expired: true,
-			error: 'This link has expired or is invalid.',
-			unitSymbol,
-			decimalPlaces
+			error: 'This link has expired or is invalid.'
 		};
 	}
 
@@ -45,7 +40,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.limit(1);
 
 	if (!initiator) {
-		return { expired: true, error: 'Initiator not found.', unitSymbol, decimalPlaces };
+		return { expired: true, error: 'Initiator not found.' };
 	}
 
 	const needsAuth = !locals.session || !locals.appUser;
@@ -60,12 +55,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			qrId: qr.id,
 			direction: qr.direction,
 			amount: qr.amount,
-			formattedAmount: formatAmount(qr.amount, decimalPlaces, unitSymbol),
+			formattedAmount: formatAmount(qr.amount),
 			note: qr.note,
 			initiatorName: initiator.displayName,
-			token: params.token,
-			unitSymbol,
-			decimalPlaces
+			token: params.token
 		};
 	}
 
@@ -73,9 +66,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (locals.appUser!.id === qr.initiatingUserId) {
 		return {
 			expired: true,
-			error: 'You cannot accept your own QR code.',
-			unitSymbol,
-			decimalPlaces
+			error: 'You cannot accept your own QR code.'
 		};
 	}
 
@@ -87,13 +78,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		qrId: qr.id,
 		direction: qr.direction,
 		amount: qr.amount,
-		formattedAmount: formatAmount(qr.amount, decimalPlaces, unitSymbol),
+		formattedAmount: formatAmount(qr.amount),
 		note: qr.note,
 		initiatorName: initiator.displayName,
-		initiatorBalance: formatAmount(initiatorBalance, decimalPlaces, unitSymbol),
-		token: params.token,
-		unitSymbol,
-		decimalPlaces
+		initiatorBalance: formatAmount(initiatorBalance),
+		token: params.token
 	};
 };
 
@@ -102,7 +91,7 @@ function setQrReturnCookies(
 	token: string,
 	skipIntros: boolean
 ) {
-	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: 600 };
+	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: config.qrTtlSeconds };
 	cookies.set('qr_return_to', `/accept/${token}`, opts);
 	if (skipIntros) cookies.set('qr_skip_intros', '1', opts);
 }
@@ -135,8 +124,6 @@ export const actions: Actions = {
 			return fail(400, { error: 'You cannot accept your own QR code.' });
 		}
 
-		const unitCode = process.env.UNIT_CODE || 'EUR';
-
 		// Determine from/to based on direction
 		let fromUserId: string;
 		let toUserId: string;
@@ -159,7 +146,7 @@ export const actions: Actions = {
 			fromUserId,
 			toUserId,
 			amount: qr.amount,
-			unitCode,
+			unitCode: config.unitCode,
 			note: qr.note,
 			pendingQrId: qr.id,
 			createdAt: new Date()
