@@ -7,14 +7,15 @@ const REQUEST_STATE_ERROR =
 
 const { getSessionMock, svelteKitHandlerMock } = vi.hoisted(() => ({
 	getSessionMock: vi.fn(),
-	svelteKitHandlerMock: vi.fn(async ({ event, resolve }) => resolve(event))
+	svelteKitHandlerMock: vi.fn(
+		async (input: { event: unknown; resolve: (event: unknown) => Response | Promise<Response> }) =>
+			input.resolve(input.event)
+	)
 }));
 
 vi.mock('@sentry/sveltekit', () => ({
-	sentryHandle:
-		() =>
-		async ({ event, resolve }) =>
-			resolve(event),
+	sentryHandle: () => async (input: { event: unknown; resolve: (event: unknown) => unknown }) =>
+		input.resolve(input.event),
 	handleErrorWithSentry: vi.fn()
 }));
 
@@ -70,7 +71,7 @@ describe('authHandle', () => {
 				locals: {}
 			},
 			resolve
-		} as Parameters<typeof authHandle>[0];
+		} as unknown as Parameters<typeof authHandle>[0];
 		const result = await authHandle(input);
 
 		expect(result).toBeInstanceOf(Response);
