@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#2D4A32" />
+		<title>Offline</title>
+		<style>
+			* {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
+			body {
+				font-family:
+					'Noto Sans',
+					system-ui,
+					-apple-system,
+					sans-serif;
+				background: #fff;
+				color: #1e2820;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-height: 100dvh;
+				padding: 2rem;
+			}
+			.container {
+				text-align: center;
+				max-width: 320px;
+			}
+			.icon {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 64px;
+				height: 64px;
+				border-radius: 16px;
+				background: #2d4a32;
+				margin-bottom: 1.5rem;
+			}
+			h1 {
+				font-size: 1.25rem;
+				font-weight: 600;
+				margin-bottom: 0.5rem;
+			}
+			p {
+				font-size: 0.9375rem;
+				color: #5a7a5e;
+				margin-bottom: 1.75rem;
+				line-height: 1.5;
+			}
+			button {
+				background: #2d4a32;
+				color: white;
+				border: none;
+				border-radius: 0.5rem;
+				padding: 0.625rem 1.5rem;
+				font-size: 0.9375rem;
+				font-weight: 500;
+				cursor: pointer;
+				font-family: inherit;
+			}
+			button:active {
+				opacity: 0.85;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="icon">
+				<svg width="34" height="34" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+					<path
+						d="M256 118 C180 118 118 180 118 256 C118 332 180 394 256 394 C332 394 394 332 394 256"
+						stroke="white"
+						stroke-width="28"
+						stroke-linecap="round"
+						fill="none"
+					/>
+					<path
+						d="M256 148 v217 M197 207 l59-59 59 59"
+						stroke="rgba(255,255,255,0.75)"
+						stroke-width="22"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						fill="none"
+					/>
+				</svg>
+			</div>
+			<h1>You're offline</h1>
+			<p>This app needs a connection to settle transactions and sync your balance.</p>
+			<button onclick="location.reload()">Try again</button>
+		</div>
+	</body>
+</html>

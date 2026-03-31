@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#2D4A32"/>
+  <!-- 270° arc: 12 o'clock → 9 o'clock → 6 o'clock → 3 o'clock (gap in top-right quarter) -->
+  <path
+    d="M256 118 C180 118 118 180 118 256 C118 332 180 394 256 394 C332 394 394 332 394 256"
+    stroke="white"
+    stroke-width="28"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <!-- Upward arrow (pointing toward the arc opening) -->
+  <path
+    d="M256 148 v217 M197 207 l59-59 59 59"
+    stroke="rgba(255,255,255,0.75)"
+    stroke-width="22"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+</svg>

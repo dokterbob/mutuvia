@@ -3,7 +3,14 @@ import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type { ViteDevServer } from 'vite';
+
+function hashFile(path: string): string {
+	return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
 
 // In dev, populate APP_URL from Vite's resolved URLs so that mobile testing
 // (--host) works without manual config. Prefer the network (LAN) URL.
@@ -36,7 +43,47 @@ export default defineConfig({
 			// Disabled automatically when SENTRY_AUTH_TOKEN is not set.
 			autoUploadSourceMaps: !!process.env.SENTRY_AUTH_TOKEN
 		}),
-		sveltekit()
+		sveltekit(),
+		SvelteKitPWA({
+			registerType: 'autoUpdate',
+			strategies: 'injectManifest',
+			srcDir: 'src',
+			filename: 'service-worker.ts',
+			manifest: {
+				name: process.env.PUBLIC_APP_NAME || 'Mutuvia',
+				short_name: process.env.PUBLIC_APP_NAME || 'Mutuvia',
+				description: 'Mutual credit for your community',
+				theme_color: '#2D4A32',
+				background_color: '#ffffff',
+				display: 'standalone',
+				start_url: '/'
+			},
+			pwaAssets: {
+				preset: 'minimal-2023',
+				image: 'static/favicon.svg',
+				overrideManifestIcons: true
+			},
+			injectManifest: {
+				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
+				// @vite-pwa/sveltekit globs relative to the project root, so every
+				// matched path starts with "client/". The bun adapter serves those
+				// files at "/" (without the prefix), so we must strip it here.
+				modifyURLPrefix: { 'client/': '' },
+				additionalManifestEntries: [
+					{ url: '/offline.html', revision: hashFile('static/offline.html') }
+				],
+				// pwaAssets injects icons into manifest.webmanifest, producing entries
+				// that duplicate those from the glob after the prefix is stripped.
+				// Workbox throws add-to-cache-list-conflicting-entries on duplicates.
+				// Deduplicate by URL, keeping the last (pwaAssets-modified) entry.
+				manifestTransforms: [
+					(manifest) => {
+						const byUrl = new Map(manifest.map((e) => [e.url, e]));
+						return { manifest: [...byUrl.values()], warnings: [] };
+					}
+				]
+			}
+		})
 	],
 	ssr: {
 		external: ['bun:sqlite', 'bun:sql']
