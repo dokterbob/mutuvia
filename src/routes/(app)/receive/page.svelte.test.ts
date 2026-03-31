@@ -15,6 +15,9 @@ vi.mock('$app/environment', () => ({ browser: false }));
 vi.mock('qrcode', () => ({
 	default: { toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,test') }
 }));
+vi.mock('$lib/paraglide/runtime', () => ({
+	getLocale: () => 'en'
+}));
 vi.mock('$lib/paraglide/messages.js', () => ({
 	home_receive: () => 'Receive',
 	receive_helper: () => 'Ask someone to scan this code.',
@@ -44,8 +47,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 }));
 
 const mockData = {
-	unitSymbol: '€',
-	decimalPlaces: 2,
+	unitCode: 'EUR',
 	appName: 'Mutuvia',
 	qrTtlSeconds: 600
 };

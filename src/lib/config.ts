@@ -11,16 +11,13 @@ export const config = {
 		return publicEnv.PUBLIC_APP_TAGLINE || 'Together, we are more.';
 	},
 	get unitCode() {
-		return env.UNIT_CODE || 'EUR';
-	},
-	get unitSymbol() {
-		return publicEnv.PUBLIC_UNIT_SYMBOL || '€';
-	},
-	get unitDisplayName() {
-		return publicEnv.PUBLIC_UNIT_DISPLAY_NAME || 'euro';
-	},
-	get decimalPlaces() {
-		return parseInt(env.UNIT_DECIMAL_PLACES || '2', 10);
+		const code = env.UNIT_CODE || 'EUR';
+		try {
+			new Intl.NumberFormat('en', { style: 'currency', currency: code });
+		} catch {
+			throw new Error(`UNIT_CODE "${code}" is not a valid ISO 4217 currency code`);
+		}
+		return code;
 	},
 	get qrTtlSeconds() {
 		return parseInt(env.QR_TTL_SECONDS || '259200', 10);

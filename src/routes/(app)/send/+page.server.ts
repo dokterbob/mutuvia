@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { signQrToken, buildQrUrl } from '$lib/server/qr';
 import { randomUUID } from 'crypto';
 import { config } from '$lib/config';
+import { currencyFractionDigits } from '$lib/server/currency';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -16,8 +17,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		needsConsent,
 		appName: config.appName,
-		unitSymbol: config.unitSymbol,
-		decimalPlaces: config.decimalPlaces,
+		unitCode: config.unitCode,
 		qrTtlSeconds: config.qrTtlSeconds
 	};
 };
@@ -36,14 +36,21 @@ export const actions: Actions = {
 
 		const amountStr = data.get('amount') as string;
 		const note = (data.get('note') as string)?.trim().slice(0, 120) || null;
-		const decimalPlaces = config.decimalPlaces;
+		const dp = currencyFractionDigits();
 
 		const floatAmount = parseFloat(amountStr);
 		if (isNaN(floatAmount) || floatAmount <= 0) {
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
-		const amount = Math.round(floatAmount * Math.pow(10, decimalPlaces));
+		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
+		if (submittedDecimals > dp) {
+			return fail(400, {
+				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
+			});
+		}
+
+		const amount = Math.round(floatAmount * Math.pow(10, dp));
 		const ttl = config.qrTtlSeconds;
 		const now = new Date();
 		const qrId = randomUUID();

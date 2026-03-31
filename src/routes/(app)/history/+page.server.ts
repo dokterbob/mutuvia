@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { PageServerLoad } from './$types';
-import { formatAmount } from '$lib/server/format';
+import { formatAmount } from '$lib/server/currency';
 import { db } from '$lib/server/db';
 import { transactions, appUsers } from '$lib/server/schema';
 import { eq, or, desc } from 'drizzle-orm';
