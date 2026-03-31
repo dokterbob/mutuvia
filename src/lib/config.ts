@@ -11,7 +11,13 @@ export const config = {
 		return publicEnv.PUBLIC_APP_TAGLINE || 'Together, we are more.';
 	},
 	get unitCode() {
-		return env.UNIT_CODE || 'EUR';
+		const code = env.UNIT_CODE || 'EUR';
+		try {
+			new Intl.NumberFormat('en', { style: 'currency', currency: code });
+		} catch {
+			throw new Error(`UNIT_CODE "${code}" is not a valid ISO 4217 currency code`);
+		}
+		return code;
 	},
 	get qrTtlSeconds() {
 		return parseInt(env.QR_TTL_SECONDS || '259200', 10);

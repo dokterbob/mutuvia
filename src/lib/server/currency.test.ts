@@ -6,11 +6,11 @@ vi.mock('$lib/config', () => ({
 	config: { unitCode: 'EUR' }
 }));
 
-vi.mock('$lib/paraglide/runtime', () => ({
+vi.mock('$lib/paraglide/runtime.js', () => ({
 	getLocale: () => 'en'
 }));
 
-import { formatAmount, currencyFractionDigits } from './format';
+import { formatAmount, currencyFractionDigits } from './currency';
 
 describe('currencyFractionDigits', () => {
 	test('returns 2 for EUR', () => {

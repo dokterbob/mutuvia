@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
-	import { getLocale } from '$lib/paraglide/runtime';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
@@ -37,6 +37,9 @@
 	let currencySymbol = $derived(
 		currencyFormatter.formatToParts(0).find((p) => p.type === 'currency')?.value ?? data.unitCode
 	);
+	let fractionDigits = $derived(currencyFormatter.resolvedOptions().maximumFractionDigits ?? 2);
+	let amountStep = $derived(Math.pow(10, -fractionDigits));
+	let amountPlaceholder = $derived((0).toFixed(fractionDigits));
 	let formattedAmount = $derived(currencyFormatter.format(parseFloat(amount || '0')));
 	let shareDescription = $derived(
 		note.trim()
@@ -128,9 +131,9 @@
 				<Input
 					name="amount"
 					type="number"
-					step="0.01"
-					min="0.01"
-					placeholder="0.00"
+					step={amountStep}
+					min={amountStep}
+					placeholder={amountPlaceholder}
 					bind:value={amount}
 					class="h-14 font-serif text-3xl font-semibold"
 				/>

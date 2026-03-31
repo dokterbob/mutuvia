@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { signQrToken, buildQrUrl } from '$lib/server/qr';
 import { randomUUID } from 'crypto';
 import { config } from '$lib/config';
-import { currencyFractionDigits } from '$lib/server/format';
+import { currencyFractionDigits } from '$lib/server/currency';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -41,6 +41,13 @@ export const actions: Actions = {
 		const floatAmount = parseFloat(amountStr);
 		if (isNaN(floatAmount) || floatAmount <= 0) {
 			return fail(400, { error: 'Enter a valid amount.' });
+		}
+
+		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
+		if (submittedDecimals > dp) {
+			return fail(400, {
+				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
+			});
 		}
 
 		const amount = Math.round(floatAmount * Math.pow(10, dp));

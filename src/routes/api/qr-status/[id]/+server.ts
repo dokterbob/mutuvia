@@ -4,7 +4,7 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { pendingQr, transactions, appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { formatAmount } from '$lib/server/format';
+import { formatAmount } from '$lib/server/currency';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
