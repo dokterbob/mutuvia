@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { registerSW } from 'virtual:pwa-register';
 import * as Sentry from '@sentry/sveltekit';
+
+// Register the service worker for offline support and PWA updates.
+// `immediate: true` triggers registration without waiting for the load event,
+// which improves first-install speed.
+registerSW({ immediate: true });
 
 const dsn = import.meta.env.PUBLIC_SENTRY_DSN;
 

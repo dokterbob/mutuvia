@@ -63,11 +63,19 @@ test.describe('Offline fallback page', () => {
 
 test.describe('PWA offline behaviour', () => {
 	test('serves offline.html via SW when navigating offline', async ({ page, context }) => {
+		// SW precache downloads ~100 assets on first install; give it plenty of time.
+		test.setTimeout(120_000);
+
 		// Trigger SW install and clientsClaim by navigating once while online.
 		await goto(page, '/faq');
 
 		// Wait for the SW to be fully activated and in control of the page.
-		await page.evaluate(() => navigator.serviceWorker.ready);
+		// navigator.serviceWorker.ready only resolves when the SW is installed, not
+		// necessarily when it is *controlling* the page. Checking controller !== null
+		// confirms clientsClaim() has run and the SW will intercept navigations.
+		await page.waitForFunction(() => navigator.serviceWorker.controller !== null, null, {
+			timeout: 110_000
+		});
 
 		await context.setOffline(true);
 		try {

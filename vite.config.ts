@@ -27,6 +27,9 @@ export default defineConfig({
 		sveltekit(),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
+			strategies: 'injectManifest',
+			srcDir: 'src',
+			filename: 'service-worker.ts',
 			manifest: {
 				name: 'Mutuvia',
 				short_name: 'Mutuvia',
@@ -41,17 +44,23 @@ export default defineConfig({
 				image: 'static/favicon.svg',
 				overrideManifestIcons: true
 			},
-			workbox: {
+			injectManifest: {
 				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2}'],
+				// @vite-pwa/sveltekit globs relative to the project root, so every
+				// matched path starts with "client/". The bun adapter serves those
+				// files at "/" (without the prefix), so we must strip it here.
+				modifyURLPrefix: { 'client/': '' },
 				additionalManifestEntries: [
 					{ url: '/offline.html', revision: hashFile('static/offline.html') }
 				],
-				navigateFallback: '/offline.html',
-				navigateFallbackDenylist: [/^\/api\//, /^\/sentry-tunnel/],
-				runtimeCaching: [
-					{
-						urlPattern: /^\/api\//,
-						handler: 'NetworkOnly'
+				// pwaAssets injects icons into manifest.webmanifest, producing entries
+				// that duplicate those from the glob after the prefix is stripped.
+				// Workbox throws add-to-cache-list-conflicting-entries on duplicates.
+				// Deduplicate by URL, keeping the last (pwaAssets-modified) entry.
+				manifestTransforms: [
+					(manifest) => {
+						const byUrl = new Map(manifest.map((e) => [e.url, e]));
+						return { manifest: [...byUrl.values()], warnings: [] };
 					}
 				]
 			}
