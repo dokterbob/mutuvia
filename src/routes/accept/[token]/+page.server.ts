@@ -6,7 +6,7 @@ import { pendingQr, transactions, appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { verifyQrToken } from '$lib/server/qr';
 import { getBalance, upsertConnection } from '$lib/server/balance';
-import { formatAmount } from '$lib/server/format';
+import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
 import { randomUUID } from 'crypto';
 import type { PageServerLoad, Actions } from './$types';

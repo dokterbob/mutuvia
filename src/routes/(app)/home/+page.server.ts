@@ -2,7 +2,7 @@
 
 import type { PageServerLoad } from './$types';
 import { getBalance } from '$lib/server/balance';
-import { formatAmount } from '$lib/server/format';
+import { formatAmount } from '$lib/server/currency';
 import { db } from '$lib/server/db';
 import { transactions, appUsers } from '$lib/server/schema';
 import { eq, or, desc } from 'drizzle-orm';
