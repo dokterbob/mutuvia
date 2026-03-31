@@ -11,6 +11,7 @@ import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { building } from '$app/environment';
+import { isSentryTunnelPath } from '$lib/server/sentry';
 
 /**
  * Run Drizzle migrations once at server startup, before any request is served.
@@ -40,6 +41,12 @@ const i18nHandle: Handle = ({ event, resolve }) => {
 };
 
 const authHandle: Handle = async ({ event, resolve }) => {
+	// Sentry feedback envelopes are tunneled through this endpoint and do not
+	// require auth/session lookup.
+	if (isSentryTunnelPath(event.url.pathname)) {
+		return resolve(event);
+	}
+
 	// Get session from Better Auth
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
