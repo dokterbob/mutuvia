@@ -33,7 +33,7 @@ self.addEventListener('fetch', (event) => {
 		fetch(request).catch(async () => {
 			return (
 				(await matchPrecache('/offline.html')) ??
-				new Response('You are offline', { status: 503, headers: { 'Content-Type': 'text/html' } })
+				new Response('You are offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
 			);
 		})
 	);

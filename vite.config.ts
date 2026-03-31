@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import type { ViteDevServer } from 'vite';
 
 function hashFile(path: string): string {
-	return createHash('md5').update(readFileSync(path)).digest('hex').slice(0, 8);
+	return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
 
 // In dev, populate APP_URL from Vite's resolved URLs so that mobile testing
@@ -50,8 +50,8 @@ export default defineConfig({
 			srcDir: 'src',
 			filename: 'service-worker.ts',
 			manifest: {
-				name: 'Mutuvia',
-				short_name: 'Mutuvia',
+				name: process.env.PUBLIC_APP_NAME || 'Mutuvia',
+				short_name: process.env.PUBLIC_APP_NAME || 'Mutuvia',
 				description: 'Mutual credit for your community',
 				theme_color: '#2D4A32',
 				background_color: '#ffffff',
