@@ -20,7 +20,6 @@ describe('currencyFractionDigits', () => {
 
 describe('formatAmount', () => {
 	test('formats a positive integer amount', () => {
-		// Intl.NumberFormat with locale 'en' and currency 'EUR' → "€10.00"
 		expect(formatAmount(1000)).toMatch(/€\s*10\.00/);
 	});
 
