@@ -4,9 +4,7 @@ export function isSentryTunnelPath(pathname: string): boolean {
 	return pathname === '/sentry-tunnel';
 }
 
-type SessionLookupResult<T> =
-	| { skipped: true; session: null }
-	| { skipped: false; session: T };
+type SessionLookupResult<T> = { skipped: true; session: null } | { skipped: false; session: T };
 
 /**
  * Returns skipped=true for the Sentry tunnel path so callers can bypass Better Auth

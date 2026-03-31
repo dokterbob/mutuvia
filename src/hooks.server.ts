@@ -40,7 +40,7 @@ const i18nHandle: Handle = ({ event, resolve }) => {
 	});
 };
 
-const authHandle: Handle = async ({ event, resolve }) => {
+export const authHandle: Handle = async ({ event, resolve }) => {
 	const sessionLookup = await getSessionUnlessSentryTunnel(event.url.pathname, () =>
 		auth.api.getSession({ headers: event.request.headers })
 	);
