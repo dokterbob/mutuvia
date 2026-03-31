@@ -4,7 +4,7 @@ import { json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { pendingQr, transactions, appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { formatAmount } from '$lib/server/balance';
+import { formatAmount } from '$lib/server/format';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -41,9 +41,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 				.limit(1);
 			otherName = otherUser?.displayName || 'Unknown';
 
-			const unitSymbol = process.env.PUBLIC_UNIT_SYMBOL || '€';
-			const decimalPlaces = parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10);
-			formattedAmount = formatAmount(qr.amount, decimalPlaces, unitSymbol);
+			formattedAmount = formatAmount(qr.amount);
 		}
 	}
 

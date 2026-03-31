@@ -8,7 +8,7 @@
 
 - [x] SvelteKit + Bun adapter + Tailwind v4 + shadcn-svelte
 - [x] Drizzle ORM + SQLite (WAL mode) with schema and migrations
-- [x] Better Auth: SMS OTP (Twilio) + email OTP fallback, Drizzle adapter
+- [x] Better Auth: SMS OTP (Prelude Verify) + email OTP fallback, Drizzle adapter
 - [x] 9-step onboarding flow (welcome, consent, phone/email, OTP, verified, intro x2, name entry)
 - [x] Home screen with computed balance, send/receive actions, recent transactions
 - [x] Send flow with first-send consent gate, QR generation (jose JWT), countdown, polling

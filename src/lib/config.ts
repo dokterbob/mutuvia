@@ -26,7 +26,7 @@ export const config = {
 		return parseInt(env.QR_TTL_SECONDS || '259200', 10);
 	},
 	get appUrl() {
-		return env.APP_URL || 'http://localhost:5173';
+		return env.APP_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
 	},
 	get communityDocUrl() {
 		return publicEnv.PUBLIC_COMMUNITY_DOC_URL || '';
@@ -38,14 +38,8 @@ export const config = {
 		}
 		return secret;
 	},
-	get twilioAccountSid() {
-		return env.TWILIO_ACCOUNT_SID || '';
-	},
-	get twilioAuthToken() {
-		return env.TWILIO_AUTH_TOKEN || '';
-	},
-	get twilioPhoneNumber() {
-		return env.TWILIO_PHONE_NUMBER || '';
+	get preludeApiToken() {
+		return env.PRELUDE_API_TOKEN || '';
 	},
 	// ── Database ──
 	get dbProvider() {
@@ -55,6 +49,8 @@ export const config = {
 		return env.DB_FILE_NAME || 'sqlite.db';
 	},
 	get databaseUrl() {
-		return env.DATABASE_URL || 'postgres://mutuvia:mutuvia@localhost:5432/mutuvia';
+		const url = env.DATABASE_URL;
+		if (!url) throw new Error('DATABASE_URL is required when DB_PROVIDER=pg');
+		return url;
 	}
 };

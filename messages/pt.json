@@ -46,6 +46,7 @@
 	"otp_countdown": "{seconds}s",
 	"otp_cta": "Verificar",
 	"otp_back": "Voltar",
+	"otp_invalid_code": "Código inválido. Tente novamente.",
 
 	"verified_title": "Verificado",
 	"verified_body": "O teu número está confirmado. Vamos configurar tudo.",
@@ -158,6 +159,8 @@
 	"qr_copy_link": "Copiar link",
 	"qr_copied": "Copiado!",
 	"qr_share": "Partilhar",
+	"qr_share_text": "{amount} de crédito através do {appName}.",
+	"qr_share_text_with_note": "{amount} de crédito através do {appName} — {note}",
 
 	"locale_name": "Português",
 
@@ -214,5 +217,17 @@
 
 	"faq_q_question_not_answered": "A minha pergunta não está aqui.",
 	"faq_a_question_not_answered": "Adoraríamos ouvir-te. Podes fazer uma pergunta, reportar um erro ou sugerir uma funcionalidade no GitHub.",
-	"faq_link_report_issue": "Abrir um assunto ou discussão no GitHub"
+	"faq_link_report_issue": "Abrir um assunto ou discussão no GitHub",
+
+	"og_send_title": "Pagamento de {amount}",
+	"og_receive_title": "Pedido de {amount}",
+	"og_description": "Crédito mútuo para a tua comunidade",
+	"og_expired_title": "Link expirado",
+
+	"error_not_found_title": "Página não encontrada",
+	"error_not_found_body": "Não conseguimos encontrar esta página. Pode ter sido movida ou já não existir.",
+	"error_server_title": "Algo correu mal",
+	"error_server_body": "Já fomos notificados e estamos a investigar. Por favor, tenta novamente.",
+	"error_go_home": "Ir para o início",
+	"error_try_again": "Tentar novamente"
 }

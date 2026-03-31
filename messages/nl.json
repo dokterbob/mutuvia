@@ -46,6 +46,7 @@
 	"otp_countdown": "{seconds}s",
 	"otp_cta": "Verifiëren",
 	"otp_back": "Terug",
+	"otp_invalid_code": "Ongeldige code. Probeer het opnieuw.",
 
 	"verified_title": "Geverifieerd",
 	"verified_body": "Je nummer is bevestigd. Laten we alles instellen.",
@@ -158,6 +159,8 @@
 	"qr_copy_link": "Link kopiëren",
 	"qr_copied": "Gekopieerd!",
 	"qr_share": "Delen",
+	"qr_share_text": "{amount} aan krediet via {appName}.",
+	"qr_share_text_with_note": "{amount} aan krediet via {appName} — {note}",
 
 	"locale_name": "Nederlands",
 
@@ -214,5 +217,17 @@
 
 	"faq_q_question_not_answered": "Mijn vraag staat er niet bij.",
 	"faq_a_question_not_answered": "We horen graag van je. Je kunt een vraag stellen, een bug melden of een functie voorstellen op GitHub.",
-	"faq_link_report_issue": "Open een issue of discussie op GitHub"
+	"faq_link_report_issue": "Open een issue of discussie op GitHub",
+
+	"og_send_title": "Betaling van {amount}",
+	"og_receive_title": "Verzoek voor {amount}",
+	"og_description": "Wederzijds krediet voor jouw gemeenschap",
+	"og_expired_title": "Link verlopen",
+
+	"error_not_found_title": "Pagina niet gevonden",
+	"error_not_found_body": "We konden deze pagina niet vinden. Mogelijk is deze verplaatst of bestaat deze niet meer.",
+	"error_server_title": "Er ging iets mis",
+	"error_server_body": "We zijn op de hoogte gebracht en kijken ernaar. Probeer het opnieuw.",
+	"error_go_home": "Naar startpagina",
+	"error_try_again": "Opnieuw proberen"
 }

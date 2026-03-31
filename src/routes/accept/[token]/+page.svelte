@@ -1,6 +1,8 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
+	import { env } from '$env/dynamic/public';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -8,7 +10,30 @@
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 
 	let { data, form } = $props();
+
+	const appName = env.PUBLIC_APP_NAME || 'Mutuvia';
+
+	const ogTitle = $derived(
+		data.expired
+			? m.og_expired_title()
+			: data.direction === 'send'
+				? m.og_send_title({ amount: data.formattedAmount ?? '' })
+				: m.og_receive_title({ amount: data.formattedAmount ?? '' })
+	);
+	const ogDescription = $derived(m.og_description());
 </script>
+
+<svelte:head>
+	<title>{ogTitle} — {appName}</title>
+	<meta property="og:title" content={ogTitle} />
+	<meta property="og:description" content={ogDescription} />
+	<meta property="og:site_name" content={appName} />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={page.url.href} />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content={ogTitle} />
+	<meta name="twitter:description" content={ogDescription} />
+</svelte:head>
 
 {#snippet transactionSummary()}
 	<h1 class="mb-4 font-serif text-2xl font-semibold">

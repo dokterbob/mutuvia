@@ -9,6 +9,8 @@ import type { Handle, ServerInit } from '@sveltejs/kit';
 import { config } from '$lib/config';
 import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
+import { svelteKitHandler } from 'better-auth/svelte-kit';
+import { building } from '$app/environment';
 
 /**
  * Run Drizzle migrations once at server startup, before any request is served.
@@ -38,11 +40,6 @@ const i18nHandle: Handle = ({ event, resolve }) => {
 };
 
 const authHandle: Handle = async ({ event, resolve }) => {
-	// Better Auth API routes
-	if (event.url.pathname.startsWith('/api/auth')) {
-		return auth.handler(event.request);
-	}
-
 	// Get session from Better Auth
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
@@ -64,7 +61,10 @@ const authHandle: Handle = async ({ event, resolve }) => {
 		event.locals.appUser = null;
 	}
 
-	return resolve(event);
+	// svelteKitHandler replaces the manual auth.handler() + resolve() calls.
+	// It sets up Better Auth's AsyncLocalStorage request state context, routes
+	// /api/auth/* to the auth handler, and delegates all other requests to resolve().
+	return svelteKitHandler({ event, resolve, auth, building });
 };
 
 export const handle = sequence(Sentry.sentryHandle(), i18nHandle, authHandle);

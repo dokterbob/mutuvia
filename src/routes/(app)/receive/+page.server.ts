@@ -6,13 +6,15 @@ import { pendingQr } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { signQrToken, buildQrUrl } from '$lib/server/qr';
 import { randomUUID } from 'crypto';
+import { config } from '$lib/config';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async () => {
 	return {
-		unitSymbol: process.env.PUBLIC_UNIT_SYMBOL || '€',
-		decimalPlaces: parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10),
-		qrTtlSeconds: parseInt(process.env.QR_TTL_SECONDS || '600', 10)
+		appName: config.appName,
+		unitSymbol: config.unitSymbol,
+		decimalPlaces: config.decimalPlaces,
+		qrTtlSeconds: config.qrTtlSeconds
 	};
 };
 
@@ -24,7 +26,7 @@ export const actions: Actions = {
 
 		const amountStr = data.get('amount') as string;
 		const note = (data.get('note') as string)?.trim().slice(0, 120) || null;
-		const decimalPlaces = parseInt(process.env.UNIT_DECIMAL_PLACES || '2', 10);
+		const decimalPlaces = config.decimalPlaces;
 
 		const floatAmount = parseFloat(amountStr);
 		if (isNaN(floatAmount) || floatAmount <= 0) {
@@ -32,7 +34,7 @@ export const actions: Actions = {
 		}
 
 		const amount = Math.round(floatAmount * Math.pow(10, decimalPlaces));
-		const ttl = parseInt(process.env.QR_TTL_SECONDS || '600', 10);
+		const ttl = config.qrTtlSeconds;
 		const now = new Date();
 		const qrId = randomUUID();
 

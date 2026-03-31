@@ -30,6 +30,19 @@
 	let completedAmount = $state('');
 	let qrUrl = $state('');
 	let canShare = $derived(browser && typeof navigator.share === 'function');
+	let formattedAmount = $derived(
+		`${data.unitSymbol}\u00A0${parseFloat(amount || '0').toFixed(data.decimalPlaces)}`
+	);
+	let shareDescription = $derived(
+		note.trim()
+			? m.qr_share_text_with_note({
+					amount: formattedAmount,
+					appName: data.appName,
+					note: note.trim()
+				})
+			: m.qr_share_text({ amount: formattedAmount, appName: data.appName })
+	);
+	let copyText = $derived(`${shareDescription}\n${qrUrl}`);
 
 	$effect(() => {
 		if (form?.consented) {
@@ -50,7 +63,7 @@
 	}
 
 	function shareLink() {
-		navigator.share({ url: qrUrl });
+		navigator.share({ text: shareDescription, url: qrUrl });
 	}
 
 	function startCountdown(expires: string) {
@@ -124,7 +137,13 @@
 	{#if step === 'amount'}
 		<h1 class="mb-4 font-serif text-2xl font-semibold">{m.home_send()}</h1>
 
-		<form method="POST" action="?/createQr" use:enhance>
+		<form
+			method="POST"
+			action="?/createQr"
+			use:enhance={() =>
+				async ({ update }) =>
+					update({ reset: false })}
+		>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-2xl font-medium text-muted-foreground">{data.unitSymbol}</span>
@@ -196,7 +215,7 @@
 				{#if qrUrl}
 					<p class="mb-2 max-w-[280px] truncate text-xs text-muted-foreground">{qrUrl}</p>
 					<div class="mb-4 flex gap-2">
-						<CopyButton text={qrUrl} variant="outline" class="flex-1 rounded-xl text-sm">
+						<CopyButton text={copyText} variant="outline" class="flex-1 rounded-xl text-sm">
 							{m.qr_copy_link()}
 						</CopyButton>
 						{#if canShare}
