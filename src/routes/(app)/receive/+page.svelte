@@ -1,5 +1,6 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime';
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
@@ -30,9 +31,13 @@
 	let completedAmount = $state('');
 	let qrUrl = $state('');
 	let canShare = $derived(browser && typeof navigator.share === 'function');
-	let formattedAmount = $derived(
-		`${data.unitSymbol}\u00A0${parseFloat(amount || '0').toFixed(data.decimalPlaces)}`
+	let currencyFormatter = $derived(
+		new Intl.NumberFormat(getLocale(), { style: 'currency', currency: data.unitCode })
 	);
+	let currencySymbol = $derived(
+		currencyFormatter.formatToParts(0).find((p) => p.type === 'currency')?.value ?? data.unitCode
+	);
+	let formattedAmount = $derived(currencyFormatter.format(parseFloat(amount || '0')));
 	let shareDescription = $derived(
 		note.trim()
 			? m.qr_share_text_with_note({
@@ -119,7 +124,7 @@
 		>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
-				<span class="text-2xl font-medium text-muted-foreground">{data.unitSymbol}</span>
+				<span class="text-2xl font-medium text-muted-foreground">{currencySymbol}</span>
 				<Input
 					name="amount"
 					type="number"
