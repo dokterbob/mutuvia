@@ -52,6 +52,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 ## Code Quality
 
 - **Run `bun install` first** — the pre-commit hook is registered by `bun install` via `bun-git-hooks`. Without it, linting won't run and the hook may not be present.
+- **Generate Paraglide output before type-checking** — `src/lib/paraglide/` is gitignored and must exist before `svelte-check` runs. The pre-commit hook generates it automatically via `bun run check`, but if you run `svelte-check` directly on a fresh clone you need `bun run dev` or `bun run build` first.
 - **Pre-commit hook** runs via `bun-git-hooks` (installed by `bun install`). Staged-lint rules:
   - `*` → `bun run format` (Prettier)
   - `**/*.{js,ts}` → `bun run lint:fix` then `bun run check` (Prettier + ESLint + svelte-check)
