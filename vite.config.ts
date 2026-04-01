@@ -56,7 +56,16 @@ export default defineConfig({
 				theme_color: '#2D4A32',
 				background_color: '#ffffff',
 				display: 'standalone',
-				start_url: '/'
+				start_url: '/',
+				share_target: {
+					action: '/share',
+					method: 'GET',
+					params: {
+						title: 'title',
+						text: 'text',
+						url: 'url'
+					}
+				}
 			},
 			pwaAssets: {
 				preset: 'minimal-2023',
