@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { flushSync } from 'svelte';
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
@@ -31,6 +32,8 @@
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
+	let createQrLoading = $state(false);
+	let cancelLoading = $state(false);
 	let canShare = $derived(browser && typeof navigator.share === 'function');
 	let currencyFormatter = $derived(
 		new Intl.NumberFormat(getLocale(), { style: 'currency', currency: data.unitCode })
@@ -125,9 +128,17 @@
 		<form
 			method="POST"
 			action="?/createQr"
-			use:enhance={() =>
-				async ({ update }) =>
-					update({ reset: false })}
+			use:enhance={() => {
+				flushSync(() => {
+					createQrLoading = true;
+				});
+				return async ({ update }) => {
+					flushSync(() => {
+						createQrLoading = false;
+					});
+					await update({ reset: false });
+				};
+			}}
 		>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
@@ -161,6 +172,7 @@
 			<div class="flex-1"></div>
 			<Button
 				type="submit"
+				loading={createQrLoading}
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145] disabled:opacity-40"
 				disabled={!amount || parseFloat(amount) <= 0}
 			>
@@ -218,9 +230,17 @@
 						<XIcon class="mr-2 h-4 w-4" />
 						{m.qr_close()}
 					</Button>
-					<form method="POST" action="?/cancel" use:enhance>
+					<form
+						method="POST"
+						action="?/cancel"
+						use:enhance={() => {
+							flushSync(() => {
+								cancelLoading = true;
+							});
+						}}
+					>
 						<input type="hidden" name="qrId" value={qrId} />
-						<Button type="submit" variant="ghost" class="text-sm text-muted-foreground">
+						<Button type="submit" loading={cancelLoading} variant="ghost" class="text-sm text-muted-foreground">
 							{m.send_cancel()}
 						</Button>
 					</form>

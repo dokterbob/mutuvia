@@ -69,6 +69,7 @@
 			type="submit"
 			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
 			disabled={!emailAddress.includes('@') || isLoading}
+			loading={isLoading}
 		>
 			{m.email_cta()}
 			<ArrowRightIcon class="ml-2 h-4 w-4" />

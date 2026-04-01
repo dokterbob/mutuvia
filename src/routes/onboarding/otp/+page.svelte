@@ -10,6 +10,7 @@
 
 	let otpCode = $state('');
 	let isLoading = $state(false);
+	let resendLoading = $state(false);
 	let authError = $state('');
 	let countdown = $state(30);
 	let otpInput = $state<HTMLInputElement | undefined>(undefined);
@@ -47,6 +48,7 @@
 
 	async function resendOtp() {
 		if (countdown > 0) return;
+		resendLoading = true;
 		const result =
 			data.otpMethod === 'phone'
 				? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
@@ -54,6 +56,7 @@
 						email: data.otpDestination,
 						type: 'sign-in'
 					});
+		resendLoading = false;
 		if (result.error) {
 			authError = result.error.message || m.error_send_code();
 			return;
@@ -126,8 +129,12 @@
 				{m.otp_resend()} ({m.otp_countdown({ seconds: countdown })})
 			</span>
 		{:else}
-			<button class="font-medium text-[#2D4A32] hover:underline" onclick={resendOtp}>
-				{m.otp_resend()}
+			<button
+				class="font-medium text-[#2D4A32] hover:underline disabled:opacity-50"
+				onclick={resendOtp}
+				disabled={resendLoading}
+			>
+				{resendLoading ? 'Sending...' : m.otp_resend()}
 			</button>
 		{/if}
 	</div>
@@ -140,6 +147,7 @@
 	<Button
 		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
 		disabled={otpCode.length < 6 || isLoading}
+		loading={isLoading}
 		onclick={verifyOtp}
 	>
 		{m.otp_cta()}
