@@ -20,9 +20,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const bytes = new Uint8Array(rawBody);
 		const firstNewline = bytes.indexOf(10); // 10 = '\n'
-		const firstLine = new TextDecoder().decode(
-			firstNewline === -1 ? bytes : bytes.subarray(0, firstNewline)
-		);
+		if (firstNewline === -1) {
+			return new Response('Invalid envelope', { status: 400 });
+		}
+		const firstLine = new TextDecoder().decode(bytes.subarray(0, firstNewline));
 		const header = JSON.parse(firstLine);
 		envelopeDsn = new URL(header.dsn);
 	} catch {

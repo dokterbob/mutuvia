@@ -67,6 +67,22 @@ describe('POST /sentry-tunnel', () => {
 		expect(new Uint8Array(forwarded)).toEqual(binaryBody);
 	});
 
+	test('regression: returns 400 when envelope header has no trailing newline', async () => {
+		// When no newline is found, the handler must reject immediately rather than
+		// falling back to decoding the entire body as UTF-8. Without this guard, a
+		// lone JSON object (valid DSN, no newline) would pass DSN validation and be
+		// forwarded as a malformed envelope.
+		const body = JSON.stringify({ dsn: DSN }); // valid JSON but missing the required '\n'
+		const request = new Request('https://app.test/sentry-tunnel', {
+			method: 'POST',
+			body
+		});
+
+		const response = await POST({ request } as unknown as Parameters<typeof POST>[0]);
+		expect(response.status).toBe(400);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
 	test('returns 400 for an invalid (non-JSON) envelope header', async () => {
 		const request = new Request('https://app.test/sentry-tunnel', {
 			method: 'POST',
