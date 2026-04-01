@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { test, expect } from 'bun:test';
+import { test, expect } from 'vitest';
 import { extractAcceptUrl } from './share-url';
 
 const BASE = 'https://app.mutuvia.com';
