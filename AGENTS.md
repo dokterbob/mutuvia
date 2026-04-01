@@ -29,7 +29,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Auth**: Better Auth (SMS OTP via Prelude Verify, email OTP fallback)
 - **ORM**: Drizzle ORM — SQLite (`bun:sqlite`, WAL mode, foreign keys ON) or PostgreSQL (`bun:sql`), selected via `DB_PROVIDER`
 - **Database**: SQLite (default) or PostgreSQL — `better-sqlite3` as devDependency for Drizzle Kit SQLite migrations; local PG via `docker compose up -d`
-- **i18n**: Paraglide JS v2 (EN, PT, NL) — translation files in `messages/`, generated output in `src/lib/paraglide/` (gitignored)
+- **i18n**: Paraglide JS v2 (EN, PT, NL, DE) — translation files in `messages/`, generated output in `src/lib/paraglide/` (gitignored)
 - **QR**: jose (JWT HS256) + qrcode (client-side generation)
 
 ## Key Conventions

@@ -14,6 +14,7 @@
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
+	import { formatTimeRemaining } from '$lib/format-time';
 
 	let { data, form } = $props();
 
@@ -27,6 +28,7 @@
 	let secondsLeft = $state(0);
 	let isExpired = $state(false);
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
+	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
@@ -58,6 +60,13 @@
 		}
 	});
 
+	$effect(() => {
+		return () => {
+			if (pollInterval) clearInterval(pollInterval);
+			if (countdownInterval) clearInterval(countdownInterval);
+		};
+	});
+
 	async function generateQr(url: string, id: string, expires: string) {
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
@@ -67,8 +76,13 @@
 		startPolling(id);
 	}
 
-	function shareLink() {
-		navigator.share({ text: shareDescription, url: qrUrl });
+	async function shareLink() {
+		try {
+			await navigator.share({ text: shareDescription, url: qrUrl });
+			goto('/home');
+		} catch {
+			// user cancelled or share failed — stay on QR screen
+		}
 	}
 
 	function startCountdown(expires: string) {
@@ -82,7 +96,7 @@
 			}
 		};
 		update();
-		setInterval(update, 1000);
+		countdownInterval = setInterval(update, 1000);
 	}
 
 	function startPolling(id: string) {
@@ -103,12 +117,6 @@
 				// ignore
 			}
 		}, 2000);
-	}
-
-	function formatMinSec(seconds: number): string {
-		const m = Math.floor(seconds / 60);
-		const s = seconds % 60;
-		return `${m}:${s.toString().padStart(2, '0')}`;
 	}
 </script>
 
@@ -206,16 +214,21 @@
 						{/if}
 					</div>
 				{/if}
-				<p class="mb-6 font-mono text-lg text-muted-foreground tabular-nums">
-					{formatMinSec(secondsLeft)}
+				<p class="mb-6 text-sm text-muted-foreground">
+					{m.qr_expires({ time: formatTimeRemaining(secondsLeft, getLocale()) })}
 				</p>
-				<form method="POST" action="?/cancel" use:enhance>
-					<input type="hidden" name="qrId" value={qrId} />
-					<Button type="submit" variant="outline" class="rounded-xl">
+				<div class="flex flex-col items-center gap-2">
+					<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
 						<XIcon class="mr-2 h-4 w-4" />
-						{m.send_cancel()}
+						{m.qr_close()}
 					</Button>
-				</form>
+					<form method="POST" action="?/cancel" use:enhance>
+						<input type="hidden" name="qrId" value={qrId} />
+						<Button type="submit" variant="ghost" class="text-sm text-muted-foreground">
+							{m.send_cancel()}
+						</Button>
+					</form>
+				</div>
 			{/if}
 		</div>
 	{/if}

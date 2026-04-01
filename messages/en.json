@@ -161,6 +161,13 @@
 	"qr_share": "Share",
 	"qr_share_text": "{amount} of credit through {appName}.",
 	"qr_share_text_with_note": "{amount} of credit through {appName} — {note}",
+	"qr_close": "Close",
+	"qr_expires": "Expires {time}",
+	"home_pending": "Pending",
+	"home_pending_send": "Sending {amount}",
+	"home_pending_receive": "Requesting {amount}",
+	"home_pending_expired": "Expired",
+	"history_pending": "Pending",
 
 	"locale_name": "English",
 
