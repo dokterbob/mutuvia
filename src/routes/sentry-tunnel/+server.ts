@@ -14,11 +14,17 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	const allowedHost = new URL(configuredDsn).hostname;
-	const body = await request.text();
+	const rawBody = await request.arrayBuffer();
 
 	let envelopeDsn: URL;
 	try {
-		const header = JSON.parse(body.split('\n')[0]);
+		const bytes = new Uint8Array(rawBody);
+		const firstNewline = bytes.indexOf(10); // 10 = '\n'
+		if (firstNewline === -1) {
+			return new Response('Invalid envelope', { status: 400 });
+		}
+		const firstLine = new TextDecoder().decode(bytes.subarray(0, firstNewline));
+		const header = JSON.parse(firstLine);
 		envelopeDsn = new URL(header.dsn);
 	} catch {
 		return new Response('Invalid envelope', { status: 400 });
@@ -35,7 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const upstream = await fetch(upstreamUrl, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-sentry-envelope' },
-		body
+		body: rawBody
 	});
 
 	return new Response(null, { status: upstream.status });
