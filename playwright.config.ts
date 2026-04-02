@@ -33,5 +33,14 @@ export default defineConfig({
 			stdout: /Listening/
 		}
 	},
-	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
+	projects: [
+		{
+			name: 'chromium',
+			use: {
+				...devices['Desktop Chrome'],
+				// --no-sandbox is required when running as root inside a Docker container
+				launchOptions: process.env.CI ? { args: ['--no-sandbox'] } : {}
+			}
+		}
+	]
 });
