@@ -2,7 +2,7 @@
 
 > _Together, we are more._ Mutual credit for the rest of us.
 
-A minimal mutual credit app for small communities. Members send and receive credit obligations denominated in a configurable unit. No real money transfers — the ledger records mutual debts. Mobile-first, bilingual (EN / PT / NL), privacy-respecting.
+A minimal mutual credit app for small communities. Members send and receive credit obligations denominated in a configurable unit. No real money transfers — the ledger records mutual debts. Mobile-first, multilingual (EN / PT / NL / DE), privacy-respecting.
 
 **The FOSS package is named _Mutuvia_. Any community deploying it may rebrand freely** via the `APP_NAME` and `APP_TAGLINE` environment variables.
 
@@ -109,7 +109,7 @@ docker compose --profile postgres up -d
 | Auth          | Better Auth (SMS OTP via Prelude Verify, email OTP fallback)                    |
 | ORM           | Drizzle ORM                                                                     |
 | Database      | SQLite (default, WAL mode, via bun:sqlite) or PostgreSQL (via `DB_PROVIDER=pg`) |
-| i18n          | Paraglide JS v2 (EN, PT, NL)                                                    |
+| i18n          | Paraglide JS v2 (EN, PT, NL, DE)                                                |
 | QR            | jose (JWT) + qrcode                                                             |
 | Observability | Sentry (optional — error tracking + feedback widget)                            |
 | PWA           | vite-plugin-pwa (`@vite-pwa/sveltekit`) — installable, offline fallback page    |
@@ -176,7 +176,8 @@ DB_PROVIDER=pg bun run db:migrate
 messages/
 ├── en.json                  # English translations
 ├── pt.json                  # Portuguese translations
-└── nl.json                  # Dutch translations
+├── nl.json                  # Dutch translations
+└── de.json                  # German translations
 src/
 ├── hooks.server.ts          # i18n locale resolution + auth session
 ├── lib/

@@ -14,6 +14,7 @@
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
+	import { formatTimeRemaining } from '$lib/format-time';
 
 	let { data, form } = $props();
 
@@ -26,7 +27,7 @@
 	let qrId = $state('');
 	let secondsLeft = $state(0);
 	let isExpired = $state(false);
-	let pollInterval: ReturnType<typeof setInterval> | null = null;
+	let expiresAt = $state('');
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
@@ -62,54 +63,57 @@
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
+		expiresAt = expires;
 		step = 'qr';
-		startCountdown(expires);
-		startPolling(id);
 	}
 
-	function shareLink() {
-		navigator.share({ text: shareDescription, url: qrUrl });
+	async function shareLink() {
+		try {
+			await navigator.share({ text: shareDescription, url: qrUrl });
+			goto('/home');
+		} catch {
+			// user cancelled or share failed — stay on QR screen
+		}
 	}
 
-	function startCountdown(expires: string) {
-		const expTime = new Date(expires).getTime();
+	// Countdown: auto-cleans when step leaves 'qr' or component unmounts
+	$effect(() => {
+		if (step !== 'qr' || !expiresAt) return;
+		const expTime = new Date(expiresAt).getTime();
 		const update = () => {
 			const left = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
 			secondsLeft = left;
 			if (left <= 0) {
 				isExpired = true;
-				if (pollInterval) clearInterval(pollInterval);
+				clearInterval(interval);
 			}
 		};
 		update();
-		setInterval(update, 1000);
-	}
+		const interval = setInterval(update, 1000);
+		return () => clearInterval(interval);
+	});
 
-	function startPolling(id: string) {
-		pollInterval = setInterval(async () => {
+	// Polling: stops on expiry, completion, decline, or unmount
+	$effect(() => {
+		if (step !== 'qr' || !qrId || isExpired) return;
+		const id = qrId;
+		const interval = setInterval(async () => {
 			try {
 				const res = await fetch(`/api/qr-status/${id}`);
 				const json = await res.json();
 				if (json.status === 'completed') {
-					clearInterval(pollInterval!);
 					completedName = json.otherName || '';
 					completedAmount = json.formattedAmount || '';
 					step = 'done';
 				} else if (json.status === 'declined') {
-					clearInterval(pollInterval!);
 					step = 'declined';
 				}
 			} catch {
-				// ignore
+				// ignore polling errors
 			}
 		}, 2000);
-	}
-
-	function formatMinSec(seconds: number): string {
-		const m = Math.floor(seconds / 60);
-		const s = seconds % 60;
-		return `${m}:${s.toString().padStart(2, '0')}`;
-	}
+		return () => clearInterval(interval);
+	});
 </script>
 
 <div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
@@ -206,16 +210,21 @@
 						{/if}
 					</div>
 				{/if}
-				<p class="mb-6 font-mono text-lg text-muted-foreground tabular-nums">
-					{formatMinSec(secondsLeft)}
+				<p class="mb-6 text-sm text-muted-foreground">
+					{m.qr_expires({ time: formatTimeRemaining(secondsLeft, getLocale()) })}
 				</p>
-				<form method="POST" action="?/cancel" use:enhance>
-					<input type="hidden" name="qrId" value={qrId} />
-					<Button type="submit" variant="outline" class="rounded-xl">
+				<div class="flex flex-col items-center gap-2">
+					<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
 						<XIcon class="mr-2 h-4 w-4" />
-						{m.send_cancel()}
+						{m.qr_close()}
 					</Button>
-				</form>
+					<form method="POST" action="?/cancel" use:enhance>
+						<input type="hidden" name="qrId" value={qrId} />
+						<Button type="submit" variant="ghost" class="text-sm text-muted-foreground">
+							{m.send_cancel()}
+						</Button>
+					</form>
+				</div>
 			{/if}
 		</div>
 	{/if}

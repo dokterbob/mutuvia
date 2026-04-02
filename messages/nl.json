@@ -161,6 +161,14 @@
 	"qr_share": "Delen",
 	"qr_share_text": "{amount} aan krediet via {appName}.",
 	"qr_share_text_with_note": "{amount} aan krediet via {appName} — {note}",
+	"qr_close": "Sluiten",
+	"qr_expires": "Verloopt {time}",
+	"home_pending": "In behandeling",
+	"home_pending_send": "Versturen {amount}",
+	"home_pending_receive": "Aanvragen {amount}",
+	"home_pending_expired": "Verlopen",
+	"pending_cancel_aria": "Lopende transactie annuleren",
+	"history_pending": "In behandeling",
 
 	"locale_name": "Nederlands",
 

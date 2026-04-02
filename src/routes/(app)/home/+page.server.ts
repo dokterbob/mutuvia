@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import { getBalance } from '$lib/server/balance';
 import { formatAmount } from '$lib/server/currency';
 import { db } from '$lib/server/db';
 import { transactions, appUsers } from '$lib/server/schema';
 import { eq, or, desc } from 'drizzle-orm';
+import { getPendingItems, cancelPendingQr } from '$lib/server/pending-qr';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.appUser!.id;
@@ -51,9 +52,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 		};
 	});
 
+	const pendingItems = await getPendingItems(userId, 10);
+
 	return {
 		balance,
 		formattedBalance: formatAmount(balance),
-		recentTransactions
+		recentTransactions,
+		pendingItems
 	};
+};
+
+export const actions: Actions = {
+	cancelQr: async ({ request, locals }) => {
+		const data = await request.formData();
+		const qrId = data.get('qrId') as string;
+		if (!qrId) return;
+		await cancelPendingQr(qrId, locals.appUser!.id);
+	}
 };

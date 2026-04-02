@@ -46,6 +46,7 @@
 	"otp_countdown": "{seconds}s",
 	"otp_cta": "Verifizieren",
 	"otp_back": "Zurück",
+	"otp_invalid_code": "Ungültiger Code. Bitte erneut versuchen.",
 
 	"verified_title": "Verifiziert",
 	"verified_body": "Deine Nummer ist bestätigt. Lass uns alles einrichten.",
@@ -85,6 +86,7 @@
 	"home_balance_zero": "Du bist quitt",
 	"home_balance_first_use": "Dein Guthaben beginnt bei null. Sende oder empfange Kredit, um zu starten.",
 	"home_send": "Senden",
+	"home_scan": "Scannen",
 	"home_receive": "Empfangen",
 	"home_recent": "Zuletzt",
 	"home_see_all": "Alle anzeigen",
@@ -148,9 +150,25 @@
 	"error_send_code": "Code konnte nicht gesendet werden",
 	"error_generic": "Etwas ist schiefgelaufen",
 
+	"scan_title": "QR-Code scannen",
+	"scan_no_camera": "Keine Kamera auf diesem Gerät gefunden",
+	"scan_permission_denied": "Kamerazugriff wurde verweigert. Bitte erlaube den Kamerazugriff in deinen Browsereinstellungen.",
+	"scan_error": "Scanner konnte nicht gestartet werden",
+	"scan_invalid_qr": "Kein gültiger Mutuvia QR-Code",
+
 	"qr_copy_link": "Link kopieren",
 	"qr_copied": "Kopiert!",
 	"qr_share": "Teilen",
+	"qr_share_text": "{amount} Kredit über {appName}.",
+	"qr_share_text_with_note": "{amount} Kredit über {appName} — {note}",
+	"qr_close": "Schließen",
+	"qr_expires": "Läuft ab {time}",
+	"home_pending": "Ausstehend",
+	"home_pending_send": "Sende {amount}",
+	"home_pending_receive": "Fordere {amount} an",
+	"home_pending_expired": "Abgelaufen",
+	"pending_cancel_aria": "Ausstehende Transaktion abbrechen",
+	"history_pending": "Ausstehend",
 
 	"locale_name": "Deutsch",
 
