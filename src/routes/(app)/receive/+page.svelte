@@ -133,10 +133,13 @@
 					createQrLoading = true;
 				});
 				return async ({ update }) => {
-					flushSync(() => {
-						createQrLoading = false;
-					});
-					await update({ reset: false });
+					try {
+						await update({ reset: false });
+					} finally {
+						flushSync(() => {
+							createQrLoading = false;
+						});
+					}
 				};
 			}}
 		>

@@ -139,10 +139,13 @@
 					consentLoading = true;
 				});
 				return async ({ update }) => {
-					flushSync(() => {
-						consentLoading = false;
-					});
-					await update();
+					try {
+						await update();
+					} finally {
+						flushSync(() => {
+							consentLoading = false;
+						});
+					}
 				};
 			}}
 		>
@@ -175,10 +178,13 @@
 					createQrLoading = true;
 				});
 				return async ({ update }) => {
-					flushSync(() => {
-						createQrLoading = false;
-					});
-					await update({ reset: false });
+					try {
+						await update({ reset: false });
+					} finally {
+						flushSync(() => {
+							createQrLoading = false;
+						});
+					}
 				};
 			}}
 		>

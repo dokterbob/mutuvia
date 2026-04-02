@@ -140,7 +140,7 @@
 				onclick={resendOtp}
 				disabled={resendLoading}
 			>
-				{resendLoading ? 'Sending...' : m.otp_resend()}
+				{m.otp_resend()}
 			</button>
 		{/if}
 	</div>

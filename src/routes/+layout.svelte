@@ -12,7 +12,10 @@
 </script>
 
 {#if navigating}
-	<div class="fixed inset-x-0 top-0 z-50 h-1 animate-pulse bg-[#2D4A32]" aria-hidden="true"></div>
+	<div
+		class="pointer-events-none fixed inset-x-0 top-0 z-50 h-1 animate-pulse bg-[#2D4A32]"
+		aria-hidden="true"
+	></div>
 {/if}
 
 <div class="min-h-dvh bg-background font-sans antialiased">
