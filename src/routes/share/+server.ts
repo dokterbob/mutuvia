@@ -2,7 +2,7 @@
 
 import { redirect } from '@sveltejs/kit';
 import { extractAcceptUrl } from '$lib/share-url';
-import type { PageServerLoad } from './$types';
+import type { RequestHandler } from './$types';
 
 /**
  * Web Share Target handler.
@@ -11,7 +11,7 @@ import type { PageServerLoad } from './$types';
  * the browser navigates here with ?title=…&text=…&url=… query params.
  * We extract the /accept/{token} URL and redirect to it.
  */
-export const load: PageServerLoad = ({ url }) => {
+export const GET: RequestHandler = ({ url }) => {
 	const acceptPath = extractAcceptUrl(url.searchParams);
 	redirect(307, acceptPath ?? '/');
 };
