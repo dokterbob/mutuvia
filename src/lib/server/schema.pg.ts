@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pgTable, text, boolean, timestamp, integer, primaryKey } from 'drizzle-orm/pg-core';
+import {
+	pgTable,
+	text,
+	boolean,
+	timestamp,
+	integer,
+	primaryKey,
+	uniqueIndex
+} from 'drizzle-orm/pg-core';
 
 // ── Better Auth managed tables ──
 // These are created/managed by Better Auth. We define them here for FK references only.
@@ -110,4 +118,20 @@ export const connections = pgTable(
 		createdAt: timestamp('created_at').notNull()
 	},
 	(table) => [primaryKey({ columns: [table.userAId, table.userBId] })]
+);
+
+export const pushSubscriptions = pgTable(
+	'push_subscriptions',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => appUsers.id, { onDelete: 'cascade' }),
+		endpoint: text('endpoint').notNull(),
+		p256dh: text('p256dh').notNull(),
+		auth: text('auth').notNull(),
+		userAgent: text('user_agent'),
+		createdAt: timestamp('created_at').notNull()
+	},
+	(table) => [uniqueIndex('push_subscriptions_user_endpoint_idx').on(table.userId, table.endpoint)]
 );

@@ -6,6 +6,9 @@
 /// <reference lib="webworker" />
 
 import { cleanupOutdatedCaches, matchPrecache, precacheAndRoute } from 'workbox-precaching';
+import { routeNotificationEvent } from './lib/sw-router';
+import type { SwContext } from './lib/sw-router';
+import type { NotificationEvent } from './lib/notifications';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -35,6 +38,28 @@ self.addEventListener('fetch', (event) => {
 				(await matchPrecache('/offline.html')) ??
 				new Response('You are offline', { status: 503, headers: { 'Content-Type': 'text/plain' } })
 			);
+		})
+	);
+});
+
+self.addEventListener('push', (event: PushEvent) => {
+	if (!event.data) return;
+	let notification: NotificationEvent;
+	try {
+		notification = event.data.json() as NotificationEvent;
+	} catch {
+		return; // malformed payload — ignore
+	}
+	event.waitUntil(routeNotificationEvent(self as unknown as SwContext, notification));
+});
+
+self.addEventListener('notificationclick', (event: NotificationClickEvent) => {
+	event.notification.close();
+	event.waitUntil(
+		self.clients.matchAll({ type: 'window', includeUncontrolled: false }).then((clients) => {
+			const existing = clients.find((c) => 'focus' in c);
+			if (existing) return (existing as WindowClient).focus();
+			return self.clients.openWindow('/');
 		})
 	);
 });

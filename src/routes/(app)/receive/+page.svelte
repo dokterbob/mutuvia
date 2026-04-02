@@ -15,6 +15,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
 	import { formatTimeRemaining } from '$lib/format-time';
+	import { sseManager } from '$lib/sse-client';
 
 	let { data, form } = $props();
 
@@ -93,26 +94,22 @@
 		return () => clearInterval(interval);
 	});
 
-	// Polling: stops on expiry, completion, decline, or unmount
+	// SSE: subscribe when QR is active, auto-cleans on completion, expiry, or unmount
 	$effect(() => {
 		if (step !== 'qr' || !qrId || isExpired) return;
 		const id = qrId;
-		const interval = setInterval(async () => {
-			try {
-				const res = await fetch(`/api/qr-status/${id}`);
-				const json = await res.json();
-				if (json.status === 'completed') {
-					completedName = json.otherName || '';
-					completedAmount = json.formattedAmount || '';
-					step = 'done';
-				} else if (json.status === 'declined') {
-					step = 'declined';
-				}
-			} catch {
-				// ignore polling errors
+		return sseManager.on({
+			onQrCompleted: (e) => {
+				if (e.qrId !== id) return;
+				completedName = e.otherName;
+				completedAmount = e.formattedAmount;
+				step = 'done';
+			},
+			onQrDeclined: (e) => {
+				if (e.qrId !== id) return;
+				step = 'declined';
 			}
-		}, 2000);
-		return () => clearInterval(interval);
+		});
 	});
 </script>
 
