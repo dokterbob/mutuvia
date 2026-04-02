@@ -167,6 +167,7 @@
 	"home_pending_send": "Sending {amount}",
 	"home_pending_receive": "Requesting {amount}",
 	"home_pending_expired": "Expired",
+	"pending_cancel_aria": "Cancel pending transaction",
 	"history_pending": "Pending",
 
 	"locale_name": "English",

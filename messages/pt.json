@@ -167,6 +167,7 @@
 	"home_pending_send": "Enviando {amount}",
 	"home_pending_receive": "Solicitando {amount}",
 	"home_pending_expired": "Expirado",
+	"pending_cancel_aria": "Cancelar transação pendente",
 	"history_pending": "Pendente",
 
 	"locale_name": "Português",

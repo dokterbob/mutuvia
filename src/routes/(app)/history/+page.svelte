@@ -73,7 +73,11 @@
 							</div>
 							<form method="POST" action="?/cancelQr" use:enhance>
 								<input type="hidden" name="qrId" value={item.id} />
-								<button type="submit" class="text-muted-foreground hover:text-red-600">
+								<button
+									type="submit"
+									class="text-muted-foreground hover:text-red-600"
+									aria-label={m.pending_cancel_aria()}
+								>
 									<XIcon class="h-4 w-4" />
 								</button>
 							</form>

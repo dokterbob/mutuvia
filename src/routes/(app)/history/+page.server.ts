@@ -3,8 +3,9 @@
 import type { PageServerLoad, Actions } from './$types';
 import { formatAmount } from '$lib/server/currency';
 import { db } from '$lib/server/db';
-import { transactions, appUsers, pendingQr } from '$lib/server/schema';
-import { eq, or, desc, and } from 'drizzle-orm';
+import { transactions, appUsers } from '$lib/server/schema';
+import { eq, or, desc } from 'drizzle-orm';
+import { getPendingItems, cancelPendingQr } from '$lib/server/pending-qr';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.appUser!.id;
@@ -45,28 +46,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		};
 	});
 
-	const pendingQrs = await db
-		.select({
-			id: pendingQr.id,
-			direction: pendingQr.direction,
-			amount: pendingQr.amount,
-			note: pendingQr.note,
-			createdAt: pendingQr.createdAt,
-			expiresAt: pendingQr.expiresAt
-		})
-		.from(pendingQr)
-		.where(and(eq(pendingQr.initiatingUserId, userId), eq(pendingQr.status, 'pending')))
-		.orderBy(desc(pendingQr.createdAt));
-
-	const pendingItems = pendingQrs.map((qr) => ({
-		id: qr.id,
-		direction: qr.direction,
-		formattedAmount: formatAmount(qr.amount),
-		note: qr.note,
-		createdAt: qr.createdAt,
-		expiresAt: qr.expiresAt,
-		isExpired: qr.expiresAt < new Date()
-	}));
+	const pendingItems = await getPendingItems(userId);
 
 	return { transactions: txList, pendingItems };
 };
@@ -76,20 +56,6 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (!qrId) return;
-		const userId = locals.appUser!.id;
-		const [qr] = await db
-			.select({ id: pendingQr.id })
-			.from(pendingQr)
-			.where(
-				and(
-					eq(pendingQr.id, qrId),
-					eq(pendingQr.initiatingUserId, userId),
-					eq(pendingQr.status, 'pending')
-				)
-			)
-			.limit(1);
-		if (qr) {
-			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
-		}
+		await cancelPendingQr(qrId, locals.appUser!.id);
 	}
 };

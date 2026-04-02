@@ -25,9 +25,8 @@
 	let note = $state('');
 	let qrDataUrl = $state('');
 	let qrId = $state('');
-	let pollInterval: ReturnType<typeof setInterval> | null = null;
-	let countdownInterval: ReturnType<typeof setInterval> | null = null;
 	let secondsLeft = $state(0);
+	let expiresAt = $state('');
 	let isExpired = $state(false);
 	let completedName = $state('');
 	let completedAmount = $state('');
@@ -63,20 +62,12 @@
 		}
 	});
 
-	$effect(() => {
-		return () => {
-			if (pollInterval) clearInterval(pollInterval);
-			if (countdownInterval) clearInterval(countdownInterval);
-		};
-	});
-
 	async function generateQr(url: string, id: string, expires: string) {
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
+		expiresAt = expires;
 		step = 'qr';
-		startCountdown(expires);
-		startPolling(id);
 	}
 
 	async function shareLink() {
@@ -88,39 +79,44 @@
 		}
 	}
 
-	function startCountdown(expires: string) {
-		const expTime = new Date(expires).getTime();
+	// Countdown: auto-cleans when step leaves 'qr' or component unmounts
+	$effect(() => {
+		if (step !== 'qr' || !expiresAt) return;
+		const expTime = new Date(expiresAt).getTime();
 		const update = () => {
 			const left = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
 			secondsLeft = left;
 			if (left <= 0) {
 				isExpired = true;
-				if (pollInterval) clearInterval(pollInterval);
+				clearInterval(interval);
 			}
 		};
 		update();
-		countdownInterval = setInterval(update, 1000);
-	}
+		const interval = setInterval(update, 1000);
+		return () => clearInterval(interval);
+	});
 
-	function startPolling(id: string) {
-		pollInterval = setInterval(async () => {
+	// Polling: stops on expiry, completion, decline, or unmount
+	$effect(() => {
+		if (step !== 'qr' || !qrId || isExpired) return;
+		const id = qrId;
+		const interval = setInterval(async () => {
 			try {
 				const res = await fetch(`/api/qr-status/${id}`);
-				const data = await res.json();
-				if (data.status === 'completed') {
-					clearInterval(pollInterval!);
-					completedName = data.otherName || '';
-					completedAmount = data.formattedAmount || '';
+				const json = await res.json();
+				if (json.status === 'completed') {
+					completedName = json.otherName || '';
+					completedAmount = json.formattedAmount || '';
 					step = 'done';
-				} else if (data.status === 'declined') {
-					clearInterval(pollInterval!);
+				} else if (json.status === 'declined') {
 					step = 'declined';
 				}
 			} catch {
 				// ignore polling errors
 			}
 		}, 2000);
-	}
+		return () => clearInterval(interval);
+	});
 </script>
 
 <div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">

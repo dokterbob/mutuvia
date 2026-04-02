@@ -167,6 +167,7 @@
 	"home_pending_send": "Sende {amount}",
 	"home_pending_receive": "Fordere {amount} an",
 	"home_pending_expired": "Abgelaufen",
+	"pending_cancel_aria": "Ausstehende Transaktion abbrechen",
 	"history_pending": "Ausstehend",
 
 	"locale_name": "Deutsch",
