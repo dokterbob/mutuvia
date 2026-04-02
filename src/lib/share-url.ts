@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// JWT tokens use the base64url alphabet (A-Za-z0-9-_) with dots as part separators.
+// This pattern matches a single path segment with no slashes, preventing path traversal.
+const TOKEN_RE = /^[A-Za-z0-9\-_.]+$/;
+
 /**
  * Extract an /accept/{token} path from Web Share Target query params.
  *
@@ -34,17 +38,18 @@ export function extractAcceptUrl(params: URLSearchParams): string | null {
 /**
  * Parse a URL string and return the /accept/{token} path if it matches.
  * Strips the origin so redirects are always relative (prevents open redirect).
+ * Token must be a single path segment matching the JWT base64url charset.
  */
 function parseAcceptPath(input: string): string | null {
+	let pathname: string;
 	try {
-		const parsed = new URL(input);
-		const match = parsed.pathname.match(/^\/accept\/(.+)$/);
-		if (match) return `/accept/${match[1]}`;
+		pathname = new URL(input).pathname;
 	} catch {
-		// Not a full URL — check if it's already a bare path
-		const match = input.match(/^\/accept\/(.+)$/);
-		if (match) return `/accept/${match[1]}`;
+		// Not a full URL — treat as a bare path
+		pathname = input;
 	}
+	const match = pathname.match(/^\/accept\/([^/]+)$/);
+	if (match && TOKEN_RE.test(match[1])) return `/accept/${match[1]}`;
 	return null;
 }
 
@@ -56,15 +61,20 @@ function extractAcceptPathFromText(text: string): string | null {
 	const urlRegex = /https?:\/\/[^\s]+\/accept\/[^\s]+/gi;
 	const matches = text.match(urlRegex);
 	if (matches) {
-		for (const match of matches) {
+		for (const rawMatch of matches) {
+			// Strip trailing sentence punctuation that messaging apps may have captured
+			const match = rawMatch.replace(/[.,;:!?'")\]>]+$/, '');
 			const path = parseAcceptPath(match);
 			if (path) return path;
 		}
 	}
 
-	// Also handle bare /accept/ paths
-	const pathMatch = text.match(/\/accept\/(\S+)/);
-	if (pathMatch) return `/accept/${pathMatch[1]}`;
+	// Also handle bare /accept/ paths, trimming query/fragment and trailing punctuation
+	const pathMatch = text.match(/\/accept\/([^\s?#.,;:!'"()[\]]+)/);
+	if (pathMatch) {
+		const path = parseAcceptPath(`/accept/${pathMatch[1]}`);
+		if (path) return path;
+	}
 
 	return null;
 }

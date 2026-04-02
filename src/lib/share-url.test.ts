@@ -66,3 +66,23 @@ test('strips origin — path only (prevents open redirect)', () => {
 	const p = new URLSearchParams({ url: 'https://evil.com/accept/token' });
 	expect(extractAcceptUrl(p)).toBe('/accept/token');
 });
+
+test('rejects path traversal in url param', () => {
+	const p = new URLSearchParams({ url: `${BASE}/accept/../home` });
+	expect(extractAcceptUrl(p)).toBeNull();
+});
+
+test('rejects multi-segment token (slash in token)', () => {
+	const p = new URLSearchParams({ url: `${BASE}/accept/a/b` });
+	expect(extractAcceptUrl(p)).toBeNull();
+});
+
+test('strips trailing punctuation from bare path in text', () => {
+	const p = new URLSearchParams({ text: `Pay me: ${BASE}/accept/eyJtoken.` });
+	expect(extractAcceptUrl(p)).toBe('/accept/eyJtoken');
+});
+
+test('strips query string from bare path in text', () => {
+	const p = new URLSearchParams({ text: `/accept/eyJtoken?x=1` });
+	expect(extractAcceptUrl(p)).toBe('/accept/eyJtoken');
+});
