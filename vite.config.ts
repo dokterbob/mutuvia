@@ -59,7 +59,8 @@ export default defineConfig({
 				start_url: '/',
 				share_target: {
 					action: '/share',
-					method: 'GET',
+					method: 'POST',
+					enctype: 'multipart/form-data',
 					params: {
 						title: 'title',
 						text: 'text',
