@@ -101,8 +101,14 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
+    container:
+      # Must match @playwright/test version in package.json
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --user 1001 --init
     permissions:
       contents: read
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
 
     steps:
       - uses: actions/checkout@v4
@@ -112,22 +118,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install --with-deps chromium
-
-      - name: Install Playwright system dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: bunx playwright install-deps chromium
-
-      - name: Install ffmpeg
+      - name: Install ffmpeg (needed by qr-scanner test)
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Run Playwright tests
