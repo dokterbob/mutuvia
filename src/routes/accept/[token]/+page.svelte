@@ -86,6 +86,13 @@
 				action="?/startFastTrack"
 				use:enhance={() => {
 					fastTrackLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							fastTrackLoading = false;
+						}
+					};
 				}}
 			>
 				<Button
@@ -103,6 +110,13 @@
 				action="?/startFullOnboarding"
 				use:enhance={() => {
 					fullOnboardingLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							fullOnboardingLoading = false;
+						}
+					};
 				}}
 				class="mt-2"
 			>
@@ -124,6 +138,13 @@
 				action="?/decline"
 				use:enhance={() => {
 					unauthDeclineLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							unauthDeclineLoading = false;
+						}
+					};
 				}}
 				class="mt-2"
 			>
@@ -182,11 +203,12 @@
 				action="?/accept"
 				use:enhance={() => {
 					acceptLoading = true;
-					return async ({ result, update }) => {
-						if (result.type === 'failure') {
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
 							acceptLoading = false;
 						}
-						await update();
 					};
 				}}
 			>
@@ -206,6 +228,13 @@
 				action="?/decline"
 				use:enhance={() => {
 					declineLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							declineLoading = false;
+						}
+					};
 				}}
 				class="mt-2"
 			>

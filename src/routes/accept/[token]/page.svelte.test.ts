@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// TDD red-phase tests for loading spinner wiring on the accept page.
-// These tests FAIL until `use:enhance` callbacks set loading state on each form.
+// Tests for loading spinner and loading-state wiring on the accept page.
 
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/svelte';

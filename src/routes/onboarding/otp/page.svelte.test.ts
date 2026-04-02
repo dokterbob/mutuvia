@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// TDD tests for OTP page loading spinner (red phase).
-// These tests FAIL until `loading={isLoading}` is wired to the Button component.
+// Tests for loading spinner wiring on the onboarding OTP page.
 
 import { vi, describe, test, expect } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
@@ -41,7 +40,7 @@ const mockData = {
 	otpDestination: '+351912345678'
 };
 
-describe('OTP page – loading spinner (TDD red phase)', () => {
+describe('OTP page – loading spinner', () => {
 	test('verify button shows spinner while verifying OTP', async () => {
 		const { authClient } = await import('$lib/auth-client');
 		vi.mocked(authClient.phoneNumber.verify).mockReturnValue(new Promise(() => {}));

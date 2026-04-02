@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// TDD tests for phone page loading spinner (red phase).
-// These tests FAIL until `loading={isLoading}` is wired to the Button component.
+// Tests for loading spinner wiring on the onboarding phone page.
 
 import { vi, describe, test, expect } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
@@ -37,7 +36,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	error_send_code: () => 'Failed to send code'
 }));
 
-describe('phone page – loading spinner (TDD red phase)', () => {
+describe('phone page – loading spinner', () => {
 	test('submit button shows spinner while sending OTP', async () => {
 		const { authClient } = await import('$lib/auth-client');
 		vi.mocked(authClient.phoneNumber.sendOtp).mockReturnValue(new Promise(() => {}));
@@ -53,7 +52,6 @@ describe('phone page – loading spinner (TDD red phase)', () => {
 			const submitButton = container.querySelector('form button[type="submit"]');
 			expect(submitButton).not.toBeNull();
 			expect(submitButton).toBeDisabled();
-			// This assertion fails until loading={isLoading} is wired to Button
 			expect(submitButton!.querySelector('.animate-spin')).not.toBeNull();
 		});
 	});

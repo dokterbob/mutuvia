@@ -29,42 +29,48 @@
 	async function verifyOtp() {
 		isLoading = true;
 		authError = '';
-		const result =
-			data.otpMethod === 'phone'
-				? await authClient.phoneNumber.verify({
-						phoneNumber: data.otpDestination,
-						code: otpCode
-					})
-				: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: otpCode });
-		isLoading = false;
-		if (result.error) {
-			authError = result.error.message || m.otp_invalid_code();
-			otpCode = '';
-			otpInput?.focus();
-		} else {
-			goto('/onboarding/verified', { invalidateAll: true });
+		try {
+			const result =
+				data.otpMethod === 'phone'
+					? await authClient.phoneNumber.verify({
+							phoneNumber: data.otpDestination,
+							code: otpCode
+						})
+					: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: otpCode });
+			if (result.error) {
+				authError = result.error.message || m.otp_invalid_code();
+				otpCode = '';
+				otpInput?.focus();
+			} else {
+				goto('/onboarding/verified', { invalidateAll: true });
+			}
+		} finally {
+			isLoading = false;
 		}
 	}
 
 	async function resendOtp() {
 		if (countdown > 0) return;
 		resendLoading = true;
-		const result =
-			data.otpMethod === 'phone'
-				? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
-				: await authClient.emailOtp.sendVerificationOtp({
-						email: data.otpDestination,
-						type: 'sign-in'
-					});
-		resendLoading = false;
-		if (result.error) {
-			authError = result.error.message || m.error_send_code();
-			return;
+		try {
+			const result =
+				data.otpMethod === 'phone'
+					? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
+					: await authClient.emailOtp.sendVerificationOtp({
+							email: data.otpDestination,
+							type: 'sign-in'
+						});
+			if (result.error) {
+				authError = result.error.message || m.error_send_code();
+				return;
+			}
+			otpCode = '';
+			authError = '';
+			countdown = 30;
+			otpInput?.focus();
+		} finally {
+			resendLoading = false;
 		}
-		otpCode = '';
-		authError = '';
-		countdown = 30;
-		otpInput?.focus();
 	}
 
 	function handleOtpInput(e: Event) {

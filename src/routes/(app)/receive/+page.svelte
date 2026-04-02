@@ -237,6 +237,15 @@
 							flushSync(() => {
 								cancelLoading = true;
 							});
+							return async ({ update }) => {
+								try {
+									await update();
+								} finally {
+									flushSync(() => {
+										cancelLoading = false;
+									});
+								}
+							};
 						}}
 					>
 						<input type="hidden" name="qrId" value={qrId} />

@@ -17,8 +17,12 @@
 
 	async function signOut() {
 		signingOut = true;
-		await authClient.signOut();
-		goto('/onboarding');
+		try {
+			await authClient.signOut();
+			goto('/onboarding');
+		} finally {
+			signingOut = false;
+		}
 	}
 </script>
 
