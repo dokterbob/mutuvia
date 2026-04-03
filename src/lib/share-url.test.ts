@@ -77,6 +77,11 @@ test('rejects multi-segment token (slash in token)', () => {
 	expect(extractAcceptUrl(p)).toBeNull();
 });
 
+test('handles trailing slash in url param', () => {
+	const p = new URLSearchParams({ url: `${BASE}/accept/eyJtoken/` });
+	expect(extractAcceptUrl(p)).toBe('/accept/eyJtoken');
+});
+
 test('strips trailing punctuation from bare path in text', () => {
 	const p = new URLSearchParams({ text: `Pay me: ${BASE}/accept/eyJtoken.` });
 	expect(extractAcceptUrl(p)).toBe('/accept/eyJtoken');

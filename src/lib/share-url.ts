@@ -45,8 +45,12 @@ function parseAcceptPath(input: string): string | null {
 	try {
 		pathname = new URL(input).pathname;
 	} catch {
-		// Not a full URL — treat as a bare path
-		pathname = input;
+		// Not a full URL — treat as a bare path; strip query/fragment
+		pathname = input.replace(/[?#].*$/, '');
+	}
+	// Trim optional trailing slash before matching
+	if (pathname.length > 1 && pathname.endsWith('/')) {
+		pathname = pathname.slice(0, -1);
 	}
 	const match = pathname.match(/^\/accept\/([^/]+)$/);
 	if (match && TOKEN_RE.test(match[1])) return `/accept/${match[1]}`;
