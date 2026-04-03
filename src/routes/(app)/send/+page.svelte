@@ -298,7 +298,12 @@
 						}}
 					>
 						<input type="hidden" name="qrId" value={qrId} />
-						<Button type="submit" loading={cancelLoading} variant="ghost" class="text-sm text-muted-foreground">
+						<Button
+							type="submit"
+							loading={cancelLoading}
+							variant="ghost"
+							class="text-sm text-muted-foreground"
+						>
 							{m.send_cancel()}
 						</Button>
 					</form>
