@@ -22,10 +22,23 @@ export const auth = betterAuth({
 	plugins: [
 		emailOTP({
 			sendVerificationOTP: async ({ email, otp }) => {
-				if (process.env.NODE_ENV !== 'production') {
-					console.log(`[DEV] Email OTP for ${email}: ${otp}`);
+				if (!prelude) {
+					if (process.env.NODE_ENV !== 'production') {
+						console.log(`[DEV] Email OTP for ${email}: ${otp}`);
+					} else {
+						console.error('PRELUDE_API_TOKEN not configured');
+					}
+					return;
 				}
-			}
+				const result = await prelude.verification.create({
+					target: { type: 'email_address', value: email },
+					options: { code_size: 6, custom_code: otp }
+				});
+				if (result.status === 'blocked') {
+					console.error(`Prelude blocked verification for ${email}: ${result.reason}`);
+				}
+			},
+			otpLength: 6
 		}),
 		phoneNumber({
 			signUpOnVerification: {

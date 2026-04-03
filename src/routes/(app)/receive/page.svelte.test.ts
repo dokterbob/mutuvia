@@ -4,7 +4,7 @@
 // Fix: pass { reset: false } to update() in the enhance callback.
 
 import { vi, describe, test, expect, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/svelte';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import ReceivePage from './+page.svelte';
 
 vi.mock('$app/forms', () => ({
@@ -116,5 +116,73 @@ describe('receive page – issue #56: share text amount', () => {
 		// After form submission, the amount should still reflect what the user entered.
 		// Without the fix, the form reset clears the bound `amount` state → 0.
 		expect(amountInput).toHaveValue(50);
+	});
+});
+
+describe('receive page – spinner / loading state', () => {
+	let enhanceMock: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
+		const formsModule = await import('$app/forms');
+		enhanceMock = vi.mocked(formsModule.enhance);
+		enhanceMock.mockClear();
+		enhanceMock.mockReturnValue({ destroy: vi.fn() });
+	});
+
+	test('createQr submit button is disabled with spinner while form is submitting', async () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { container } = render(ReceivePage, { props: { data: mockData as any, form: null } });
+
+		// Fill in an amount so the submit button isn't disabled by the empty-amount guard.
+		const amountInput = container.querySelector('input[type="number"]') as HTMLInputElement;
+		await fireEvent.input(amountInput, { target: { value: '42' } });
+
+		// enhance is called for the createQr form.
+		expect(enhanceMock).toHaveBeenCalled();
+		const [formElement, submitCallback] = enhanceMock.mock.calls[0] as [
+			HTMLFormElement,
+			((...args: unknown[]) => unknown) | undefined
+		];
+
+		// Invoke the outer enhance callback (simulates SvelteKit calling it on submit).
+		// This should set createQrLoading = true, disabling the button and showing the spinner.
+		let innerHandler: ((opts: unknown) => Promise<void>) | undefined;
+		if (submitCallback) {
+			const result = submitCallback({
+				action: new URL('http://localhost/?/createQr'),
+				formData: new FormData(),
+				formElement,
+				controller: new AbortController(),
+				submitter: null,
+				cancel: vi.fn()
+			});
+			if (result && typeof result === 'function') {
+				innerHandler = result as (opts: unknown) => Promise<void>;
+			}
+		}
+
+		// At this point (outer callback fired, inner async handler not yet run),
+		// loading should be true: button disabled and spinner visible.
+		const submitBtn = container.querySelector('button[type="submit"]');
+		expect(submitBtn).toBeDisabled();
+		expect(container.querySelector('.animate-spin')).not.toBeNull();
+
+		// Complete the submission by running the inner handler.
+		const updateMock = vi.fn().mockResolvedValue(undefined);
+		if (innerHandler) {
+			await innerHandler({
+				update: updateMock,
+				formData: new FormData(),
+				formElement,
+				action: new URL('http://localhost/?/createQr'),
+				result: { type: 'success', status: 200, data: {} },
+				applyAction: vi.fn()
+			});
+		}
+
+		// After the inner handler resolves, loading should be false: spinner gone.
+		await waitFor(() => {
+			expect(container.querySelector('.animate-spin')).toBeNull();
+		});
 	});
 });

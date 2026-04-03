@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { flushSync } from 'svelte';
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
@@ -32,6 +33,9 @@
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
+	let consentLoading = $state(false);
+	let createQrLoading = $state(false);
+	let cancelLoading = $state(false);
 	let canShare = $derived(browser && typeof navigator.share === 'function');
 	let currencyFormatter = $derived(
 		new Intl.NumberFormat(getLocale(), { style: 'currency', currency: data.unitCode })
@@ -124,9 +128,27 @@
 		<p class="mb-3 text-sm leading-relaxed text-muted-foreground">{m.send_consent_body2()}</p>
 		<p class="mb-6 text-sm leading-relaxed text-muted-foreground">{m.send_consent_body3()}</p>
 		<div class="flex-1"></div>
-		<form method="POST" action="?/consent" use:enhance>
+		<form
+			method="POST"
+			action="?/consent"
+			use:enhance={() => {
+				flushSync(() => {
+					consentLoading = true;
+				});
+				return async ({ update }) => {
+					try {
+						await update();
+					} finally {
+						flushSync(() => {
+							consentLoading = false;
+						});
+					}
+				};
+			}}
+		>
 			<Button
 				type="submit"
+				loading={consentLoading}
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 			>
 				{m.send_consent_cta()}
@@ -148,9 +170,20 @@
 		<form
 			method="POST"
 			action="?/createQr"
-			use:enhance={() =>
-				async ({ update }) =>
-					update({ reset: false })}
+			use:enhance={() => {
+				flushSync(() => {
+					createQrLoading = true;
+				});
+				return async ({ update }) => {
+					try {
+						await update({ reset: false });
+					} finally {
+						flushSync(() => {
+							createQrLoading = false;
+						});
+					}
+				};
+			}}
 		>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
 			<div class="mb-4 flex items-center gap-2">
@@ -184,6 +217,7 @@
 			<div class="flex-1"></div>
 			<Button
 				type="submit"
+				loading={createQrLoading}
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145] disabled:opacity-40"
 				disabled={!amount || parseFloat(amount) <= 0}
 			>
@@ -242,9 +276,31 @@
 						<XIcon class="mr-2 h-4 w-4" />
 						{m.qr_close()}
 					</Button>
-					<form method="POST" action="?/cancel" use:enhance>
+					<form
+						method="POST"
+						action="?/cancel"
+						use:enhance={() => {
+							flushSync(() => {
+								cancelLoading = true;
+							});
+							return async ({ update }) => {
+								try {
+									await update();
+								} finally {
+									flushSync(() => {
+										cancelLoading = false;
+									});
+								}
+							};
+						}}
+					>
 						<input type="hidden" name="qrId" value={qrId} />
-						<Button type="submit" variant="ghost" class="text-sm text-muted-foreground">
+						<Button
+							type="submit"
+							loading={cancelLoading}
+							variant="ghost"
+							class="text-sm text-muted-foreground"
+						>
 							{m.send_cancel()}
 						</Button>
 					</form>
