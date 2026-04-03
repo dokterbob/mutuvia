@@ -229,5 +229,10 @@
 	"error_server_title": "Algo correu mal",
 	"error_server_body": "Já fomos notificados e estamos a investigar. Por favor, tenta novamente.",
 	"error_go_home": "Ir para o início",
-	"error_try_again": "Tentar novamente"
+	"error_try_again": "Tentar novamente",
+
+	"install_banner_title": "Instalar {appName}",
+	"install_banner_body": "Adiciona ao ecrã inicial para a melhor experiência.",
+	"install_banner_cta": "Instalar",
+	"install_banner_ios_hint": "Toca no botão de partilha e depois \"Adicionar ao ecrã inicial\"."
 }

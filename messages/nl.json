@@ -229,5 +229,10 @@
 	"error_server_title": "Er ging iets mis",
 	"error_server_body": "We zijn op de hoogte gebracht en kijken ernaar. Probeer het opnieuw.",
 	"error_go_home": "Naar startpagina",
-	"error_try_again": "Opnieuw proberen"
+	"error_try_again": "Opnieuw proberen",
+
+	"install_banner_title": "{appName} installeren",
+	"install_banner_body": "Voeg toe aan je startscherm voor de beste ervaring.",
+	"install_banner_cta": "Installeren",
+	"install_banner_ios_hint": "Tik op de deelknop en vervolgens \"Zet op beginscherm\"."
 }
