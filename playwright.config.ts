@@ -33,5 +33,17 @@ export default defineConfig({
 			stdout: /Listening/
 		}
 	},
-	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
+	projects: [
+		{
+			name: 'chromium',
+			use: {
+				...devices['Desktop Chrome'],
+				// --no-sandbox is required when Chromium runs as root (e.g. inside a Docker container)
+				launchOptions:
+					typeof process.getuid === 'function' && process.getuid() === 0
+						? { args: ['--no-sandbox'] }
+						: undefined
+			}
+		}
+	]
 });
