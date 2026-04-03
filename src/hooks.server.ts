@@ -12,6 +12,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { building } from '$app/environment';
 import { getSessionUnlessSentryTunnel } from '$lib/server/sentry';
+import { extractAcceptUrl } from '$lib/share-url';
 
 /**
  * Run Drizzle migrations once at server startup, before any request is served.
@@ -30,6 +31,24 @@ export const init: ServerInit = async () => {
 		migrate(db, { migrationsFolder: './drizzle/sqlite' });
 		sqlite!.exec('PRAGMA foreign_keys = ON;');
 	}
+};
+
+// Handle the Web Share Target POST before resolve() so SvelteKit's CSRF
+// check (which runs inside resolve) doesn't block it. The OS share
+// mechanism POSTs from the PWA's own context and doesn't include an
+// Origin header, so the standard CSRF check would reject it.
+const shareHandle: Handle = async ({ event, resolve }) => {
+	if (event.url.pathname === '/share' && event.request.method === 'POST') {
+		const data = await event.request.formData();
+		const params = new URLSearchParams();
+		for (const key of ['title', 'text', 'url'] as const) {
+			const val = data.get(key);
+			if (val) params.set(key, val.toString());
+		}
+		const acceptPath = extractAcceptUrl(params);
+		return new Response(null, { status: 303, headers: { location: acceptPath ?? '/' } });
+	}
+	return resolve(event);
 };
 
 const i18nHandle: Handle = ({ event, resolve }) => {
@@ -78,5 +97,5 @@ export const authHandle: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle = sequence(Sentry.sentryHandle(), i18nHandle, authHandle);
+export const handle = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, authHandle);
 export const handleError = Sentry.handleErrorWithSentry();
