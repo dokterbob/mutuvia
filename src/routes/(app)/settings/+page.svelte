@@ -13,6 +13,7 @@
 	let { data, form } = $props();
 
 	let displayName = $state(data.appUser.displayName);
+	let saveLoading = $state(false);
 
 	const languages = $derived(
 		locales.map((code) => ({
@@ -34,7 +35,20 @@
 
 	<!-- Display name -->
 	<Card class="mb-4 rounded-xl p-4">
-		<form method="POST" action="?/updateName" use:enhance>
+		<form
+			method="POST"
+			action="?/updateName"
+			use:enhance={() => {
+				saveLoading = true;
+				return async ({ update }) => {
+					try {
+						await update();
+					} finally {
+						saveLoading = false;
+					}
+				};
+			}}
+		>
 			<Label class="mb-2 text-sm text-muted-foreground">{m.settings_display_name()}</Label>
 			<div class="flex gap-2">
 				<Input name="displayName" bind:value={displayName} maxlength={40} class="flex-1" />
@@ -42,6 +56,7 @@
 					type="submit"
 					class="bg-[#2D4A32] text-white hover:bg-[#3D6145]"
 					disabled={displayName.trim().length < 2}
+					loading={saveLoading}
 				>
 					{#if form?.saved}
 						<CheckIcon class="h-4 w-4" />

@@ -1,10 +1,12 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { goto } from '$app/navigation';
+	import { enhance } from '$app/forms';
 	import { Card } from '$lib/components/ui/card';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { NavMenu } from '$lib/components/ui/nav-menu';
 
 	import { browser } from '$app/environment';
@@ -116,6 +118,46 @@
 			<span class="text-sm font-medium">{m.home_receive()}</span>
 		</button>
 	</div>
+
+	<!-- Pending QRs -->
+	{#if data.pendingItems.length > 0}
+		<div class="mb-2.5 flex items-center justify-between">
+			<span class="font-serif text-base">{m.home_pending()}</span>
+		</div>
+		<div class="mb-4 space-y-0">
+			{#each data.pendingItems as item (item.id)}
+				<div class="flex items-center justify-between border-b py-3 last:border-b-0">
+					<div>
+						<p class="text-sm font-medium">
+							{item.direction === 'send'
+								? m.home_pending_send({ amount: item.formattedAmount })
+								: m.home_pending_receive({ amount: item.formattedAmount })}
+						</p>
+						{#if item.note}
+							<p class="text-xs text-muted-foreground">{item.note}</p>
+						{/if}
+					</div>
+					<div class="flex items-center gap-2">
+						{#if item.isExpired}
+							<p class="text-xs text-red-600">{m.home_pending_expired()}</p>
+						{:else}
+							<p class="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</p>
+						{/if}
+						<form method="POST" action="?/cancelQr" use:enhance>
+							<input type="hidden" name="qrId" value={item.id} />
+							<button
+								type="submit"
+								class="text-muted-foreground hover:text-red-600"
+								aria-label={m.pending_cancel_aria()}
+							>
+								<XIcon class="h-4 w-4" />
+							</button>
+						</form>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Recent transactions -->
 	<div class="mb-2.5 flex items-center justify-between">

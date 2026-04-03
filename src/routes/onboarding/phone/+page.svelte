@@ -18,12 +18,15 @@
 		if (!phoneValue) return;
 		isLoading = true;
 		authError = '';
-		const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: phoneValue });
-		isLoading = false;
-		if (error) {
-			authError = error.message || m.error_send_code();
-		} else {
-			goto(`/onboarding/otp?dest=${encodeURIComponent(phoneValue)}&method=phone`);
+		try {
+			const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: phoneValue });
+			if (error) {
+				authError = error.message || m.error_send_code();
+			} else {
+				goto(`/onboarding/otp?dest=${encodeURIComponent(phoneValue)}&method=phone`);
+			}
+		} finally {
+			isLoading = false;
 		}
 	}
 </script>
@@ -83,6 +86,7 @@
 			type="submit"
 			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
 			disabled={!valid || isLoading}
+			loading={isLoading}
 		>
 			{m.phone_cta()}
 			<ArrowRightIcon class="ml-2 h-4 w-4" />

@@ -9,6 +9,7 @@
 
 	let displayName = $state('');
 	let authError = $state('');
+	let createProfileLoading = $state(false);
 </script>
 
 <div class="flex flex-1 flex-col">
@@ -46,14 +47,19 @@
 		method="POST"
 		action="?/createProfile"
 		use:enhance={() => {
+			createProfileLoading = true;
 			return async ({ result, update }) => {
-				if (result.type === 'failure' || result.type === 'error') {
-					authError =
-						result.type === 'failure'
-							? ((result.data as Record<string, unknown>)?.error as string) || m.error_generic()
-							: m.error_generic();
-				} else {
-					await update();
+				try {
+					if (result.type === 'failure' || result.type === 'error') {
+						authError =
+							result.type === 'failure'
+								? ((result.data as Record<string, unknown>)?.error as string) || m.error_generic()
+								: m.error_generic();
+					} else {
+						await update();
+					}
+				} finally {
+					createProfileLoading = false;
 				}
 			};
 		}}
@@ -80,6 +86,7 @@
 			type="submit"
 			class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
 			disabled={displayName.trim().length < 2}
+			loading={createProfileLoading}
 		>
 			{m.intro3_cta()}
 			<ArrowRightIcon class="ml-2 h-4 w-4" />

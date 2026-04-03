@@ -161,6 +161,14 @@
 	"qr_share": "Partilhar",
 	"qr_share_text": "{amount} de crédito através do {appName}.",
 	"qr_share_text_with_note": "{amount} de crédito através do {appName} — {note}",
+	"qr_close": "Fechar",
+	"qr_expires": "Expira {time}",
+	"home_pending": "Pendente",
+	"home_pending_send": "Enviando {amount}",
+	"home_pending_receive": "Solicitando {amount}",
+	"home_pending_expired": "Expirado",
+	"pending_cancel_aria": "Cancelar transação pendente",
+	"history_pending": "Pendente",
 
 	"locale_name": "Português",
 
