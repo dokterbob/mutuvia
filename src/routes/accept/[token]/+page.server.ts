@@ -158,44 +158,50 @@ export const actions: Actions = {
 
 		await upsertConnection(fromUserId, toUserId);
 
-		// Notify both parties. Fan-out is best-effort — must not block or throw.
+		// Notify both parties. Data prep uses individual fallbacks so a formatting
+		// or look-up failure can never silently prevent the emit() calls.
+		const acceptingUser = locals.appUser;
+
+		// formatAmount never throws — it falls back to a locale-independent string
+		// when Paraglide's AsyncLocalStorage context is unavailable.
+		const formattedAmt = formatAmount(qr.amount);
+
+		let initiatorName = 'Someone';
 		try {
-			const acceptingUser = locals.appUser;
 			const [initiatingUser] = await db
 				.select({ displayName: appUsers.displayName })
 				.from(appUsers)
 				.where(eq(appUsers.id, qr.initiatingUserId))
 				.limit(1);
-
-			const formattedAmt = formatAmount(qr.amount);
-			const eventId = randomUUID();
-
-			const completedForInitiator = {
-				type: 'qr_completed' as const,
-				id: eventId,
-				qrId: qr.id,
-				otherName: acceptingUser.displayName,
-				formattedAmount: formattedAmt
-			};
-			const completedForAcceptor = {
-				type: 'qr_completed' as const,
-				id: randomUUID(),
-				qrId: qr.id,
-				otherName: initiatingUser?.displayName ?? 'Someone',
-				formattedAmount: formattedAmt
-			};
-
-			// SSE: push to any open tabs for both users.
-			emit(qr.initiatingUserId, completedForInitiator);
-			emit(acceptingUser.id, completedForAcceptor);
-
-			// Push: only needed for the initiator (acceptor is present, SW will postMessage instead).
-			sendPushToUser(qr.initiatingUserId, completedForInitiator).catch((err) => {
-				console.error('Push notification failed for QR acceptance:', err);
-			});
+			initiatorName = initiatingUser?.displayName ?? 'Someone';
 		} catch (err) {
-			console.error('Notification fan-out failed after QR acceptance:', err);
+			console.error('Failed to look up initiating user for notification:', err);
 		}
+
+		const eventId = randomUUID();
+		const completedForInitiator = {
+			type: 'qr_completed' as const,
+			id: eventId,
+			qrId: qr.id,
+			otherName: acceptingUser.displayName,
+			formattedAmount: formattedAmt
+		};
+		const completedForAcceptor = {
+			type: 'qr_completed' as const,
+			id: randomUUID(),
+			qrId: qr.id,
+			otherName: initiatorName,
+			formattedAmount: formattedAmt
+		};
+
+		// SSE: push to any open tabs for both users.
+		emit(qr.initiatingUserId, completedForInitiator);
+		emit(acceptingUser.id, completedForAcceptor);
+
+		// Push: only needed for the initiator (acceptor is present, SW will postMessage instead).
+		sendPushToUser(qr.initiatingUserId, completedForInitiator).catch((err) => {
+			console.error('Push notification failed for QR acceptance:', err);
+		});
 
 		redirect(307, '/home');
 	},

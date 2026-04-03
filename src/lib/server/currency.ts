@@ -27,6 +27,14 @@ export function currencyFractionDigits(): number {
 }
 
 export function formatAmount(amount: number): string {
-	const value = amount / Math.pow(10, currencyFractionDigits());
-	return getFormatter(getLocale()).format(value);
+	const digits = currencyFractionDigits();
+	const value = amount / Math.pow(10, digits);
+	try {
+		return getFormatter(getLocale()).format(value);
+	} catch {
+		// getLocale() relies on Paraglide's AsyncLocalStorage, which may not be
+		// set outside a full request context. Return a locale-independent
+		// representation so callers never need to handle a thrown error.
+		return `${value.toFixed(digits)} ${config.unitCode}`;
+	}
 }
