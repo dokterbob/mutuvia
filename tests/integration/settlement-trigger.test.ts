@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Settlement → notification fanout regression tests for issue #82.
 //
-// The `accept` action in src/routes/accept/[token]/+page.server.ts wraps its
-// entire notification block in a broad try/catch. If anything throws before
-// emit() is called (e.g. formatAmount, a DB look-up), the SSE event is silently
-// swallowed. The decline action has no such guard, which is why decline works.
+// Before the fix, the `accept` action in src/routes/accept/[token]/+page.server.ts
+// wrapped its entire notification block in a broad try/catch. If anything threw
+// before emit() was called (e.g. formatAmount, a DB look-up), the SSE event was
+// silently swallowed. The decline action had no such guard, which is why decline
+// still worked.
 //
-// Tests marked "[resilience]" will FAIL with the current code and PASS after the fix.
+// Tests marked "[resilience]" guard against this regression long-term.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -91,7 +92,10 @@ const {
 
 vi.mock('$lib/server/sse-registry', () => ({ emit: emitMock }));
 vi.mock('$lib/server/push-sender', () => ({ sendPushToUser: sendPushMock }));
-vi.mock('$lib/server/currency', () => ({ formatAmount: formatAmountMock }));
+vi.mock('$lib/server/currency', () => ({
+	formatAmount: formatAmountMock,
+	currencyFractionDigits: vi.fn(() => 2)
+}));
 vi.mock('$lib/server/balance', () => ({
 	getBalance: vi.fn().mockResolvedValue(0),
 	upsertConnection: upsertConnectionMock
@@ -273,25 +277,12 @@ describe('settlement → notification fanout', () => {
 
 	// -------------------------------------------------------------------------
 	// Accept — resilience
-	// [resilience] tests FAIL with the current code and PASS after the fix
 	// -------------------------------------------------------------------------
 
-	it('[resilience] emits SSE event to initiator even if formatAmount throws', async () => {
-		formatAmountMock.mockImplementation(() => {
-			throw new Error('No locale context available');
-		});
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockResolvedValueOnce([{ displayName: 'Alice' }]);
-
-		await runAction(() => actions.accept(makeAcceptEvent()));
-
-		// Must still emit — a formatting failure must not silently block notifications.
-		expect(emitMock).toHaveBeenCalledWith(
-			INITIATOR_ID,
-			expect.objectContaining({ type: 'qr_completed', qrId: QR_ID })
-		);
-	});
+	// Note: formatAmount() is now resilient at the source — it catches
+	// getLocale() failures and returns a locale-independent fallback instead of
+	// throwing. That behaviour is tested directly in currency.test.ts.
+	// This test guards against the DB lookup failure case which can still occur.
 
 	it('[resilience] emits SSE event to initiator even if display name lookup fails', async () => {
 		selectLimitFn

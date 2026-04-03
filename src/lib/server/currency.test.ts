@@ -1,16 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi, beforeEach } from 'vitest';
+
+const { getLocaleMock } = vi.hoisted(() => ({
+	getLocaleMock: vi.fn(() => 'en')
+}));
 
 vi.mock('$lib/config', () => ({
 	config: { unitCode: 'EUR' }
 }));
 
 vi.mock('$lib/paraglide/runtime.js', () => ({
-	getLocale: () => 'en'
+	getLocale: getLocaleMock
 }));
 
 import { formatAmount, currencyFractionDigits } from './currency';
+
+beforeEach(() => {
+	getLocaleMock.mockReturnValue('en');
+});
 
 describe('currencyFractionDigits', () => {
 	test('returns 2 for EUR', () => {
@@ -33,5 +41,13 @@ describe('formatAmount', () => {
 
 	test('formats smallest unit (1 cent)', () => {
 		expect(formatAmount(1)).toMatch(/€\s*0\.01/);
+	});
+
+	test('returns locale-independent fallback when getLocale() throws', () => {
+		getLocaleMock.mockImplementationOnce(() => {
+			throw new Error('No AsyncLocalStorage context');
+		});
+		// Must not throw, and must represent the correct magnitude.
+		expect(formatAmount(1000)).toBe('10.00 EUR');
 	});
 });

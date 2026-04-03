@@ -162,12 +162,9 @@ export const actions: Actions = {
 		// or look-up failure can never silently prevent the emit() calls.
 		const acceptingUser = locals.appUser;
 
-		let formattedAmt: string;
-		try {
-			formattedAmt = formatAmount(qr.amount);
-		} catch {
-			formattedAmt = String(qr.amount);
-		}
+		// formatAmount never throws — it falls back to a locale-independent string
+		// when Paraglide's AsyncLocalStorage context is unavailable.
+		const formattedAmt = formatAmount(qr.amount);
 
 		let initiatorName = 'Someone';
 		try {
