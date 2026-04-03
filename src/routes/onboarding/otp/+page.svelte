@@ -10,6 +10,7 @@
 
 	let otpCode = $state('');
 	let isLoading = $state(false);
+	let resendLoading = $state(false);
 	let authError = $state('');
 	let countdown = $state(30);
 	let otpInput = $state<HTMLInputElement | undefined>(undefined);
@@ -26,42 +27,51 @@
 	});
 
 	async function verifyOtp() {
+		if (isLoading) return;
 		isLoading = true;
 		authError = '';
-		const result =
-			data.otpMethod === 'phone'
-				? await authClient.phoneNumber.verify({
-						phoneNumber: data.otpDestination,
-						code: otpCode
-					})
-				: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: otpCode });
-		isLoading = false;
-		if (result.error) {
-			authError = result.error.message || m.otp_invalid_code();
-			otpCode = '';
-			otpInput?.focus();
-		} else {
-			goto('/onboarding/verified', { invalidateAll: true });
+		try {
+			const result =
+				data.otpMethod === 'phone'
+					? await authClient.phoneNumber.verify({
+							phoneNumber: data.otpDestination,
+							code: otpCode
+						})
+					: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: otpCode });
+			if (result.error) {
+				authError = result.error.message || m.otp_invalid_code();
+				otpCode = '';
+				otpInput?.focus();
+			} else {
+				goto('/onboarding/verified', { invalidateAll: true });
+			}
+		} finally {
+			isLoading = false;
 		}
 	}
 
 	async function resendOtp() {
 		if (countdown > 0) return;
-		const result =
-			data.otpMethod === 'phone'
-				? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
-				: await authClient.emailOtp.sendVerificationOtp({
-						email: data.otpDestination,
-						type: 'sign-in'
-					});
-		if (result.error) {
-			authError = result.error.message || m.error_send_code();
-			return;
+		resendLoading = true;
+		try {
+			const result =
+				data.otpMethod === 'phone'
+					? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
+					: await authClient.emailOtp.sendVerificationOtp({
+							email: data.otpDestination,
+							type: 'sign-in'
+						});
+			if (result.error) {
+				authError = result.error.message || m.error_send_code();
+				return;
+			}
+			otpCode = '';
+			authError = '';
+			countdown = 30;
+			otpInput?.focus();
+		} finally {
+			resendLoading = false;
 		}
-		otpCode = '';
-		authError = '';
-		countdown = 30;
-		otpInput?.focus();
 	}
 
 	function handleOtpInput(e: Event) {
@@ -126,7 +136,11 @@
 				{m.otp_resend()} ({m.otp_countdown({ seconds: countdown })})
 			</span>
 		{:else}
-			<button class="font-medium text-[#2D4A32] hover:underline" onclick={resendOtp}>
+			<button
+				class="font-medium text-[#2D4A32] hover:underline disabled:opacity-50"
+				onclick={resendOtp}
+				disabled={resendLoading}
+			>
 				{m.otp_resend()}
 			</button>
 		{/if}
@@ -140,6 +154,7 @@
 	<Button
 		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
 		disabled={otpCode.length < 6 || isLoading}
+		loading={isLoading}
 		onclick={verifyOtp}
 	>
 		{m.otp_cta()}

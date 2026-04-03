@@ -11,6 +11,12 @@
 
 	let { data, form } = $props();
 
+	let fastTrackLoading = $state(false);
+	let fullOnboardingLoading = $state(false);
+	let unauthDeclineLoading = $state(false);
+	let acceptLoading = $state(false);
+	let declineLoading = $state(false);
+
 	const appName = env.PUBLIC_APP_NAME || 'Mutuvia';
 
 	const ogTitle = $derived(
@@ -75,9 +81,23 @@
 
 			<div class="flex-1"></div>
 
-			<form method="POST" action="?/startFastTrack" use:enhance>
+			<form
+				method="POST"
+				action="?/startFastTrack"
+				use:enhance={() => {
+					fastTrackLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							fastTrackLoading = false;
+						}
+					};
+				}}
+			>
 				<Button
 					type="submit"
+					loading={fastTrackLoading}
 					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 				>
 					<CheckIcon class="mr-2 h-5 w-5" />
@@ -85,8 +105,27 @@
 				</Button>
 			</form>
 
-			<form method="POST" action="?/startFullOnboarding" use:enhance class="mt-2">
-				<Button type="submit" variant="outline" class="w-full rounded-xl py-6 text-base">
+			<form
+				method="POST"
+				action="?/startFullOnboarding"
+				use:enhance={() => {
+					fullOnboardingLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							fullOnboardingLoading = false;
+						}
+					};
+				}}
+				class="mt-2"
+			>
+				<Button
+					type="submit"
+					variant="outline"
+					loading={fullOnboardingLoading}
+					class="w-full rounded-xl py-6 text-base"
+				>
 					{m.accept_full_onboarding_cta()}
 					<ArrowRightIcon class="ml-2 h-4 w-4" />
 				</Button>
@@ -94,9 +133,28 @@
 
 			<!-- Decline is intentionally available to unauthenticated users — they should
 			     be able to dismiss a QR without signing in. -->
-			<form method="POST" action="?/decline" use:enhance class="mt-2">
+			<form
+				method="POST"
+				action="?/decline"
+				use:enhance={() => {
+					unauthDeclineLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							unauthDeclineLoading = false;
+						}
+					};
+				}}
+				class="mt-2"
+			>
 				<input type="hidden" name="qrId" value={data.qrId} />
-				<Button type="submit" variant="ghost" class="w-full text-sm text-muted-foreground">
+				<Button
+					type="submit"
+					variant="ghost"
+					loading={unauthDeclineLoading}
+					class="w-full text-sm text-muted-foreground"
+				>
 					<XIcon class="mr-1 h-4 w-4" />
 					{m.accept_decline()}
 				</Button>
@@ -140,10 +198,24 @@
 
 			<div class="flex-1"></div>
 
-			<form method="POST" action="?/accept" use:enhance>
+			<form
+				method="POST"
+				action="?/accept"
+				use:enhance={() => {
+					acceptLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							acceptLoading = false;
+						}
+					};
+				}}
+			>
 				<input type="hidden" name="qrId" value={data.qrId} />
 				<Button
 					type="submit"
+					loading={acceptLoading}
 					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 				>
 					<CheckIcon class="mr-2 h-5 w-5" />
@@ -151,9 +223,28 @@
 				</Button>
 			</form>
 
-			<form method="POST" action="?/decline" use:enhance class="mt-2">
+			<form
+				method="POST"
+				action="?/decline"
+				use:enhance={() => {
+					declineLoading = true;
+					return async ({ update }) => {
+						try {
+							await update();
+						} finally {
+							declineLoading = false;
+						}
+					};
+				}}
+				class="mt-2"
+			>
 				<input type="hidden" name="qrId" value={data.qrId} />
-				<Button type="submit" variant="ghost" class="w-full text-sm text-muted-foreground">
+				<Button
+					type="submit"
+					variant="ghost"
+					loading={declineLoading}
+					class="w-full text-sm text-muted-foreground"
+				>
 					<XIcon class="mr-1 h-4 w-4" />
 					{m.accept_decline()}
 				</Button>

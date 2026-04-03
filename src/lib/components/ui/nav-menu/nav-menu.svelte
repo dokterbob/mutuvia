@@ -11,10 +11,18 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import GitForkIcon from '@lucide/svelte/icons/git-fork';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+
+	let signingOut = $state(false);
 
 	async function signOut() {
-		await authClient.signOut();
-		goto('/onboarding');
+		signingOut = true;
+		try {
+			await authClient.signOut();
+			goto('/onboarding');
+		} finally {
+			signingOut = false;
+		}
 	}
 </script>
 
@@ -54,8 +62,16 @@
 			</a>
 		</DropdownMenu.Item>
 		<DropdownMenu.Separator />
-		<DropdownMenu.Item onclick={signOut} class="text-red-700 focus:text-red-700">
-			<LogOutIcon class="h-4 w-4" />
+		<DropdownMenu.Item
+			onclick={signOut}
+			class="text-red-700 focus:text-red-700"
+			disabled={signingOut}
+		>
+			{#if signingOut}
+				<LoaderCircleIcon class="h-4 w-4 animate-spin" />
+			{:else}
+				<LogOutIcon class="h-4 w-4" />
+			{/if}
 			{m.menu_sign_out()}
 		</DropdownMenu.Item>
 	</DropdownMenu.Content>
