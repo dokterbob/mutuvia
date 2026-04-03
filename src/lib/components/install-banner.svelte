@@ -3,7 +3,7 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { env } from '$env/dynamic/public';
 	import { browser } from '$app/environment';
-	import { UseInstallPrompt } from '$lib/hooks/use-install-prompt.svelte.js';
+	import { UseInstallPrompt } from '$lib/hooks/use-install-prompt.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import XIcon from '@lucide/svelte/icons/x';
 	import DownloadIcon from '@lucide/svelte/icons/download';

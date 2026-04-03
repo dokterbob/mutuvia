@@ -71,11 +71,18 @@ export class UseInstallPrompt {
 				this.#ready = true;
 			}, delay);
 
-			// Wait for SW to be ready and controlling the page
+			// Wait for SW to be ready, with a 10s timeout fallback so the banner
+			// can still appear if the SW registration hangs or is misconfigured.
 			if ('serviceWorker' in navigator) {
-				navigator.serviceWorker.ready.then(() => {
-					this.#swReady = true;
-				});
+				const swPromise = navigator.serviceWorker.ready.then(() => true);
+				const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 10_000));
+				Promise.race([swPromise, timeout])
+					.then(() => {
+						this.#swReady = true;
+					})
+					.catch(() => {
+						this.#swReady = true;
+					});
 			} else {
 				// No SW support — allow banner anyway
 				this.#swReady = true;

@@ -5,7 +5,7 @@ import {
 	getDismissalTimestamp,
 	isStandaloneMode,
 	isIOSDevice
-} from './use-install-prompt.svelte.js';
+} from './use-install-prompt.svelte';
 
 // ---------------------------------------------------------------------------
 // Shared in-memory localStorage mock
