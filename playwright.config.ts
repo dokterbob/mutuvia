@@ -38,8 +38,11 @@ export default defineConfig({
 			name: 'chromium',
 			use: {
 				...devices['Desktop Chrome'],
-				// --no-sandbox is required when running as root inside a Docker container
-				launchOptions: process.env.CI ? { args: ['--no-sandbox'] } : {}
+				// --no-sandbox is required when Chromium runs as root (e.g. inside a Docker container)
+				launchOptions:
+					typeof process.getuid === 'function' && process.getuid() === 0
+						? { args: ['--no-sandbox'] }
+						: undefined
 			}
 		}
 	]

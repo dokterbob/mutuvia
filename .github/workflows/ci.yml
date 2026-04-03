@@ -104,7 +104,7 @@ jobs:
     container:
       # Must match @playwright/test version in package.json
       image: mcr.microsoft.com/playwright:v1.58.2-noble
-      options: --init
+      options: --init --ipc=host
     permissions:
       contents: read
     env:
