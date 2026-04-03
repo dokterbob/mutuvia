@@ -12,6 +12,7 @@ import { paraglideMiddleware } from '$lib/paraglide/server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { building } from '$app/environment';
 import { getSessionUnlessSentryTunnel } from '$lib/server/sentry';
+import { isStreamingEndpoint } from '$lib/server/sse-middleware';
 import { extractAcceptUrl } from '$lib/share-url';
 
 /**
@@ -105,5 +106,16 @@ export const authHandle: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handle = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, authHandle);
+const mainSequence = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, authHandle);
+
+// SSE streaming responses must bypass Sentry.sentryHandle(), which buffers response
+// bodies for performance tracing and breaks chunked SSE delivery. Auth is still needed
+// to identify the user, so we route directly to authHandle for streaming endpoints.
+export const handle: Handle = async ({ event, resolve }) => {
+	if (isStreamingEndpoint(event.url.pathname)) {
+		return authHandle({ event, resolve });
+	}
+	return mainSequence({ event, resolve });
+};
+
 export const handleError = Sentry.handleErrorWithSentry();

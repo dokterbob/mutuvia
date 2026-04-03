@@ -7,7 +7,9 @@ import { env } from '$env/dynamic/public';
 // Register the service worker for offline support and PWA updates.
 // `immediate: true` triggers registration without waiting for the load event,
 // which improves first-install speed.
-registerSW({ immediate: true });
+// immediate: false avoids a Chrome "Receiving end does not exist" runtime error
+// that occurs when the SW messaging channel is opened before the SW is activated.
+registerSW({ immediate: false });
 
 const dsn = env.PUBLIC_SENTRY_DSN;
 
