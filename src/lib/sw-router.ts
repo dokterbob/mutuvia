@@ -61,7 +61,7 @@ export async function routeNotificationEvent(
 	ctx: SwContext,
 	event: NotificationEvent
 ): Promise<void> {
-	const clients = await ctx.clients.matchAll({ type: 'window', includeUncontrolled: false });
+	const clients = await ctx.clients.matchAll({ type: 'window', includeUncontrolled: true });
 	const focused = clients.find((c) => c.focused);
 
 	if (focused) {

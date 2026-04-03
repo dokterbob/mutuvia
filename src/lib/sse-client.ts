@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { handleNotificationEvent, SeenEventIds } from './notifications';
+import { SeenEventIds } from './notifications';
 import type { NotificationEvent, NotificationHandlers } from './notifications';
 
 type Unsubscribe = () => void;
@@ -13,7 +13,7 @@ type Unsubscribe = () => void;
  */
 export class SseManager {
 	private es: EventSource | null = null;
-	private lastEventId: string | null = null;
+	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly seenIds = new SeenEventIds();
 	private readonly handlerSets = new Set<NotificationHandlers>();
 	private swMessageHandler: ((e: MessageEvent) => void) | null = null;
@@ -27,16 +27,11 @@ export class SseManager {
 	connect(): void {
 		if (this.es) return;
 
-		const url = this.lastEventId
-			? `/api/events?lastEventId=${encodeURIComponent(this.lastEventId)}`
-			: '/api/events';
-
-		this.es = new EventSource(url);
+		this.es = new EventSource('/api/events');
 
 		this.es.onmessage = (e: MessageEvent) => {
 			try {
 				const event = JSON.parse(e.data) as NotificationEvent;
-				if (e.lastEventId) this.lastEventId = e.lastEventId;
 				this.dispatch(event);
 			} catch {
 				// malformed payload — ignore
@@ -48,7 +43,7 @@ export class SseManager {
 			this.es = null;
 			// Reconnect after a short delay; browser EventSource also retries automatically
 			// but we reset state here to ensure clean reconnection.
-			setTimeout(() => this.connect(), 3000);
+			this.reconnectTimer = setTimeout(() => this.connect(), 3000);
 		};
 
 		// Route SW → page push messages through the same handler + dedup.
@@ -63,6 +58,8 @@ export class SseManager {
 	}
 
 	disconnect(): void {
+		if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+		this.reconnectTimer = null;
 		this.es?.close();
 		this.es = null;
 		if (this.swMessageHandler && typeof navigator !== 'undefined' && navigator.serviceWorker) {
@@ -72,8 +69,20 @@ export class SseManager {
 	}
 
 	private dispatch(event: NotificationEvent): void {
+		if (this.seenIds.has(event.id)) return;
+		this.seenIds.add(event.id);
 		for (const handlers of this.handlerSets) {
-			handleNotificationEvent(event, handlers, this.seenIds);
+			switch (event.type) {
+				case 'qr_completed':
+					handlers.onQrCompleted?.(event);
+					break;
+				case 'qr_declined':
+					handlers.onQrDeclined?.(event);
+					break;
+				case 'balance_changed':
+					handlers.onBalanceChanged?.(event);
+					break;
+			}
 		}
 	}
 }

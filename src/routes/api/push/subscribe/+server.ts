@@ -27,27 +27,26 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		userAgent?: string;
 	};
 
-	// Idempotent: return 200 if already registered.
-	const [existing] = await db
+	const id = randomUUID();
+	await db
+		.insert(pushSubscriptions)
+		.values({
+			id,
+			userId,
+			endpoint,
+			p256dh: keys.p256dh,
+			auth: keys.auth,
+			userAgent: userAgent ?? null,
+			createdAt: new Date()
+		})
+		.onConflictDoNothing();
+
+	// Fetch the row (whether newly inserted or pre-existing from conflict).
+	const [row] = await db
 		.select({ id: pushSubscriptions.id })
 		.from(pushSubscriptions)
 		.where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)))
 		.limit(1);
 
-	if (existing) {
-		return json({ id: existing.id }, { status: 200 });
-	}
-
-	const id = randomUUID();
-	await db.insert(pushSubscriptions).values({
-		id,
-		userId,
-		endpoint,
-		p256dh: keys.p256dh,
-		auth: keys.auth,
-		userAgent: userAgent ?? null,
-		createdAt: new Date()
-	});
-
-	return json({ id }, { status: 201 });
+	return json({ id: row!.id }, { status: row!.id === id ? 201 : 200 });
 };

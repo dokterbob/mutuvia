@@ -19,41 +19,45 @@ function getVapidDetails() {
 }
 
 export async function sendPushToUser(userId: string, event: NotificationEvent): Promise<void> {
-	const subs = await db
-		.select()
-		.from(pushSubscriptions)
-		.where(eq(pushSubscriptions.userId, userId));
+	try {
+		const subs = await db
+			.select()
+			.from(pushSubscriptions)
+			.where(eq(pushSubscriptions.userId, userId));
 
-	if (subs.length === 0) return;
+		if (subs.length === 0) return;
 
-	const vapid = getVapidDetails();
-	const payload = JSON.stringify(event);
+		const vapid = getVapidDetails();
+		const payload = JSON.stringify(event);
 
-	await Promise.all(
-		subs.map(async (sub) => {
-			try {
-				await webpush.sendNotification(
-					{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-					payload,
-					{ vapidDetails: vapid }
-				);
-			} catch (err: unknown) {
-				const status = (err as { statusCode?: number }).statusCode;
-				if (status === 410 || status === 404) {
-					// Subscription expired or gone — clean it up.
-					await db
-						.delete(pushSubscriptions)
-						.where(
-							and(
-								eq(pushSubscriptions.userId, userId),
-								eq(pushSubscriptions.endpoint, sub.endpoint)
-							)
-						);
+		await Promise.all(
+			subs.map(async (sub) => {
+				try {
+					await webpush.sendNotification(
+						{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+						payload,
+						{ vapidDetails: vapid }
+					);
+				} catch (err: unknown) {
+					const status = (err as { statusCode?: number }).statusCode;
+					if (status === 410 || status === 404) {
+						// Subscription expired or gone — clean it up.
+						await db
+							.delete(pushSubscriptions)
+							.where(
+								and(
+									eq(pushSubscriptions.userId, userId),
+									eq(pushSubscriptions.endpoint, sub.endpoint)
+								)
+							);
+					}
+					// All other errors: log and continue so one bad sub doesn't block the rest.
+					console.error(`Push send failed for user ${userId}:`, err);
 				}
-				// All other errors: log and continue so one bad sub doesn't block the rest.
-
-				console.error(`Push send failed for user ${userId}:`, err);
-			}
-		})
-	);
+			})
+		);
+	} catch (err: unknown) {
+		// Top-level guard: this function is best-effort and should never throw.
+		console.error(`sendPushToUser failed for user ${userId}:`, err);
+	}
 }
