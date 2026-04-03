@@ -15,5 +15,6 @@ export const {
 	appUsers,
 	transactions,
 	pendingQr,
-	connections
+	connections,
+	pushSubscriptions
 } = mod as unknown as SqliteSchema;

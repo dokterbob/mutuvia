@@ -78,24 +78,27 @@ docker compose --profile postgres up -d
 
 ### Environment variables
 
-| Variable                   | Required | Default                  | Description                                                                                                                                                                     |
-| -------------------------- | -------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QR_JWT_SECRET`            | **Yes**  | —                        | Min 32 chars. Signs QR JWT tokens.                                                                                                                                              |
-| `BETTER_AUTH_SECRET`       | **Yes**  | —                        | Min 32 chars. Signs Better Auth sessions.                                                                                                                                       |
-| `APP_URL`                  | No       | auto-detected            | Public base URL. Used in QR links and auth. On Render, falls back to `RENDER_EXTERNAL_URL`. In dev, falls back to the Vite server's network URL (LAN IP when `--host` is used). |
-| `DATABASE_URL`             | PG only  | —                        | Full PostgreSQL connection URL including password.                                                                                                                              |
-| `POSTGRES_PASSWORD`        | PG only  | `mutuvia`                | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                             |
-| `PRELUDE_API_TOKEN`        | Prod     | —                        | SMS OTP delivery via Prelude Verify. Omit in dev — OTPs log to console.                                                                                                         |
-| `DB_FILE_NAME`             | No       | `/data/sqlite.db`        | SQLite file path inside the container.                                                                                                                                          |
-| `PORT`                     | No       | `3000`                   | Server listen port.                                                                                                                                                             |
-| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                | Display name for rebranding.                                                                                                                                                    |
-| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.` | Tagline fallback (localized via i18n).                                                                                                                                          |
-| `UNIT_CODE`                | No       | `EUR`                    | ISO 4217 code or custom unit identifier.                                                                                                                                        |
-| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                      | Displayed unit symbol.                                                                                                                                                          |
-| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                   | Lowercase singular name for the unit.                                                                                                                                           |
-| `UNIT_DECIMAL_PLACES`      | No       | `2`                      | Decimal places used by `formatAmount()`.                                                                                                                                        |
-| `QR_TTL_SECONDS`           | No       | `600`                    | QR token validity window in seconds.                                                                                                                                            |
-| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                        | URL linked in Settings → About.                                                                                                                                                 |
+| Variable                   | Required | Default                    | Description                                                                                                                                                                     |
+| -------------------------- | -------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QR_JWT_SECRET`            | **Yes**  | —                          | Min 32 chars. Signs QR JWT tokens.                                                                                                                                              |
+| `BETTER_AUTH_SECRET`       | **Yes**  | —                          | Min 32 chars. Signs Better Auth sessions.                                                                                                                                       |
+| `APP_URL`                  | No       | auto-detected              | Public base URL. Used in QR links and auth. On Render, falls back to `RENDER_EXTERNAL_URL`. In dev, falls back to the Vite server's network URL (LAN IP when `--host` is used). |
+| `DATABASE_URL`             | PG only  | —                          | Full PostgreSQL connection URL including password.                                                                                                                              |
+| `POSTGRES_PASSWORD`        | PG only  | `mutuvia`                  | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                             |
+| `PRELUDE_API_TOKEN`        | Prod     | —                          | SMS OTP delivery via Prelude Verify. Omit in dev — OTPs log to console.                                                                                                         |
+| `DB_FILE_NAME`             | No       | `/data/sqlite.db`          | SQLite file path inside the container.                                                                                                                                          |
+| `PORT`                     | No       | `3000`                     | Server listen port.                                                                                                                                                             |
+| `PUBLIC_APP_NAME`          | No       | `Mutuvia`                  | Display name for rebranding.                                                                                                                                                    |
+| `PUBLIC_APP_TAGLINE`       | No       | `Together, we are more.`   | Tagline fallback (localized via i18n).                                                                                                                                          |
+| `UNIT_CODE`                | No       | `EUR`                      | ISO 4217 code or custom unit identifier.                                                                                                                                        |
+| `PUBLIC_UNIT_SYMBOL`       | No       | `€`                        | Displayed unit symbol.                                                                                                                                                          |
+| `PUBLIC_UNIT_DISPLAY_NAME` | No       | `euro`                     | Lowercase singular name for the unit.                                                                                                                                           |
+| `UNIT_DECIMAL_PLACES`      | No       | `2`                        | Decimal places used by `formatAmount()`.                                                                                                                                        |
+| `QR_TTL_SECONDS`           | No       | `600`                      | QR token validity window in seconds.                                                                                                                                            |
+| `VAPID_PUBLIC_KEY`         | Push     | —                          | VAPID public key for Web Push. Generate with `bunx web-push generate-vapid-keys`. Required for push notifications to backgrounded PWA users.                                    |
+| `VAPID_PRIVATE_KEY`        | Push     | —                          | VAPID private key for Web Push.                                                                                                                                                 |
+| `VAPID_SUBJECT`            | No       | `mailto:admin@example.com` | VAPID contact URL (`mailto:` or `https:`).                                                                                                                                      |
+| `PUBLIC_COMMUNITY_DOC_URL` | No       | —                          | URL linked in Settings → About.                                                                                                                                                 |
 
 ---
 
@@ -111,6 +114,7 @@ docker compose --profile postgres up -d
 | Database      | SQLite (default, WAL mode, via bun:sqlite) or PostgreSQL (via `DB_PROVIDER=pg`) |
 | i18n          | Paraglide JS v2 (EN, PT, NL, DE)                                                |
 | QR            | jose (JWT) + qrcode                                                             |
+| Realtime      | SSE (server-sent events) + Web Push (`web-push`, VAPID)                         |
 | Observability | Sentry (optional — error tracking + feedback widget)                            |
 | PWA           | vite-plugin-pwa (`@vite-pwa/sveltekit`) — installable, offline fallback page    |
 
@@ -184,16 +188,21 @@ src/
 │   ├── auth-client.ts       # Better Auth client (phone + email OTP)
 │   ├── config.ts            # Env-var config
 │   ├── paraglide/           # Generated Paraglide runtime (gitignored)
+│   ├── notifications.ts     # Typed NotificationEvent union + dedup (SeenEventIds)
+│   ├── sse-client.ts        # SseManager singleton: SSE connection + SW message bridge
+│   ├── sw-router.ts         # Push routing: focused window → postMessage, else → OS notification
 │   ├── server/
 │   │   ├── auth.ts          # Better Auth server setup
 │   │   ├── balance.ts       # Balance computation, formatAmount, connections
 │   │   ├── db.ts            # Drizzle db instance (delegates to db.sqlite or db.pg)
 │   │   ├── db.sqlite.ts     # SQLite driver (bun:sqlite, WAL mode)
 │   │   ├── db.pg.ts         # PostgreSQL driver (bun:sql)
+│   │   ├── push-sender.ts   # Best-effort Web Push delivery (VAPID), stale sub cleanup
 │   │   ├── qr.ts            # JWT sign/verify (jose)
 │   │   ├── schema.ts        # Re-exports active schema
 │   │   ├── schema.sqlite.ts # Drizzle schema for SQLite
-│   │   └── schema.pg.ts     # Drizzle schema for PostgreSQL
+│   │   ├── schema.pg.ts     # Drizzle schema for PostgreSQL
+│   │   └── sse-registry.ts  # In-memory per-user SSE fan-out registry
 │   └── components/ui/       # shadcn-svelte components
 ├── routes/
 │   ├── onboarding/          # 9-step onboarding flow
@@ -204,7 +213,10 @@ src/
 │   │   ├── history/         # Transaction history
 │   │   └── settings/        # Display name, language, sign out
 │   ├── accept/[token]/      # QR acceptance screen
-│   └── api/qr-status/[id]/  # Polling endpoint
+│   └── api/
+│       ├── events/          # SSE stream (real-time notifications)
+│       ├── push/subscribe/  # Push subscription registration
+│       └── push/unsubscribe/ # Push subscription removal
 scripts/
 ├── migrate.ts               # DB migration runner (SQLite + PG)
 └── seed.ts                  # Test data seeder

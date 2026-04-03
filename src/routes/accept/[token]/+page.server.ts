@@ -9,6 +9,8 @@ import { getBalance, upsertConnection } from '$lib/server/balance';
 import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
 import { randomUUID } from 'crypto';
+import { emit } from '$lib/server/sse-registry';
+import { sendPushToUser } from '$lib/server/push-sender';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -156,15 +158,77 @@ export const actions: Actions = {
 
 		await upsertConnection(fromUserId, toUserId);
 
+		// Notify both parties. Fan-out is best-effort — must not block or throw.
+		try {
+			const acceptingUser = locals.appUser;
+			const [initiatingUser] = await db
+				.select({ displayName: appUsers.displayName })
+				.from(appUsers)
+				.where(eq(appUsers.id, qr.initiatingUserId))
+				.limit(1);
+
+			const formattedAmt = formatAmount(qr.amount);
+			const eventId = randomUUID();
+
+			const completedForInitiator = {
+				type: 'qr_completed' as const,
+				id: eventId,
+				qrId: qr.id,
+				otherName: acceptingUser.displayName,
+				formattedAmount: formattedAmt
+			};
+			const completedForAcceptor = {
+				type: 'qr_completed' as const,
+				id: randomUUID(),
+				qrId: qr.id,
+				otherName: initiatingUser?.displayName ?? 'Someone',
+				formattedAmount: formattedAmt
+			};
+
+			// SSE: push to any open tabs for both users.
+			emit(qr.initiatingUserId, completedForInitiator);
+			emit(acceptingUser.id, completedForAcceptor);
+
+			// Push: only needed for the initiator (acceptor is present, SW will postMessage instead).
+			sendPushToUser(qr.initiatingUserId, completedForInitiator).catch((err) => {
+				console.error('Push notification failed for QR acceptance:', err);
+			});
+		} catch (err) {
+			console.error('Notification fan-out failed after QR acceptance:', err);
+		}
+
 		redirect(307, '/home');
 	},
 
-	decline: async ({ request }) => {
+	decline: async ({ request, params }) => {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 
-		if (qrId) {
-			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
+		// Verify the token to ensure the decline is bound to the correct QR code.
+		let tokenData;
+		try {
+			tokenData = await verifyQrToken(params.token);
+		} catch {
+			return fail(400, { error: 'Invalid or expired token.' });
+		}
+		if (!qrId || qrId !== tokenData.jti) {
+			return fail(400, { error: 'QR ID does not match token.' });
+		}
+
+		const [qr] = await db
+			.select({ initiatingUserId: pendingQr.initiatingUserId })
+			.from(pendingQr)
+			.where(eq(pendingQr.id, qrId))
+			.limit(1);
+
+		await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
+
+		if (qr) {
+			const declinedEvent = { type: 'qr_declined' as const, id: randomUUID(), qrId };
+			emit(qr.initiatingUserId, declinedEvent);
+			sendPushToUser(qr.initiatingUserId, declinedEvent).catch((err) => {
+				console.error('Push notification failed for QR decline:', err);
+			});
 		}
 
 		redirect(307, '/home');

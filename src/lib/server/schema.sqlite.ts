@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // ── Better Auth managed tables ──
 // These are created/managed by Better Auth. We define them here for FK references only.
@@ -110,4 +110,20 @@ export const connections = sqliteTable(
 		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
 	},
 	(table) => [primaryKey({ columns: [table.userAId, table.userBId] })]
+);
+
+export const pushSubscriptions = sqliteTable(
+	'push_subscriptions',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => appUsers.id, { onDelete: 'cascade' }),
+		endpoint: text('endpoint').notNull(),
+		p256dh: text('p256dh').notNull(),
+		auth: text('auth').notNull(),
+		userAgent: text('user_agent'),
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+	},
+	(table) => [uniqueIndex('push_subscriptions_user_endpoint_idx').on(table.userId, table.endpoint)]
 );
