@@ -8,6 +8,13 @@
 			"when": 1774708922620,
 			"tag": "0000_narrow_roulette",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1775126246959,
+			"tag": "0001_last_green_goblin",
+			"breakpoints": true
 		}
 	]
 }

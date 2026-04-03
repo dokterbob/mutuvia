@@ -49,5 +49,17 @@ export const config = {
 		const url = env.DATABASE_URL;
 		if (!url) throw new Error('DATABASE_URL is required when DB_PROVIDER=pg');
 		return url;
+	},
+	// ── Web Push (VAPID) ──
+	get vapidPublicKey() {
+		return env.VAPID_PUBLIC_KEY ?? '';
+	},
+	get vapidPrivateKey() {
+		const key = env.VAPID_PRIVATE_KEY;
+		if (!key) throw new Error('VAPID_PRIVATE_KEY is required for push notifications');
+		return key;
+	},
+	get vapidSubject() {
+		return env.VAPID_SUBJECT ?? `mailto:admin@example.com`;
 	}
 };
