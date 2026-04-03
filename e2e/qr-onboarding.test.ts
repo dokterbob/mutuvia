@@ -26,8 +26,8 @@ test.describe.serial('QR scan → onboarding → accept', () => {
 		await senderCtx.close();
 	});
 
-	test.beforeEach(() => {
-		clearOTPs();
+	test.beforeEach(({ email }) => {
+		clearOTPs(email('scanner'));
 	});
 
 	test.afterEach(async ({ email }) => {

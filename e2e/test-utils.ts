@@ -101,11 +101,12 @@ export async function getOTP(
 }
 
 /**
- * Clear all OTP verification records from the database. Call between tests to
+ * Clear the OTP verification record for a specific email. Call between tests to
  * prevent a stale OTP from a previous test from being read.
+ * Scoped to one email to avoid clobbering OTPs from parallel tests.
  */
-export function clearOTPs(): void {
-	sqlite.exec(`DELETE FROM verification WHERE identifier LIKE '%-otp-%'`);
+export function clearOTPs(email: string): void {
+	sqlite.prepare(`DELETE FROM verification WHERE identifier = ?`).run(`sign-in-otp-${email}`);
 }
 
 // ── User helpers ──────────────────────────────────────────────────────────────
@@ -159,6 +160,7 @@ export async function deleteTestUser(email: string): Promise<void> {
 	}
 
 	sqlite.prepare(`DELETE FROM app_users WHERE better_auth_user_id = ?`).run(userId);
+	sqlite.prepare(`DELETE FROM verification WHERE identifier = ?`).run(`sign-in-otp-${email}`);
 
 	const test = await getTest();
 	await test.deleteUser(userId);

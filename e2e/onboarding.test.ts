@@ -4,7 +4,7 @@ import { test, goto, getOTP, deleteTestUser, clearOTPs } from './test-utils.js';
 test.describe.serial('Onboarding flow', () => {
 	test.afterEach(async ({ email }) => {
 		await deleteTestUser(email('user'));
-		clearOTPs();
+		clearOTPs(email('user'));
 	});
 
 	test('complete onboarding via email — happy path', async ({ page, email }) => {
