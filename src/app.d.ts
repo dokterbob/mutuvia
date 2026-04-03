@@ -22,6 +22,14 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	interface BeforeInstallPromptEvent extends Event {
+		prompt(): Promise<{ outcome: 'accepted' | 'dismissed' }>;
+	}
+
+	interface WindowEventMap {
+		beforeinstallprompt: BeforeInstallPromptEvent;
+	}
 }
 
 export {};

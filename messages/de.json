@@ -225,5 +225,10 @@
 	"error_server_title": "Etwas ist schiefgelaufen",
 	"error_server_body": "Wir wurden benachrichtigt und arbeiten daran. Bitte versuche es erneut.",
 	"error_go_home": "Zur Startseite",
-	"error_try_again": "Erneut versuchen"
+	"error_try_again": "Erneut versuchen",
+
+	"install_banner_title": "{appName} installieren",
+	"install_banner_body": "Füge es deinem Startbildschirm hinzu für das beste Erlebnis.",
+	"install_banner_cta": "Installieren",
+	"install_banner_ios_hint": "Tippe auf Teilen, dann auf \"Zum Home-Bildschirm\"."
 }

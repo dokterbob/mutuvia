@@ -26,7 +26,7 @@ async function navigateToOtpPage(page: Page, userEmail: string) {
 test.describe.serial('OTP error handling', () => {
 	test.afterEach(async ({ email }) => {
 		await deleteTestUser(email('user'));
-		clearOTPs();
+		clearOTPs(email('user'));
 	});
 
 	test('wrong OTP shows error and stays on OTP page', async ({ page, email }) => {
