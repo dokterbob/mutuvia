@@ -5,9 +5,10 @@ import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/public';
 
 // Register the service worker for offline support and PWA updates.
-// `immediate: true` triggers registration without waiting for the load event,
-// which improves first-install speed.
-registerSW({ immediate: true });
+// `immediate: false` defers registration until after the load event, avoiding a
+// Chrome "Receiving end does not exist" runtime error caused by Workbox's auto-update
+// messaging channel opening before the SW is fully activated.
+registerSW({ immediate: false });
 
 const dsn = env.PUBLIC_SENTRY_DSN;
 
