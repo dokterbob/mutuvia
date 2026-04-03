@@ -39,14 +39,22 @@ export const init: ServerInit = async () => {
 // Origin header, so the standard CSRF check would reject it.
 const shareHandle: Handle = async ({ event, resolve }) => {
 	if (event.url.pathname === '/share' && event.request.method === 'POST') {
-		const data = await event.request.formData();
-		const params = new URLSearchParams();
-		for (const key of ['title', 'text', 'url'] as const) {
-			const val = data.get(key);
-			if (val) params.set(key, val.toString());
+		const contentType = event.request.headers.get('content-type') ?? '';
+		if (!contentType.toLowerCase().startsWith('multipart/form-data')) {
+			return new Response(null, { status: 303, headers: { location: '/' } });
 		}
-		const acceptPath = extractAcceptUrl(params);
-		return new Response(null, { status: 303, headers: { location: acceptPath ?? '/' } });
+		try {
+			const data = await event.request.formData();
+			const params = new URLSearchParams();
+			for (const key of ['title', 'text', 'url'] as const) {
+				const val = data.get(key);
+				if (val) params.set(key, val.toString());
+			}
+			const acceptPath = extractAcceptUrl(params);
+			return new Response(null, { status: 303, headers: { location: acceptPath ?? '/' } });
+		} catch {
+			return new Response(null, { status: 303, headers: { location: '/' } });
+		}
 	}
 	return resolve(event);
 };
