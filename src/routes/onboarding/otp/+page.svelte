@@ -27,6 +27,7 @@
 	});
 
 	async function verifyOtp() {
+		if (isLoading) return;
 		isLoading = true;
 		authError = '';
 		try {

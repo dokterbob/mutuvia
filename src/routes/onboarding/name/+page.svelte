@@ -49,14 +49,17 @@
 		use:enhance={() => {
 			createProfileLoading = true;
 			return async ({ result, update }) => {
-				if (result.type === 'failure' || result.type === 'error') {
+				try {
+					if (result.type === 'failure' || result.type === 'error') {
+						authError =
+							result.type === 'failure'
+								? ((result.data as Record<string, unknown>)?.error as string) || m.error_generic()
+								: m.error_generic();
+					} else {
+						await update();
+					}
+				} finally {
 					createProfileLoading = false;
-					authError =
-						result.type === 'failure'
-							? ((result.data as Record<string, unknown>)?.error as string) || m.error_generic()
-							: m.error_generic();
-				} else {
-					await update();
 				}
 			};
 		}}
