@@ -8,8 +8,9 @@
 // Each event has a stable server-assigned id (crypto.randomUUID()).
 // The SSE stream format uses:
 //   id: <uuid>\n
-//   event: <NotificationEvent.type>\n
 //   data: <JSON>\n\n
+// Events are dispatched as unnamed messages (no event: field) so the client's
+// onmessage handler fires. Type routing is done via event.type in the JSON payload.
 
 import type { NotificationEvent } from '$lib/notifications';
 
@@ -54,8 +55,7 @@ export function emit(userId: string, event: NotificationEvent): void {
 	const controllers = registry.get(userId);
 	if (!controllers || controllers.size === 0) return;
 
-	const payload =
-		`id: ${event.id}\n` + `event: ${event.type}\n` + `data: ${JSON.stringify(event)}\n\n`;
+	const payload = `id: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`;
 
 	const encoded = encoder.encode(payload);
 
