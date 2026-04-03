@@ -237,5 +237,10 @@
 	"error_server_title": "Something went wrong",
 	"error_server_body": "We've been notified and are looking into it. Please try again.",
 	"error_go_home": "Go to home",
-	"error_try_again": "Try again"
+	"error_try_again": "Try again",
+
+	"install_banner_title": "Install {appName}",
+	"install_banner_body": "Add to your home screen for the best experience.",
+	"install_banner_cta": "Install",
+	"install_banner_ios_hint": "Tap the share button, then \"Add to Home Screen\"."
 }

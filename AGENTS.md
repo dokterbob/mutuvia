@@ -57,25 +57,30 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
   - `*` → `bun run format` (Prettier)
   - `**/*.{js,ts}` → `bun run lint:fix` then `bun run check` (Prettier + ESLint + svelte-check)
   - To skip: `SKIP_BUN_GIT_HOOKS=1 git commit`
-- **Before submitting code**, run `bun run format` then `bun run lint` to catch any remaining issues.
+- **Before submitting code**, run `bun run lint:fix` first (formats + ESLint auto-fix), then run the following in parallel to catch remaining issues:
+  - `bun run check` (type-check)
+  - `bun run test` (unit tests)
+  - `bunx playwright test` (E2E tests)
 
 ## Scripts
 
-| Command                      | Description                              |
-| ---------------------------- | ---------------------------------------- |
-| `bun run dev`                | Start dev server (Vite + Bun)            |
-| `bun run build`              | Production build                         |
-| `bun run check`              | Type-check (svelte-check)                |
-| `bun run lint`               | Prettier + ESLint                        |
-| `bun run format`             | Auto-format                              |
-| `bun test`                   | Run tests                                |
-| `bun run db:generate:sqlite` | Generate Drizzle migration (SQLite)      |
-| `bun run db:generate:pg`     | Generate Drizzle migration (PostgreSQL)  |
-| `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
-| `bun run db:push:pg`         | Push schema to local PG (no migration)   |
-| `bun run db:seed`            | Seed test data (3 users, 2 transactions) |
-| `docker compose up -d`       | Start local PostgreSQL container         |
-| `bun run generate-secret`    | Generate secure QR_JWT_SECRET            |
+| Command                      | Description                                   |
+| ---------------------------- | --------------------------------------------- |
+| `bun run dev`                | Start dev server (Vite + Bun)                 |
+| `bun run build`              | Production build                              |
+| `bun run check`              | Type-check (svelte-check)                     |
+| `bun run lint`               | Prettier check + ESLint                       |
+| `bun run lint:fix`           | Prettier write + ESLint fix (includes format) |
+| `bun run format`             | Auto-format only (subset of lint:fix)         |
+| `bun run test`               | Run unit tests (vitest)                       |
+| `bunx playwright test`       | Run E2E tests                                 |
+| `bun run db:generate:sqlite` | Generate Drizzle migration (SQLite)           |
+| `bun run db:generate:pg`     | Generate Drizzle migration (PostgreSQL)       |
+| `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`)      |
+| `bun run db:push:pg`         | Push schema to local PG (no migration)        |
+| `bun run db:seed`            | Seed test data (3 users, 2 transactions)      |
+| `docker compose up -d`       | Start local PostgreSQL container              |
+| `bun run generate-secret`    | Generate secure QR_JWT_SECRET                 |
 
 ## Testing
 

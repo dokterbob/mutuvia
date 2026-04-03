@@ -1,4 +1,5 @@
 <script lang="ts">
+	import InstallBanner from '$lib/components/install-banner.svelte';
 	import { onMount } from 'svelte';
 	import { sseManager } from '$lib/sse-client';
 
@@ -13,3 +14,5 @@
 <div class="mx-auto min-h-dvh w-full max-w-md bg-background">
 	{@render children()}
 </div>
+
+<InstallBanner />
