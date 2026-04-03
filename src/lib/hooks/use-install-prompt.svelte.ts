@@ -2,6 +2,7 @@
 
 /** Returns true when the app is running as an installed PWA (standalone mode). */
 export function isStandaloneMode(): boolean {
+	if (typeof window === 'undefined') return false;
 	return (
 		window.matchMedia('(display-mode: standalone)').matches ||
 		!!(navigator as { standalone?: boolean }).standalone
@@ -10,17 +11,23 @@ export function isStandaloneMode(): boolean {
 
 /** Returns true when running on iOS Safari (including iPadOS via feature detection). */
 export function isIOSDevice(): boolean {
+	if (typeof window === 'undefined') return false;
 	return 'GestureEvent' in window && 'ontouchstart' in window;
 }
 
 /**
  * Returns the stored dismissal timestamp (ms since epoch), or null if not set.
+ * Returns null on storage errors (privacy mode, sandboxed iframes).
  */
 export function getDismissalTimestamp(key: string): number | null {
-	const raw = localStorage.getItem(key);
-	if (raw === null) return null;
-	const parsed = Number(raw);
-	return isNaN(parsed) ? null : parsed;
+	try {
+		const raw = localStorage.getItem(key);
+		if (raw === null) return null;
+		const parsed = Number(raw);
+		return isNaN(parsed) ? null : parsed;
+	} catch {
+		return null;
+	}
 }
 
 /**
@@ -32,9 +39,13 @@ export function isDismissedRecently(key: string, days: number): boolean {
 	return timestamp > Date.now() - days * 86_400_000;
 }
 
-/** Stores the current timestamp as the dismissal time. */
+/** Stores the current timestamp as the dismissal time. Silently ignores storage errors. */
 export function saveDismissal(key: string): void {
-	localStorage.setItem(key, String(Date.now()));
+	try {
+		localStorage.setItem(key, String(Date.now()));
+	} catch {
+		// Quota exceeded or storage blocked — in-memory dismissed state still works
+	}
 }
 
 const DISMISS_KEY = 'mutuvia-install-dismissed';
