@@ -48,5 +48,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 		.where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)))
 		.limit(1);
 
-	return json({ id: row!.id }, { status: row!.id === id ? 201 : 200 });
+	const isNew = row!.id === id;
+	console.info(`[push] subscription ${isNew ? 'stored' : 'already exists'} for user ${userId}`);
+	return json({ id: row!.id }, { status: isNew ? 201 : 200 });
 };

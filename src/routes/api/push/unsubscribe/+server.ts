@@ -25,5 +25,6 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 			)
 		);
 
+	console.info(`[push] unsubscribed user ${locals.appUser.id}`);
 	return json({});
 };

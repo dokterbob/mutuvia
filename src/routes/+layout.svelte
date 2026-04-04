@@ -3,6 +3,7 @@
 	import '@fontsource-variable/noto-sans';
 	import { onMount } from 'svelte';
 	import { navigating } from '$app/state';
+	import { Toaster } from '$lib/components/ui/sonner';
 
 	let { children } = $props();
 
@@ -21,3 +22,5 @@
 <div class="min-h-dvh bg-background font-sans antialiased">
 	{@render children()}
 </div>
+
+<Toaster />

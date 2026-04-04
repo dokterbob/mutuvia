@@ -1,7 +1,8 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
+	import { sseManager } from '$lib/sse-client';
 	import { Card } from '$lib/components/ui/card';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
@@ -14,6 +15,18 @@
 	let { data } = $props();
 
 	let hasCamera = $state(false);
+
+	// Refresh page data when a settlement occurs so balance and transactions stay current.
+	$effect(() => {
+		return sseManager.on({
+			onQrCompleted: () => {
+				invalidateAll();
+			},
+			onQrDeclined: () => {
+				invalidateAll();
+			}
+		});
+	});
 
 	$effect(() => {
 		if (!browser) return;

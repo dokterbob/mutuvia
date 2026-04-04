@@ -242,5 +242,8 @@
 	"install_banner_title": "{appName} installeren",
 	"install_banner_body": "Voeg toe aan je startscherm voor de beste ervaring.",
 	"install_banner_cta": "Installeren",
-	"install_banner_ios_hint": "Tik op de deelknop en vervolgens \"Zet op beginscherm\"."
+	"install_banner_ios_hint": "Tik op de deelknop en vervolgens \"Zet op beginscherm\".",
+
+	"toast_transaction_accepted": "{name} — {amount}",
+	"toast_transaction_declined": "Jouw verzoek is afgewezen"
 }

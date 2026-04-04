@@ -10,6 +10,7 @@ import ReceivePage from './+page.svelte';
 vi.mock('$app/forms', () => ({
 	enhance: vi.fn().mockReturnValue({ destroy: vi.fn() })
 }));
+vi.mock('$lib/push-subscribe', () => ({ subscribeToPush: vi.fn().mockResolvedValue(false) }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: false }));
 vi.mock('qrcode', () => ({
