@@ -243,6 +243,7 @@
 	"install_banner_body": "Add to your home screen for the best experience.",
 	"install_banner_cta": "Install",
 	"install_banner_ios_hint": "Tap the share button, then \"Add to Home Screen\".",
+	"install_banner_not_now": "Not now",
 
 	"toast_transaction_accepted": "{name} — {amount}",
 	"toast_transaction_declined": "Your request was declined"
