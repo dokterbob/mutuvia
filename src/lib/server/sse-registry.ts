@@ -54,10 +54,10 @@ export function unregister(userId: string, controller: Controller): void {
 export function emit(userId: string, event: NotificationEvent): void {
 	const controllers = registry.get(userId);
 	const count = controllers?.size ?? 0;
+	if (!controllers || count === 0) return;
 	console.info(
 		`[sse] emit ${event.type} → user ${userId} (${count} connection${count === 1 ? '' : 's'})`
 	);
-	if (!controllers || count === 0) return;
 
 	const payload = `id: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`;
 

@@ -47,6 +47,16 @@ vi.mock('$lib/components/install-banner.svelte', () => ({ default: () => {} }));
 
 vi.mock('$app/environment', () => ({ browser: true }));
 
+// Configurable page URL so individual tests can simulate different routes.
+const pageUrl = { pathname: '/home' };
+vi.mock('$app/state', () => ({
+	page: {
+		get url() {
+			return pageUrl;
+		}
+	}
+}));
+
 import AppLayout from './+layout.svelte';
 
 // ---------------------------------------------------------------------------
@@ -61,6 +71,7 @@ describe('(app) layout – SSE → toast handlers', () => {
 		disconnectSpy.mockClear();
 		toastSuccessSpy.mockClear();
 		toastErrorSpy.mockClear();
+		pageUrl.pathname = '/home';
 	});
 
 	function renderLayout() {
@@ -103,6 +114,28 @@ describe('(app) layout – SSE → toast handlers', () => {
 		const handlers = onSpy.mock.calls[0][0];
 		handlers.onQrDeclined!({ type: 'qr_declined', id: 'evt-2', qrId: 'qr-1' });
 		expect(toastErrorSpy).toHaveBeenCalledWith('Your request was declined');
+	});
+
+	it('suppresses toast on qr_completed when on /send', () => {
+		pageUrl.pathname = '/send';
+		renderLayout();
+		const handlers = onSpy.mock.calls[0][0];
+		handlers.onQrCompleted!({
+			type: 'qr_completed',
+			id: 'evt-3',
+			qrId: 'qr-2',
+			otherName: 'Bob',
+			formattedAmount: '€5.00'
+		});
+		expect(toastSuccessSpy).not.toHaveBeenCalled();
+	});
+
+	it('suppresses toast on qr_declined when on /receive', () => {
+		pageUrl.pathname = '/receive';
+		renderLayout();
+		const handlers = onSpy.mock.calls[0][0];
+		handlers.onQrDeclined!({ type: 'qr_declined', id: 'evt-4', qrId: 'qr-2' });
+		expect(toastErrorSpy).not.toHaveBeenCalled();
 	});
 
 	it('disconnects SSE and unsubscribes handlers on unmount', () => {
