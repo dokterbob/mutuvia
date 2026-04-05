@@ -30,10 +30,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 					isExpired: true
 				};
 			} else {
-				const remainingTtl = Math.max(
-					0,
-					Math.floor((item.expiresAt.getTime() - Date.now()) / 1000)
-				);
+				const remainingTtl = Math.floor((item.expiresAt.getTime() - Date.now()) / 1000);
 				const token = await signQrToken(
 					{ jti: item.id, amt: item.amount, dir: 'send', dn: appUser.displayName },
 					remainingTtl

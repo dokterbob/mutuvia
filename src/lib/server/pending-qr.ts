@@ -37,7 +37,7 @@ export async function getPendingItems(userId: string, limit?: number) {
 		note: qr.note,
 		createdAt: qr.createdAt,
 		expiresAt: qr.expiresAt,
-		isExpired: qr.expiresAt < new Date()
+		isExpired: qr.expiresAt <= new Date()
 	}));
 }
 
@@ -59,7 +59,7 @@ export async function getPendingItemById(id: string, userId: string) {
 		createdAt: qr.createdAt,
 		expiresAt: qr.expiresAt,
 		status: qr.status,
-		isExpired: qr.expiresAt < new Date()
+		isExpired: qr.expiresAt <= new Date()
 	};
 }
 

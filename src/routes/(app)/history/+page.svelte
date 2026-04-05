@@ -55,19 +55,32 @@
 			<div class="space-y-0">
 				{#each data.pendingItems as item (item.id)}
 					<div class="flex items-center justify-between border-b py-3 last:border-b-0">
-						<a
-							href="/{item.direction === 'send' ? 'send' : 'receive'}?qrId={item.id}"
-							class="flex-1 {item.isExpired ? 'pointer-events-none opacity-60' : ''}"
-						>
-							<p class="text-sm font-medium">
-								{item.direction === 'send'
-									? m.home_pending_send({ amount: item.formattedAmount })
-									: m.home_pending_receive({ amount: item.formattedAmount })}
-							</p>
-							{#if item.note}
-								<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>
-							{/if}
-						</a>
+						{#if item.isExpired}
+							<div class="flex-1 opacity-60">
+								<p class="text-sm font-medium">
+									{item.direction === 'send'
+										? m.home_pending_send({ amount: item.formattedAmount })
+										: m.home_pending_receive({ amount: item.formattedAmount })}
+								</p>
+								{#if item.note}
+									<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>
+								{/if}
+							</div>
+						{:else}
+							<a
+								href="/{item.direction === 'send' ? 'send' : 'receive'}?qrId={item.id}"
+								class="flex-1"
+							>
+								<p class="text-sm font-medium">
+									{item.direction === 'send'
+										? m.home_pending_send({ amount: item.formattedAmount })
+										: m.home_pending_receive({ amount: item.formattedAmount })}
+								</p>
+								{#if item.note}
+									<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>
+								{/if}
+							</a>
+						{/if}
 						<div class="flex items-center gap-2">
 							<div class="text-right">
 								{#if item.isExpired}
