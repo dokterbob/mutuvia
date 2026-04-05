@@ -25,8 +25,14 @@ export async function sendPushToUser(userId: string, event: NotificationEvent): 
 			.from(pushSubscriptions)
 			.where(eq(pushSubscriptions.userId, userId));
 
-		if (subs.length === 0) return;
+		if (subs.length === 0) {
+			console.info(`[push] no subscriptions for user ${userId} — skipping`);
+			return;
+		}
 
+		console.info(
+			`[push] delivering ${event.type} to user ${userId} (${subs.length} subscription${subs.length === 1 ? '' : 's'})`
+		);
 		const vapid = getVapidDetails();
 		const payload = JSON.stringify(event);
 
@@ -42,6 +48,7 @@ export async function sendPushToUser(userId: string, event: NotificationEvent): 
 					const status = (err as { statusCode?: number }).statusCode;
 					if (status === 410 || status === 404) {
 						// Subscription expired or gone — clean it up.
+						console.info(`[push] removing stale subscription for user ${userId} (HTTP ${status})`);
 						await db
 							.delete(pushSubscriptions)
 							.where(
@@ -50,9 +57,10 @@ export async function sendPushToUser(userId: string, event: NotificationEvent): 
 									eq(pushSubscriptions.endpoint, sub.endpoint)
 								)
 							);
+					} else {
+						// All other errors: log and continue so one bad sub doesn't block the rest.
+						console.error(`[push] send failed for user ${userId}:`, err);
 					}
-					// All other errors: log and continue so one bad sub doesn't block the rest.
-					console.error(`Push send failed for user ${userId}:`, err);
 				}
 			})
 		);

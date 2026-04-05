@@ -17,6 +17,7 @@
 	import QRCode from 'qrcode';
 	import { formatTimeRemaining } from '$lib/format-time';
 	import { sseManager } from '$lib/sse-client';
+	import { subscribeToPush } from '$lib/push-subscribe';
 
 	let { data, form } = $props();
 
@@ -73,6 +74,9 @@
 		qrId = id;
 		expiresAt = expires;
 		step = 'qr';
+		// Best-effort: prompt for push notifications so the user is notified
+		// when their QR is scanned, even if the app is backgrounded.
+		subscribeToPush().catch((err) => console.warn('[push] subscribeToPush failed:', err));
 	}
 
 	async function shareLink() {

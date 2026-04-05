@@ -52,11 +52,11 @@ export const config = {
 	},
 	// ── Web Push (VAPID) ──
 	get vapidPublicKey() {
-		return env.VAPID_PUBLIC_KEY ?? '';
+		return publicEnv.PUBLIC_VAPID_KEY ?? '';
 	},
 	get vapidPrivateKey() {
-		const key = env.VAPID_PRIVATE_KEY;
-		if (!key) throw new Error('VAPID_PRIVATE_KEY is required for push notifications');
+		const key = env.PRIVATE_VAPID_KEY;
+		if (!key) throw new Error('PRIVATE_VAPID_KEY is required for push notifications');
 		return key;
 	},
 	get vapidSubject() {
