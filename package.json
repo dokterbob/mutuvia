@@ -27,6 +27,8 @@
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.2",
+		"@inlang/plugin-m-function-matcher": "^2.2.4",
+		"@inlang/plugin-message-format": "^4.4.0",
 		"@eslint/js": "^9.39.2",
 		"@fontsource-variable/noto-sans": "^5.2.10",
 		"@internationalized/date": "^3.12.0",
