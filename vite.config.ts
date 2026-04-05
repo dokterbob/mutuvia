@@ -100,6 +100,20 @@ export default defineConfig({
 	},
 	test: {
 		expect: { requireAssertions: true },
+		coverage: {
+			provider: 'istanbul',
+			reporter: ['text', 'json-summary'],
+			reportOnFailure: true,
+			include: ['src/**/*.{ts,js,svelte}'],
+			exclude: [
+				'src/**/*.{test,spec}.{ts,js}',
+				'src/**/*.svelte.{test,spec}.{ts,js}',
+				'src/lib/paraglide/**',
+				'src/lib/test-setup.ts',
+				'src/service-worker.ts',
+				'src/app.d.ts'
+			]
+		},
 		projects: [
 			{
 				extends: './vite.config.ts',
@@ -120,7 +134,7 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
-					include: ['src/**/*.{test,spec}.{js,ts}', 'tests/**/*.{test,spec}.{js,ts}'],
+					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
 					server: {
 						deps: {

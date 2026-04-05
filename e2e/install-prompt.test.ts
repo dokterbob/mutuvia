@@ -76,13 +76,11 @@ const IOS_SCRIPT = `
 
 test.describe('Install banner', () => {
 	test.describe('Chromium (beforeinstallprompt)', () => {
-		test('shows banner after delay when beforeinstallprompt fires', async ({
-			page,
-			context,
-			email
-		}) => {
+		test.beforeEach(async ({ context, email }) => {
 			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
+		});
 
+		test('shows banner after delay when beforeinstallprompt fires', async ({ page }) => {
 			await page.addInitScript({ content: chromiumInstallScript() });
 			await goto(page, '/home');
 
@@ -99,13 +97,7 @@ test.describe('Install banner', () => {
 			await expect(page.getByRole('button', { name: 'Install' })).toBeVisible();
 		});
 
-		test('clicking Install triggers prompt() and hides banner', async ({
-			page,
-			context,
-			email
-		}) => {
-			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
-
+		test('clicking Install triggers prompt() and hides banner', async ({ page }) => {
 			await page.addInitScript({ content: chromiumInstallScript() });
 			await goto(page, '/home');
 
@@ -122,9 +114,7 @@ test.describe('Install banner', () => {
 			await expect(banner).not.toBeVisible({ timeout: 5_000 });
 		});
 
-		test('dismissing hides banner and writes to localStorage', async ({ page, context, email }) => {
-			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
-
+		test('dismissing hides banner and writes to localStorage', async ({ page }) => {
 			await page.addInitScript({ content: chromiumInstallScript() });
 			await goto(page, '/home');
 
@@ -146,13 +136,7 @@ test.describe('Install banner', () => {
 			expect(Number(stored)).toBeGreaterThan(0);
 		});
 
-		test("closing with 'Not now' hides banner and writes to localStorage", async ({
-			page,
-			context,
-			email
-		}) => {
-			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
-
+		test("closing with 'Not now' hides banner and writes to localStorage", async ({ page }) => {
 			await page.addInitScript({ content: chromiumInstallScript() });
 			await goto(page, '/home');
 
@@ -174,13 +158,7 @@ test.describe('Install banner', () => {
 			expect(Number(stored)).toBeGreaterThan(0);
 		});
 
-		test('pressing Escape hides banner and writes to localStorage', async ({
-			page,
-			context,
-			email
-		}) => {
-			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
-
+		test('pressing Escape hides banner and writes to localStorage', async ({ page }) => {
 			await page.addInitScript({ content: chromiumInstallScript() });
 			await goto(page, '/home');
 
@@ -202,9 +180,7 @@ test.describe('Install banner', () => {
 			expect(Number(stored)).toBeGreaterThan(0);
 		});
 
-		test('does not show banner when recently dismissed', async ({ page, context, email }) => {
-			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
-
+		test('does not show banner when recently dismissed', async ({ page }) => {
 			await page.addInitScript({
 				content: `
 					${chromiumInstallScript()}
@@ -226,50 +202,35 @@ test.describe('Install banner', () => {
 	});
 
 	test.describe('iOS Safari', () => {
-		test('shows manual Add to Home Screen instructions', async ({ browser: pwBrowser, email }) => {
-			const iosContext = await pwBrowser.newContext({
+		let iosContext: import('@playwright/test').BrowserContext;
+		let iosPage: import('@playwright/test').Page;
+
+		test.beforeEach(async ({ browser: pwBrowser, email }) => {
+			iosContext = await pwBrowser.newContext({
 				userAgent:
 					'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
 			});
-			const page = await iosContext.newPage();
-
-			try {
-				await setupAuthenticatedUser(iosContext, email('ios-user'), 'iOS Tester');
-
-				await page.addInitScript({ content: IOS_SCRIPT });
-				await goto(page, '/home');
-
-				const banner = page.locator('[data-testid="install-banner"]');
-				await expect(banner).toBeVisible({ timeout: 10_000 });
-
-				// iOS hint text should be present
-				await expect(page.getByText(/Tap the share button/)).toBeVisible();
-			} finally {
-				await iosContext.close();
-			}
+			iosPage = await iosContext.newPage();
+			await setupAuthenticatedUser(iosContext, email('ios-user'), 'iOS Tester');
+			await iosPage.addInitScript({ content: IOS_SCRIPT });
+			await goto(iosPage, '/home');
+			await expect(iosPage.locator('[data-testid="install-banner"]')).toBeVisible({
+				timeout: 10_000
+			});
 		});
 
-		test('does not show Install button on iOS', async ({ browser: pwBrowser, email }) => {
-			const iosContext = await pwBrowser.newContext({
-				userAgent:
-					'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
-			});
-			const page = await iosContext.newPage();
+		test.afterEach(async () => {
+			await iosContext.close();
+		});
 
-			try {
-				await setupAuthenticatedUser(iosContext, email('ios-user'), 'iOS Tester');
+		test('shows manual Add to Home Screen instructions', async () => {
+			// iOS hint text should be present
+			await expect(iosPage.getByText(/Tap the share button/)).toBeVisible();
+		});
 
-				await page.addInitScript({ content: IOS_SCRIPT });
-				await goto(page, '/home');
-
-				const banner = page.locator('[data-testid="install-banner"]');
-				await expect(banner).toBeVisible({ timeout: 10_000 });
-
-				// No Install button on iOS — only the dismiss (×) button
-				await expect(page.getByRole('button', { name: 'Install' })).not.toBeVisible();
-			} finally {
-				await iosContext.close();
-			}
+		test('does not show Install button on iOS', async () => {
+			// No Install button on iOS — only the dismiss (×) button
+			await expect(iosPage.getByRole('button', { name: 'Install' })).not.toBeVisible();
 		});
 	});
 

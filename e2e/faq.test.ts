@@ -6,13 +6,15 @@ const FAQ_NAME = 'FAQ User';
 // FAQ page is public — no auth required.
 // Hamburger menu tests require auth to reach the home screen.
 test.describe('FAQ page (public)', () => {
-	test('renders the FAQ title', async ({ page }) => {
+	test.beforeEach(async ({ page }) => {
 		await goto(page, '/faq');
+	});
+
+	test('renders the FAQ title', async ({ page }) => {
 		await expect(page.getByRole('heading', { name: 'Frequently Asked Questions' })).toBeVisible();
 	});
 
 	test('renders all accordion trigger buttons', async ({ page }) => {
-		await goto(page, '/faq');
 		await expect(page.getByRole('button', { name: 'What is mutual credit?' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Is this real money?' })).toBeVisible();
 		await expect(page.getByRole('button', { name: /negative balance/i })).toBeVisible();
@@ -27,13 +29,11 @@ test.describe('FAQ page (public)', () => {
 	});
 
 	test('clicking a trigger reveals its answer', async ({ page }) => {
-		await goto(page, '/faq');
 		await page.getByRole('button', { name: 'What is mutual credit?' }).click();
 		await expect(page.getByText(/shared record of who owes what/i)).toBeVisible();
 	});
 
 	test('single mode: opening second item closes the first', async ({ page }) => {
-		await goto(page, '/faq');
 		await page.getByRole('button', { name: 'What is mutual credit?' }).click();
 		await expect(page.getByText(/shared record of who owes what/i)).toBeVisible();
 
@@ -70,93 +70,53 @@ test.describe('FAQ hamburger menu (authenticated)', () => {
 		await ctx.close();
 	});
 
-	test('hamburger menu shows all items', async ({ browser }, testInfo) => {
-		const ctx = await browser.newContext({
-			storageState: storage,
-			baseURL: testInfo.project.use.baseURL!
-		});
-		const page = await ctx.newPage();
-		try {
+	test.describe('menu navigation', () => {
+		let ctx: BrowserContext;
+		let page: import('@playwright/test').Page;
+
+		test.beforeEach(async ({ browser }, testInfo) => {
+			ctx = await browser.newContext({
+				storageState: storage,
+				baseURL: testInfo.project.use.baseURL!
+			});
+			page = await ctx.newPage();
 			await goto(page, '/home');
 			await page.getByRole('button', { name: /menu/i }).click();
 			await expect(page.getByRole('menu')).toBeVisible();
+		});
+
+		test.afterEach(async () => {
+			await ctx.close();
+		});
+
+		test('hamburger menu shows all items', async () => {
 			await expect(page.getByRole('menuitem', { name: /settings/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /faq/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /how it works/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /about/i })).toBeVisible();
 			await expect(page.getByRole('link', { name: /open source/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /sign out/i })).toBeVisible();
-		} finally {
-			await ctx.close();
-		}
-	});
-
-	test('Settings menu item navigates to /settings', async ({ browser }, testInfo) => {
-		const ctx = await browser.newContext({
-			storageState: storage,
-			baseURL: testInfo.project.use.baseURL!
 		});
-		const page = await ctx.newPage();
-		try {
-			await goto(page, '/home');
-			await page.getByRole('button', { name: /menu/i }).click();
-			await expect(page.getByRole('menu')).toBeVisible();
+
+		test('Settings menu item navigates to /settings', async () => {
 			await page.getByRole('menuitem', { name: /settings/i }).click();
 			await expect(page).toHaveURL(/\/settings/);
-		} finally {
-			await ctx.close();
-		}
-	});
-
-	test('FAQ menu item navigates to /faq', async ({ browser }, testInfo) => {
-		const ctx = await browser.newContext({
-			storageState: storage,
-			baseURL: testInfo.project.use.baseURL!
 		});
-		const page = await ctx.newPage();
-		try {
-			await goto(page, '/home');
-			await page.getByRole('button', { name: /menu/i }).click();
-			await expect(page.getByRole('menu')).toBeVisible();
+
+		test('FAQ menu item navigates to /faq', async () => {
 			await page.getByRole('menuitem', { name: /faq/i }).click();
 			await expect(page).toHaveURL(/\/faq/);
-		} finally {
-			await ctx.close();
-		}
-	});
-
-	test('How it works navigates to /onboarding/intro1?review', async ({ browser }, testInfo) => {
-		const ctx = await browser.newContext({
-			storageState: storage,
-			baseURL: testInfo.project.use.baseURL!
 		});
-		const page = await ctx.newPage();
-		try {
-			await goto(page, '/home');
-			await page.getByRole('button', { name: /menu/i }).click();
-			await expect(page.getByRole('menu')).toBeVisible();
+
+		test('How it works navigates to /onboarding/intro1?review', async () => {
 			await page.getByRole('menuitem', { name: /how it works/i }).click();
 			await expect(page).toHaveURL(/\/onboarding\/intro1/);
-		} finally {
-			await ctx.close();
-		}
-	});
-
-	test('About navigates to /about', async ({ browser }, testInfo) => {
-		const ctx = await browser.newContext({
-			storageState: storage,
-			baseURL: testInfo.project.use.baseURL!
 		});
-		const page = await ctx.newPage();
-		try {
-			await goto(page, '/home');
-			await page.getByRole('button', { name: /menu/i }).click();
-			await expect(page.getByRole('menu')).toBeVisible();
+
+		test('About navigates to /about', async () => {
 			await page.getByRole('menuitem', { name: /about/i }).click();
 			await expect(page).toHaveURL(/\/about/);
-		} finally {
-			await ctx.close();
-		}
+		});
 	});
 
 	test('Sign out navigates to /onboarding', async ({ browser }, testInfo) => {

@@ -44,13 +44,13 @@ const qrDeclined: QrDeclinedEvent = {
 let userId: string;
 let seq = 0;
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
 	userId = `user-${++seq}`;
 });
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe('register + emit', () => {
 	describe('given a registered controller', () => {
@@ -213,15 +213,4 @@ describe('emit resilience', () => {
 		unregister(userId, faultyCtrl);
 		unregister(userId, healthyCtrl);
 	});
-});
-
-// HTTP-level tests require a running server — kept as todos.
-describe('GET /api/events (HTTP-level)', () => {
-	it.todo('returns 401 when no session cookie is present');
-	it.todo('returns 200 text/event-stream for an authenticated user');
-	it.todo('emits a qr_completed event after settlement is written to DB');
-	it.todo('emits a qr_declined event after decline is written to DB');
-	it.todo('does not re-emit an event whose ID matches Last-Event-ID on reconnect');
-	it.todo('removes the connection from the registry after the client disconnects');
-	it.todo('supports two concurrent connections for the same user');
 });

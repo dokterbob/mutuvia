@@ -11,23 +11,24 @@ import { test, expect } from '@playwright/test';
 // implementation (with setupAuthenticatedUser) and remove the skip.
 
 test.describe.skip('CopyButton', () => {
-	test('CopyButton visible after generating QR on /send', async ({ page }) => {
-		await page.goto('/send');
-		await page.locator('input[name="amount"]').fill('10');
-		await page.getByRole('button', { name: 'Generate QR' }).click();
-		await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
-	});
+	test.describe('on /send', () => {
+		test.beforeEach(async ({ page }) => {
+			await page.goto('/send');
+			await page.locator('input[name="amount"]').fill('10');
+			await page.getByRole('button', { name: 'Generate QR' }).click();
+		});
 
-	test('clicking CopyButton shows copied state briefly', async ({ page }) => {
-		await page.goto('/send');
-		await page.locator('input[name="amount"]').fill('10');
-		await page.getByRole('button', { name: 'Generate QR' }).click();
+		test('CopyButton visible after generating QR', async ({ page }) => {
+			await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+		});
 
-		const copyBtn = page.getByRole('button', { name: /copy link/i });
-		await copyBtn.click();
-		await expect(copyBtn.locator('.sr-only')).toHaveText('Copied');
-		await page.waitForTimeout(700);
-		await expect(copyBtn.locator('.sr-only')).toHaveText('Copy');
+		test('clicking CopyButton shows copied state briefly', async ({ page }) => {
+			const copyBtn = page.getByRole('button', { name: /copy link/i });
+			await copyBtn.click();
+			await expect(copyBtn.locator('.sr-only')).toHaveText('Copied');
+			await page.waitForTimeout(700);
+			await expect(copyBtn.locator('.sr-only')).toHaveText('Copy');
+		});
 	});
 
 	test('CopyButton visible on /receive after generating QR', async ({ page }) => {
