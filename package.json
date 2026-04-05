@@ -88,6 +88,8 @@
 	},
 	"dependencies": {
 		"@inlang/paraglide-js": "^2.15.1",
+		"@inlang/plugin-m-function-matcher": "^2.2.4",
+		"@inlang/plugin-message-format": "^4.4.0",
 		"@prelude.so/sdk": "^0.10.0",
 		"@sentry/sveltekit": "^10.46.0",
 		"@types/qrcode": "^1.5.6",

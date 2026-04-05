@@ -21,6 +21,10 @@ function getRtf(locale: string): Intl.RelativeTimeFormat {
 	return rtf;
 }
 
+export function remainingSeconds(expiresAt: Date | string): number {
+	return Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+}
+
 export function formatTimeRemaining(seconds: number, locale: string): string {
 	const rtf = getRtf(locale);
 	if (seconds >= 86400) {

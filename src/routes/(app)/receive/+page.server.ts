@@ -8,13 +8,47 @@ import { signQrToken, buildQrUrl } from '$lib/server/qr';
 import { randomUUID } from 'crypto';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
+import { getPendingItemById } from '$lib/server/pending-qr';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals, url }) => {
+	const appUser = locals.appUser!;
+
+	const resumeQrId = url.searchParams.get('qrId');
+	let resumeQr: { qrUrl: string; qrId: string; expiresAt: string; isExpired: boolean } | null =
+		null;
+
+	if (resumeQrId) {
+		const item = await getPendingItemById(resumeQrId, appUser.id);
+		if (item && item.direction === 'receive' && item.status === 'pending') {
+			if (item.isExpired) {
+				resumeQr = {
+					qrUrl: '',
+					qrId: item.id,
+					expiresAt: item.expiresAt.toISOString(),
+					isExpired: true
+				};
+			} else {
+				const remainingTtl = Math.floor((item.expiresAt.getTime() - Date.now()) / 1000);
+				const token = await signQrToken(
+					{ jti: item.id, amt: item.amount, dir: 'receive', dn: appUser.displayName },
+					remainingTtl
+				);
+				resumeQr = {
+					qrUrl: buildQrUrl(token),
+					qrId: item.id,
+					expiresAt: item.expiresAt.toISOString(),
+					isExpired: false
+				};
+			}
+		}
+	}
+
 	return {
 		appName: config.appName,
 		unitCode: config.unitCode,
-		qrTtlSeconds: config.qrTtlSeconds
+		qrTtlSeconds: config.qrTtlSeconds,
+		resumeQr
 	};
 };
 

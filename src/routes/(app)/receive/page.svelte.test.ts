@@ -3,14 +3,19 @@
 // Root cause: use:enhance default behavior resets the form on success, clearing bound amount/note state.
 // Fix: pass { reset: false } to update() in the enhance callback.
 
-import { vi, describe, test, expect, beforeEach } from 'vitest';
-import { render, fireEvent, waitFor } from '@testing-library/svelte';
+import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent, waitFor, cleanup } from '@testing-library/svelte';
 import ReceivePage from './+page.svelte';
 
 vi.mock('$app/forms', () => ({
 	enhance: vi.fn().mockReturnValue({ destroy: vi.fn() })
 }));
 vi.mock('$lib/push-subscribe', () => ({ subscribeToPush: vi.fn().mockResolvedValue(false) }));
+vi.mock('$lib/sse-client', () => ({ sseManager: { on: vi.fn().mockReturnValue(vi.fn()) } }));
+vi.mock('$lib/format-time', () => ({
+	formatTimeRemaining: () => 'in 10 minutes',
+	remainingSeconds: () => 600
+}));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: false }));
 vi.mock('qrcode', () => ({
@@ -39,6 +44,8 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	}) => `${amount} for "${note}" through ${appName}.`,
 	qr_copy_link: () => 'Copy link',
 	qr_share: () => 'Share',
+	qr_expires: ({ time }: { time: string }) => `Expires ${time}`,
+	qr_close: () => 'Close',
 	receive_qr_caption: () => 'Scan to pay',
 	send_qr_expired: () => 'Expired',
 	send_cancel: () => 'Cancel',
@@ -50,7 +57,8 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 const mockData = {
 	unitCode: 'EUR',
 	appName: 'Mutuvia',
-	qrTtlSeconds: 600
+	qrTtlSeconds: 600,
+	resumeQr: null
 };
 
 describe('receive page – issue #56: share text amount', () => {
@@ -184,6 +192,44 @@ describe('receive page – spinner / loading state', () => {
 		// After the inner handler resolves, loading should be false: spinner gone.
 		await waitFor(() => {
 			expect(container.querySelector('.animate-spin')).toBeNull();
+		});
+	});
+});
+
+describe('receive page – resume from pending list (#86)', () => {
+	afterEach(() => cleanup());
+
+	test('jumps to QR step when resumeQr is provided', async () => {
+		const data = {
+			...mockData,
+			resumeQr: {
+				qrUrl: 'http://localhost/accept/test-token',
+				qrId: 'qr-resume-1',
+				expiresAt: new Date(Date.now() + 600_000).toISOString(),
+				isExpired: false
+			}
+		};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { getByText } = render(ReceivePage, { props: { data: data as any, form: null } });
+		await waitFor(() => {
+			expect(getByText('Scan to pay')).toBeTruthy();
+		});
+	});
+
+	test('shows expired state when resumeQr.isExpired is true', async () => {
+		const data = {
+			...mockData,
+			resumeQr: {
+				qrUrl: '',
+				qrId: 'qr-expired-1',
+				expiresAt: new Date(Date.now() - 1000).toISOString(),
+				isExpired: true
+			}
+		};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { getByText } = render(ReceivePage, { props: { data: data as any, form: null } });
+		await waitFor(() => {
+			expect(getByText('Expired')).toBeTruthy();
 		});
 	});
 });

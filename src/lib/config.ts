@@ -22,6 +22,9 @@ export const config = {
 	get qrTtlSeconds() {
 		return parseInt(env.QR_TTL_SECONDS || '259200', 10);
 	},
+	get expiredQrRetentionSeconds() {
+		return parseInt(env.EXPIRED_QR_RETENTION_SECONDS || '259200', 10);
+	},
 	get appUrl() {
 		return env.APP_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
 	},

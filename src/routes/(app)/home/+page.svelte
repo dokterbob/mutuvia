@@ -11,6 +11,8 @@
 	import { NavMenu } from '$lib/components/ui/nav-menu';
 
 	import { browser } from '$app/environment';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
 
 	let { data } = $props();
 
@@ -140,21 +142,41 @@
 		<div class="mb-4 space-y-0">
 			{#each data.pendingItems as item (item.id)}
 				<div class="flex items-center justify-between border-b py-3 last:border-b-0">
-					<div>
-						<p class="text-sm font-medium">
-							{item.direction === 'send'
-								? m.home_pending_send({ amount: item.formattedAmount })
-								: m.home_pending_receive({ amount: item.formattedAmount })}
-						</p>
-						{#if item.note}
-							<p class="text-xs text-muted-foreground">{item.note}</p>
-						{/if}
-					</div>
+					{#if item.isExpired}
+						<div class="flex-1 opacity-60">
+							<p class="text-sm font-medium">
+								{item.direction === 'send'
+									? m.home_pending_send({ amount: item.formattedAmount })
+									: m.home_pending_receive({ amount: item.formattedAmount })}
+							</p>
+							{#if item.note}
+								<p class="text-xs text-muted-foreground">{item.note}</p>
+							{/if}
+						</div>
+					{:else}
+						<a
+							href="/{item.direction === 'send' ? 'send' : 'receive'}?qrId={item.id}"
+							class="flex-1"
+						>
+							<p class="text-sm font-medium">
+								{item.direction === 'send'
+									? m.home_pending_send({ amount: item.formattedAmount })
+									: m.home_pending_receive({ amount: item.formattedAmount })}
+							</p>
+							{#if item.note}
+								<p class="text-xs text-muted-foreground">{item.note}</p>
+							{/if}
+						</a>
+					{/if}
 					<div class="flex items-center gap-2">
 						{#if item.isExpired}
 							<p class="text-xs text-red-600">{m.home_pending_expired()}</p>
 						{:else}
-							<p class="text-xs text-muted-foreground">{timeAgo(item.createdAt)}</p>
+							<p class="text-xs text-muted-foreground">
+								{m.qr_expires({
+									time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+								})}
+							</p>
 						{/if}
 						<form method="POST" action="?/cancelQr" use:enhance>
 							<input type="hidden" name="qrId" value={item.id} />
