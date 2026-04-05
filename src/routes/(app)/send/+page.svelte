@@ -47,16 +47,7 @@
 	let fractionDigits = $derived(currencyFormatter.resolvedOptions().maximumFractionDigits ?? 2);
 	let amountStep = $derived(Math.pow(10, -fractionDigits));
 	let amountPlaceholder = $derived((0).toFixed(fractionDigits));
-	let formattedAmount = $derived(currencyFormatter.format(parseFloat(amount || '0')));
-	let shareDescription = $derived(
-		note.trim()
-			? m.qr_share_text_with_note({
-					amount: formattedAmount,
-					appName: data.appName,
-					note: note.trim()
-				})
-			: m.qr_share_text({ amount: formattedAmount, appName: data.appName })
-	);
+	let shareDescription = $state('');
 	let copyText = $derived(`${shareDescription}\n${qrUrl}`);
 
 	$effect(() => {
@@ -64,6 +55,7 @@
 			step = 'amount';
 		}
 		if (form?.qrUrl) {
+			shareDescription = form.shareDescription ?? '';
 			generateQr(form.qrUrl, form.qrId, form.expiresAt);
 		}
 	});
@@ -74,6 +66,7 @@
 			isExpired = true;
 			step = 'qr';
 		} else {
+			shareDescription = data.resumeQr.shareDescription ?? '';
 			generateQr(data.resumeQr.qrUrl, data.resumeQr.qrId, data.resumeQr.expiresAt);
 		}
 	});
