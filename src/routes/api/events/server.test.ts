@@ -9,8 +9,11 @@ import type { QrCompletedEvent, QrDeclinedEvent } from '$lib/notifications';
 
 type GetEvent = Parameters<typeof GET>[0];
 
-function makeEvent(appUser: { id: string } | null): GetEvent {
-	return { locals: { appUser } } as unknown as GetEvent;
+function makeEvent(appUser: { id: string } | null, headers?: HeadersInit): GetEvent {
+	return {
+		request: new Request('http://localhost/api/events', { headers }),
+		locals: { appUser }
+	} as unknown as GetEvent;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,7 +93,7 @@ describe('GET /api/events', () => {
 		// 2. Returns 200 text/event-stream
 		// -----------------------------------------------------------------------
 
-		it('returns 200 text/event-stream', () => {
+		it('returns 200 text/event-stream', async () => {
 			const response = GET(makeEvent({ id: userId })) as Response;
 
 			// Then
@@ -98,7 +101,7 @@ describe('GET /api/events', () => {
 			expect(response.headers.get('Content-Type')).toBe('text/event-stream');
 
 			// Cleanup this second connection
-			response.body!.cancel();
+			await response.body!.cancel();
 		});
 
 		// -----------------------------------------------------------------------
@@ -147,9 +150,11 @@ describe('GET /api/events', () => {
 
 		it('ignores the Last-Event-ID header and re-emits events normally', async () => {
 			// The handler does not read Last-Event-ID — dedup is handled client-side.
-			// Open a second connection to isolate this assertion from beforeEach state.
+			// Open a second connection with the header present to verify it is ignored.
 			const secondUserId = nextUserId();
-			const response = GET(makeEvent({ id: secondUserId })) as Response;
+			const response = GET(
+				makeEvent({ id: secondUserId }, { 'Last-Event-ID': qrCompleted.id })
+			) as Response;
 			const reader2 = response.body!.getReader();
 
 			try {
