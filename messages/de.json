@@ -231,6 +231,7 @@
 	"install_banner_body": "Füge es deinem Startbildschirm hinzu für das beste Erlebnis.",
 	"install_banner_cta": "Installieren",
 	"install_banner_ios_hint": "Tippe auf Teilen, dann auf \"Zum Home-Bildschirm\".",
+	"install_banner_not_now": "Nicht jetzt",
 
 	"toast_transaction_accepted": "{name} — {amount}",
 	"toast_transaction_declined": "Deine Anfrage wurde abgelehnt"

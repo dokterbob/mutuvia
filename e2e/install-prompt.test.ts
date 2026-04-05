@@ -136,7 +136,63 @@ test.describe('Install banner', () => {
 			await expect(banner).toBeVisible({ timeout: 10_000 });
 
 			// Click the dismiss (×) button
-			await page.getByRole('button', { name: /dismiss/i }).click();
+			await page.getByRole('button', { name: 'Close' }).click();
+
+			await expect(banner).not.toBeVisible({ timeout: 5_000 });
+
+			// localStorage key should be written
+			const stored = await page.evaluate(() => localStorage.getItem('mutuvia-install-dismissed'));
+			expect(stored).not.toBeNull();
+			expect(Number(stored)).toBeGreaterThan(0);
+		});
+
+		test("closing with 'Not now' hides banner and writes to localStorage", async ({
+			page,
+			context,
+			email
+		}) => {
+			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
+
+			await page.addInitScript({ content: chromiumInstallScript() });
+			await goto(page, '/home');
+
+			await page.evaluate(() =>
+				(window as { __triggerInstallPrompt?: () => void }).__triggerInstallPrompt?.()
+			);
+
+			const banner = page.locator('[data-testid="install-banner"]');
+			await expect(banner).toBeVisible({ timeout: 10_000 });
+
+			// Click the "Not now" button in the dialog footer
+			await page.getByRole('button', { name: 'Not now' }).click();
+
+			await expect(banner).not.toBeVisible({ timeout: 5_000 });
+
+			// localStorage key should be written
+			const stored = await page.evaluate(() => localStorage.getItem('mutuvia-install-dismissed'));
+			expect(stored).not.toBeNull();
+			expect(Number(stored)).toBeGreaterThan(0);
+		});
+
+		test('pressing Escape hides banner and writes to localStorage', async ({
+			page,
+			context,
+			email
+		}) => {
+			await setupAuthenticatedUser(context, email('user'), 'Banner Tester');
+
+			await page.addInitScript({ content: chromiumInstallScript() });
+			await goto(page, '/home');
+
+			await page.evaluate(() =>
+				(window as { __triggerInstallPrompt?: () => void }).__triggerInstallPrompt?.()
+			);
+
+			const banner = page.locator('[data-testid="install-banner"]');
+			await expect(banner).toBeVisible({ timeout: 10_000 });
+
+			// Press Escape to dismiss the dialog
+			await page.keyboard.press('Escape');
 
 			await expect(banner).not.toBeVisible({ timeout: 5_000 });
 

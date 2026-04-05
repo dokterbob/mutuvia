@@ -243,6 +243,7 @@
 	"install_banner_body": "Adiciona ao ecrã inicial para a melhor experiência.",
 	"install_banner_cta": "Instalar",
 	"install_banner_ios_hint": "Toca no botão de partilha e depois \"Adicionar ao ecrã inicial\".",
+	"install_banner_not_now": "Agora não",
 
 	"toast_transaction_accepted": "{name} — {amount}",
 	"toast_transaction_declined": "O teu pedido foi recusado"
