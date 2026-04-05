@@ -68,6 +68,16 @@
 		}
 	});
 
+	$effect(() => {
+		if (!data.resumeQr) return;
+		if (data.resumeQr.isExpired) {
+			isExpired = true;
+			step = 'qr';
+		} else {
+			generateQr(data.resumeQr.qrUrl, data.resumeQr.qrId, data.resumeQr.expiresAt);
+		}
+	});
+
 	async function generateQr(url: string, id: string, expires: string) {
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });

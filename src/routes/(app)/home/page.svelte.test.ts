@@ -52,10 +52,16 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	home_pending_receive: ({ amount }: { amount: string }) => `Receive ${amount}`,
 	home_pending_expired: () => 'Expired',
 	pending_cancel_aria: () => 'Cancel',
+	qr_expires: ({ time }: { time: string }) => `Expires ${time}`,
 	time_just_now: () => 'just now',
 	time_minutes_ago: ({ count }: { count: string }) => `${count}m ago`,
 	time_hours_ago: ({ count }: { count: string }) => `${count}h ago`,
 	time_days_ago: ({ count }: { count: string }) => `${count}d ago`
+}));
+
+vi.mock('$lib/format-time', () => ({
+	formatTimeRemaining: (seconds: number) => `in ${Math.round(seconds / 86400)} days`,
+	remainingSeconds: (_expiresAt: Date | string) => 86400
 }));
 
 // Svelte 5 no-op components: inline functions so hoisted vi.mock() factories can use them.
