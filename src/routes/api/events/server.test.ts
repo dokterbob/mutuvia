@@ -59,7 +59,7 @@ describe('GET /api/events', () => {
 	describe('given no authenticated user', () => {
 		it('returns 401', () => {
 			// When
-			const response = GET(makeEvent(null));
+			const response = GET(makeEvent(null)) as Response;
 
 			// Then
 			expect(response.status).toBe(401);
