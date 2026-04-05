@@ -135,8 +135,8 @@ test.describe('Install banner', () => {
 			const banner = page.locator('[data-testid="install-banner"]');
 			await expect(banner).toBeVisible({ timeout: 10_000 });
 
-			// Click the dismiss (×) button
-			await page.getByRole('button', { name: 'Close' }).click();
+			// Click the dismiss (×) button — scoped to banner to avoid ambiguity
+			await banner.getByRole('button', { name: /dismiss/i }).click();
 
 			await expect(banner).not.toBeVisible({ timeout: 5_000 });
 

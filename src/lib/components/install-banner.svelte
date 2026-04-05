@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import DownloadIcon from '@lucide/svelte/icons/download';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	// Allow tests to override the delay by setting window.__installBannerDelay.
 	// UseInstallPrompt accesses browser APIs (localStorage, window) so it must
@@ -25,7 +26,13 @@
 		if (!open) prompt.dismiss();
 	}}
 >
-	<Dialog.Content data-testid="install-banner">
+	<Dialog.Content data-testid="install-banner" showCloseButton={false}>
+		<Dialog.Close
+			class="absolute top-2 right-2 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+			aria-label={m.common_dismiss()}
+		>
+			<XIcon class="h-4 w-4" />
+		</Dialog.Close>
 		<Dialog.Header>
 			<div class="flex items-center gap-3">
 				<div
