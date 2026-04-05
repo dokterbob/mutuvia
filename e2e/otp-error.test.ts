@@ -24,14 +24,16 @@ async function navigateToOtpPage(page: Page, userEmail: string) {
 }
 
 test.describe.serial('OTP error handling', () => {
+	test.beforeEach(async ({ page, email }) => {
+		await navigateToOtpPage(page, email('user'));
+	});
+
 	test.afterEach(async ({ email }) => {
 		await deleteTestUser(email('user'));
 		clearOTPs(email('user'));
 	});
 
-	test('wrong OTP shows error and stays on OTP page', async ({ page, email }) => {
-		await navigateToOtpPage(page, email('user'));
-
+	test('wrong OTP shows error and stays on OTP page', async ({ page }) => {
 		await page.locator('input[inputmode="numeric"]').pressSequentially('000000');
 
 		await expect(page.locator('.text-red-600')).toBeVisible({ timeout: 10_000 });
@@ -40,8 +42,6 @@ test.describe.serial('OTP error handling', () => {
 	});
 
 	test('correct OTP after failed attempt succeeds', async ({ page, email }) => {
-		await navigateToOtpPage(page, email('user'));
-
 		const otp = await getOTP(email('user'));
 
 		await page.locator('input[inputmode="numeric"]').pressSequentially('000000');
@@ -51,9 +51,7 @@ test.describe.serial('OTP error handling', () => {
 		await expect(page).toHaveURL(/\/onboarding\/verified/, { timeout: 10_000 });
 	});
 
-	test('OTP input is auto-focused on page load', async ({ page, email }) => {
-		await navigateToOtpPage(page, email('user'));
-
+	test('OTP input is auto-focused on page load', async ({ page }) => {
 		await expect(page.locator('input[inputmode="numeric"]')).toBeFocused();
 	});
 });

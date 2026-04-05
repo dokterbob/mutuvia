@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Tests for loading spinner wiring on the onboarding phone page.
 
-import { vi, describe, test, expect } from 'vitest';
+import { vi, describe, test, expect, beforeEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import PhonePage from './+page.svelte';
 
@@ -37,9 +37,15 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 }));
 
 describe('phone page – loading spinner', () => {
-	test('submit button shows spinner while sending OTP', async () => {
+	let sendOtpMock: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
 		const { authClient } = await import('$lib/auth-client');
-		vi.mocked(authClient.phoneNumber.sendOtp).mockReturnValue(new Promise(() => {}));
+		sendOtpMock = vi.mocked(authClient.phoneNumber.sendOtp);
+	});
+
+	test('submit button shows spinner while sending OTP', async () => {
+		sendOtpMock.mockReturnValue(new Promise(() => {}));
 
 		const { container } = render(PhonePage);
 
@@ -57,8 +63,7 @@ describe('phone page – loading spinner', () => {
 	});
 
 	test('submit button clears spinner after OTP sent', async () => {
-		const { authClient } = await import('$lib/auth-client');
-		vi.mocked(authClient.phoneNumber.sendOtp).mockResolvedValue({ error: null } as never);
+		sendOtpMock.mockResolvedValue({ error: null } as never);
 
 		const { container } = render(PhonePage);
 
@@ -77,8 +82,7 @@ describe('phone page – loading spinner', () => {
 	});
 
 	test('submit button clears spinner on error', async () => {
-		const { authClient } = await import('$lib/auth-client');
-		vi.mocked(authClient.phoneNumber.sendOtp).mockResolvedValue({
+		sendOtpMock.mockResolvedValue({
 			error: { message: 'Too many attempts' }
 		} as never);
 

@@ -5,20 +5,21 @@ test.describe('PWA head tags', () => {
 	// Use /faq — it is public and renders the full SvelteKit layout without
 	// redirecting. The root / route redirects unauthenticated visitors to
 	// /onboarding, which would leave the head populated by the redirect target.
-	test('manifest link is present', async ({ page }) => {
+	test.beforeEach(async ({ page }) => {
 		await goto(page, '/faq');
+	});
+
+	test('manifest link is present', async ({ page }) => {
 		const manifest = page.locator('link[rel="manifest"]');
 		await expect(manifest).toHaveAttribute('href', '/manifest.webmanifest');
 	});
 
 	test('theme-color meta is present', async ({ page }) => {
-		await goto(page, '/faq');
 		const themeColor = page.locator('meta[name="theme-color"]');
 		await expect(themeColor).toHaveAttribute('content', '#2D4A32');
 	});
 
 	test('apple-touch-icon link is present', async ({ page }) => {
-		await goto(page, '/faq');
 		// Playwright resolves relative href values to absolute URLs, so match
 		// on the path suffix rather than the literal attribute value.
 		const appleTouchIcon = page.locator('link[rel="apple-touch-icon"]');
@@ -28,11 +29,15 @@ test.describe('PWA head tags', () => {
 });
 
 test.describe('PWA manifest content', () => {
-	test('manifest returns 200 with correct JSON fields', async ({ page }) => {
-		const response = await page.request.get('/manifest.webmanifest');
-		expect(response.status()).toBe(200);
+	let manifest: Record<string, unknown>;
 
-		const manifest = await response.json();
+	test.beforeEach(async ({ request }) => {
+		const response = await request.get('/manifest.webmanifest');
+		expect(response.status()).toBe(200);
+		manifest = await response.json();
+	});
+
+	test('manifest returns 200 with correct JSON fields', async () => {
 		expect(manifest.name).toBe('Mutuvia');
 		expect(manifest.short_name).toBe('Mutuvia');
 		expect(manifest.display).toBe('standalone');
@@ -41,22 +46,22 @@ test.describe('PWA manifest content', () => {
 		expect(manifest.start_url).toBe('/');
 	});
 
-	test('manifest icons array has at least 3 entries', async ({ page }) => {
-		const response = await page.request.get('/manifest.webmanifest');
-		const manifest = await response.json();
+	test('manifest icons array has at least 3 entries', async () => {
 		expect(Array.isArray(manifest.icons)).toBe(true);
-		expect(manifest.icons.length).toBeGreaterThanOrEqual(3);
+		expect((manifest.icons as unknown[]).length).toBeGreaterThanOrEqual(3);
 	});
 });
 
 test.describe('Offline fallback page', () => {
-	test('shows "You\'re offline" heading', async ({ page }) => {
+	test.beforeEach(async ({ page }) => {
 		await page.goto('/offline.html');
+	});
+
+	test('shows "You\'re offline" heading', async ({ page }) => {
 		await expect(page.getByRole('heading', { name: "You're offline" })).toBeVisible();
 	});
 
 	test('shows "Try again" button', async ({ page }) => {
-		await page.goto('/offline.html');
 		await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
 	});
 });

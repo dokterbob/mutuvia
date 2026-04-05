@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Settlement → notification fanout regression tests for issue #82.
 //
-// Before the fix, the `accept` action in src/routes/accept/[token]/+page.server.ts
-// wrapped its entire notification block in a broad try/catch. If anything threw
-// before emit() was called (e.g. formatAmount, a DB look-up), the SSE event was
-// silently swallowed. The decline action had no such guard, which is why decline
-// still worked.
+// Before the fix, the `accept` action in +page.server.ts wrapped its entire
+// notification block in a broad try/catch. If anything threw before emit() was
+// called (e.g. formatAmount, a DB look-up), the SSE event was silently
+// swallowed. The decline action had no such guard, which is why decline still
+// worked.
 //
 // Tests marked "[resilience]" guard against this regression long-term.
 
@@ -127,7 +127,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 // Import AFTER mocks are registered
-import { actions } from '../../src/routes/accept/[token]/+page.server';
+import { actions } from './+page.server';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -211,125 +211,107 @@ describe('settlement → notification fanout', () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// Accept — happy path
-	// -------------------------------------------------------------------------
+	describe('accept — happy path', () => {
+		beforeEach(() => {
+			selectLimitFn
+				.mockResolvedValueOnce([pendingQrRecord])
+				.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+		});
 
-	it('emits qr_completed via SSE registry for the initiating user after accept', async () => {
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+		it('emits qr_completed via SSE registry for the initiating user', async () => {
+			await runAction(() => actions.accept(makeAcceptEvent()));
 
-		await runAction(() => actions.accept(makeAcceptEvent()));
+			expect(emitMock).toHaveBeenCalledWith(
+				INITIATOR_ID,
+				expect.objectContaining({
+					type: 'qr_completed',
+					qrId: QR_ID,
+					otherName: 'Bob',
+					formattedAmount: '€10.00'
+				})
+			);
+		});
 
-		expect(emitMock).toHaveBeenCalledWith(
-			INITIATOR_ID,
-			expect.objectContaining({
-				type: 'qr_completed',
-				qrId: QR_ID,
-				otherName: 'Bob',
-				formattedAmount: '€10.00'
-			})
-		);
+		it('emits qr_completed via SSE registry for the accepting user', async () => {
+			await runAction(() => actions.accept(makeAcceptEvent()));
+
+			expect(emitMock).toHaveBeenCalledWith(
+				ACCEPTOR_ID,
+				expect.objectContaining({
+					type: 'qr_completed',
+					qrId: QR_ID,
+					otherName: 'Alice',
+					formattedAmount: '€10.00'
+				})
+			);
+		});
+
+		it('calls sendPushToUser for the initiating user', async () => {
+			await runAction(() => actions.accept(makeAcceptEvent()));
+
+			expect(sendPushMock).toHaveBeenCalledWith(
+				INITIATOR_ID,
+				expect.objectContaining({ type: 'qr_completed' })
+			);
+		});
+
+		it('does NOT call sendPushToUser for the accepting user (they are present)', async () => {
+			await runAction(() => actions.accept(makeAcceptEvent()));
+
+			const calledWithAcceptor = sendPushMock.mock.calls.some(([userId]) => userId === ACCEPTOR_ID);
+			expect(calledWithAcceptor).toBe(false);
+		});
 	});
 
-	it('emits qr_completed via SSE registry for the accepting user after accept', async () => {
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+	describe('accept — resilience', () => {
+		// Note: formatAmount() is now resilient at the source — it catches
+		// getLocale() failures and returns a locale-independent fallback instead of
+		// throwing. That behaviour is tested directly in currency.test.ts.
+		// This test guards against the DB lookup failure case which can still occur.
 
-		await runAction(() => actions.accept(makeAcceptEvent()));
+		it('[resilience] emits SSE event to initiator even if display name lookup fails', async () => {
+			selectLimitFn
+				.mockResolvedValueOnce([pendingQrRecord])
+				.mockRejectedValueOnce(new Error('DB connection lost'));
 
-		expect(emitMock).toHaveBeenCalledWith(
-			ACCEPTOR_ID,
-			expect.objectContaining({
-				type: 'qr_completed',
-				qrId: QR_ID,
-				otherName: 'Alice',
-				formattedAmount: '€10.00'
-			})
-		);
+			await runAction(() => actions.accept(makeAcceptEvent()));
+
+			// Must still emit with a fallback name — DB failure must not silently block notifications.
+			expect(emitMock).toHaveBeenCalledWith(
+				INITIATOR_ID,
+				expect.objectContaining({ type: 'qr_completed', qrId: QR_ID })
+			);
+		});
 	});
 
-	it('calls sendPushToUser for the initiating user', async () => {
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+	describe('settlement integrity', () => {
+		it('settlement remains committed if sendPushToUser throws', async () => {
+			selectLimitFn
+				.mockResolvedValueOnce([pendingQrRecord])
+				.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+			sendPushMock.mockRejectedValue(new Error('Push service unavailable'));
 
-		await runAction(() => actions.accept(makeAcceptEvent()));
+			// Must not propagate the push error
+			await expect(runAction(() => actions.accept(makeAcceptEvent()))).resolves.toBeUndefined();
 
-		expect(sendPushMock).toHaveBeenCalledWith(
-			INITIATOR_ID,
-			expect.objectContaining({ type: 'qr_completed' })
-		);
+			// DB mutations still executed
+			expect(dbInsertMock).toHaveBeenCalled();
+			expect(dbUpdateMock).toHaveBeenCalled();
+			expect(upsertConnectionMock).toHaveBeenCalled();
+		});
 	});
 
-	it('does NOT call sendPushToUser for the accepting user (they are present)', async () => {
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+	describe('decline', () => {
+		it('emits qr_declined to initiator when the decline action is called', async () => {
+			verifyQrTokenMock.mockResolvedValue({ jti: QR_ID });
+			selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID }]);
 
-		await runAction(() => actions.accept(makeAcceptEvent()));
+			await runAction(() => actions.decline(makeDeclineEvent()));
 
-		const calledWithAcceptor = sendPushMock.mock.calls.some(([userId]) => userId === ACCEPTOR_ID);
-		expect(calledWithAcceptor).toBe(false);
-	});
-
-	// -------------------------------------------------------------------------
-	// Accept — resilience
-	// -------------------------------------------------------------------------
-
-	// Note: formatAmount() is now resilient at the source — it catches
-	// getLocale() failures and returns a locale-independent fallback instead of
-	// throwing. That behaviour is tested directly in currency.test.ts.
-	// This test guards against the DB lookup failure case which can still occur.
-
-	it('[resilience] emits SSE event to initiator even if display name lookup fails', async () => {
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockRejectedValueOnce(new Error('DB connection lost'));
-
-		await runAction(() => actions.accept(makeAcceptEvent()));
-
-		// Must still emit with a fallback name — DB failure must not silently block notifications.
-		expect(emitMock).toHaveBeenCalledWith(
-			INITIATOR_ID,
-			expect.objectContaining({ type: 'qr_completed', qrId: QR_ID })
-		);
-	});
-
-	// -------------------------------------------------------------------------
-	// Settlement integrity
-	// -------------------------------------------------------------------------
-
-	it('settlement remains committed if sendPushToUser throws', async () => {
-		selectLimitFn
-			.mockResolvedValueOnce([pendingQrRecord])
-			.mockResolvedValueOnce([{ displayName: 'Alice' }]);
-		sendPushMock.mockRejectedValue(new Error('Push service unavailable'));
-
-		// Must not propagate the push error
-		await expect(runAction(() => actions.accept(makeAcceptEvent()))).resolves.toBeUndefined();
-
-		// DB mutations still executed
-		expect(dbInsertMock).toHaveBeenCalled();
-		expect(dbUpdateMock).toHaveBeenCalled();
-		expect(upsertConnectionMock).toHaveBeenCalled();
-	});
-
-	// -------------------------------------------------------------------------
-	// Decline
-	// -------------------------------------------------------------------------
-
-	it('emits qr_declined to initiator when the decline action is called', async () => {
-		verifyQrTokenMock.mockResolvedValue({ jti: QR_ID });
-		selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID }]);
-
-		await runAction(() => actions.decline(makeDeclineEvent()));
-
-		expect(emitMock).toHaveBeenCalledWith(
-			INITIATOR_ID,
-			expect.objectContaining({ type: 'qr_declined', qrId: QR_ID })
-		);
+			expect(emitMock).toHaveBeenCalledWith(
+				INITIATOR_ID,
+				expect.objectContaining({ type: 'qr_declined', qrId: QR_ID })
+			);
+		});
 	});
 });

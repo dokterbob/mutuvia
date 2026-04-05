@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Tests for loading spinner wiring on the onboarding OTP page.
 
-import { vi, describe, test, expect } from 'vitest';
+import { vi, describe, test, expect, beforeEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import OtpPage from './+page.svelte';
 
@@ -41,9 +41,15 @@ const mockData = {
 };
 
 describe('OTP page – loading spinner', () => {
-	test('verify button shows spinner while verifying OTP', async () => {
+	let verifyMock: ReturnType<typeof vi.fn>;
+
+	beforeEach(async () => {
 		const { authClient } = await import('$lib/auth-client');
-		vi.mocked(authClient.phoneNumber.verify).mockReturnValue(new Promise(() => {}));
+		verifyMock = vi.mocked(authClient.phoneNumber.verify);
+	});
+
+	test('verify button shows spinner while verifying OTP', async () => {
+		verifyMock.mockReturnValue(new Promise(() => {}));
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const { container } = render(OtpPage, { props: { data: mockData as any } });
@@ -66,8 +72,7 @@ describe('OTP page – loading spinner', () => {
 	});
 
 	test('verify button clears spinner after successful verification', async () => {
-		const { authClient } = await import('$lib/auth-client');
-		vi.mocked(authClient.phoneNumber.verify).mockResolvedValue({ error: null } as never);
+		verifyMock.mockResolvedValue({ error: null } as never);
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const { container } = render(OtpPage, { props: { data: mockData as any } });
@@ -87,8 +92,7 @@ describe('OTP page – loading spinner', () => {
 	});
 
 	test('verify button clears spinner on verification error', async () => {
-		const { authClient } = await import('$lib/auth-client');
-		vi.mocked(authClient.phoneNumber.verify).mockResolvedValue({
+		verifyMock.mockResolvedValue({
 			error: { message: 'Invalid code' }
 		} as never);
 

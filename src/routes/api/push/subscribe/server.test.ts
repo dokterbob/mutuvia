@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Integration tests for the push notification subscribe/unsubscribe API endpoints.
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -84,28 +82,31 @@ vi.mock('@sveltejs/kit', () => ({
 }));
 
 // Import AFTER mocks
-import { POST as subscribePOST } from '../../src/routes/api/push/subscribe/+server';
-import { POST as unsubscribePOST } from '../../src/routes/api/push/unsubscribe/+server';
+import { POST as subscribePOST } from './+server';
+import { POST as unsubscribePOST } from '../unsubscribe/+server';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeSubscribeEvent(overrides: Record<string, unknown> = {}) {
+function makeSubscribeRequest(bodyOverrides: Record<string, unknown> = {}) {
 	const body = {
 		endpoint: 'https://fcm.googleapis.com/test-endpoint',
 		keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
 		userAgent: 'test-agent',
-		...((overrides.body as object | undefined) ?? {})
+		...bodyOverrides
 	};
-	const request = new Request('http://localhost/api/push/subscribe', {
+	return new Request('http://localhost/api/push/subscribe', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
+}
+
+function makeSubscribeEvent(overrides: Record<string, unknown> = {}) {
 	return {
 		locals: { appUser: { id: 'user-123', displayName: 'Alice' } },
-		request,
+		request: makeSubscribeRequest(),
 		...overrides
 	};
 }
@@ -140,58 +141,64 @@ describe('POST /api/push/subscribe', () => {
 		randomUUIDMock.mockReturnValue('test-uuid-1234');
 	});
 
-	it('returns 401 when unauthenticated', async () => {
-		const event = makeSubscribeEvent({ locals: {} });
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await subscribePOST(event as any);
-		expect(res.status).toBe(401);
-	});
-
-	it('returns 400 when endpoint is missing', async () => {
-		const request = new Request('http://localhost/api/push/subscribe', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ keys: { p256dh: 'x', auth: 'y' } })
+	describe('given an unauthenticated request', () => {
+		it('returns 401', async () => {
+			const event = makeSubscribeEvent({ locals: {} });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(event as any);
+			expect(res.status).toBe(401);
 		});
-		const event = { locals: { appUser: { id: 'user-123' } }, request };
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await subscribePOST(event as any);
-		expect(res.status).toBe(400);
 	});
 
-	it('returns 400 when keys are missing', async () => {
-		const request = new Request('http://localhost/api/push/subscribe', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ endpoint: 'https://fcm.test' })
+	describe('given an authenticated request with an invalid body', () => {
+		it('returns 400 when endpoint is missing', async () => {
+			const request = new Request('http://localhost/api/push/subscribe', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ keys: { p256dh: 'x', auth: 'y' } })
+			});
+			const event = { locals: { appUser: { id: 'user-123' } }, request };
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(event as any);
+			expect(res.status).toBe(400);
 		});
-		const event = { locals: { appUser: { id: 'user-123' } }, request };
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await subscribePOST(event as any);
-		expect(res.status).toBe(400);
+
+		it('returns 400 when keys are missing', async () => {
+			const request = new Request('http://localhost/api/push/subscribe', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ endpoint: 'https://fcm.test' })
+			});
+			const event = { locals: { appUser: { id: 'user-123' } }, request };
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(event as any);
+			expect(res.status).toBe(400);
+		});
 	});
 
-	it('stores the subscription and returns 201 when new', async () => {
-		// select returns the newly inserted row (id matches randomUUID → new)
-		selectLimitFn.mockResolvedValueOnce([{ id: 'test-uuid-1234' }]);
+	describe('given an authenticated request with a valid body', () => {
+		it('stores the subscription and returns 201 when new', async () => {
+			// select returns the newly inserted row (id matches randomUUID → new)
+			selectLimitFn.mockResolvedValueOnce([{ id: 'test-uuid-1234' }]);
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await subscribePOST(makeSubscribeEvent() as any);
-		expect(res.status).toBe(201);
-		const body = await res.json();
-		expect(body.id).toBe('test-uuid-1234');
-		expect(dbInsertMock).toHaveBeenCalled();
-	});
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(makeSubscribeEvent() as any);
+			expect(res.status).toBe(201);
+			const body = await res.json();
+			expect(body.id).toBe('test-uuid-1234');
+			expect(dbInsertMock).toHaveBeenCalled();
+		});
 
-	it('is idempotent — returns 200 with pre-existing id on re-subscribe', async () => {
-		// select returns a pre-existing row (id differs from randomUUID → existing)
-		selectLimitFn.mockResolvedValueOnce([{ id: 'existing-uuid' }]);
+		it('is idempotent — returns 200 with pre-existing id on re-subscribe', async () => {
+			// select returns a pre-existing row (id differs from randomUUID → existing)
+			selectLimitFn.mockResolvedValueOnce([{ id: 'existing-uuid' }]);
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await subscribePOST(makeSubscribeEvent() as any);
-		expect(res.status).toBe(200);
-		const body = await res.json();
-		expect(body.id).toBe('existing-uuid');
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(makeSubscribeEvent() as any);
+			expect(res.status).toBe(200);
+			const body = await res.json();
+			expect(body.id).toBe('existing-uuid');
+		});
 	});
 });
 
@@ -201,25 +208,29 @@ describe('POST /api/push/unsubscribe', () => {
 		deleteWhereFn.mockResolvedValue(undefined);
 	});
 
-	it('returns 401 when unauthenticated', async () => {
-		const event = makeUnsubscribeEvent({ locals: {} });
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await unsubscribePOST(event as any);
-		expect(res.status).toBe(401);
+	describe('given an unauthenticated request', () => {
+		it('returns 401', async () => {
+			const event = makeUnsubscribeEvent({ locals: {} });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await unsubscribePOST(event as any);
+			expect(res.status).toBe(401);
+		});
 	});
 
-	it('removes the subscription and returns 200', async () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await unsubscribePOST(makeUnsubscribeEvent() as any);
-		expect(res.status).toBe(200);
-		expect(dbDeleteMock).toHaveBeenCalled();
-	});
+	describe('given an authenticated request', () => {
+		it('removes the subscription and returns 200', async () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await unsubscribePOST(makeUnsubscribeEvent() as any);
+			expect(res.status).toBe(200);
+			expect(dbDeleteMock).toHaveBeenCalled();
+		});
 
-	it('returns 200 even when endpoint was not found (idempotent)', async () => {
-		// delete is always called; success regardless of whether row existed
-		deleteWhereFn.mockResolvedValue(undefined);
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const res = await unsubscribePOST(makeUnsubscribeEvent() as any);
-		expect(res.status).toBe(200);
+		it('returns 200 even when endpoint was not found (idempotent)', async () => {
+			// delete is always called; success regardless of whether row existed
+			deleteWhereFn.mockResolvedValue(undefined);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await unsubscribePOST(makeUnsubscribeEvent() as any);
+			expect(res.status).toBe(200);
+		});
 	});
 });

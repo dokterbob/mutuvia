@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { routeNotificationEvent, type SwContext, type WindowClient } from './sw-router';
 import type { QrCompletedEvent, QrDeclinedEvent, BalanceChangedEvent } from './notifications';
 
@@ -44,55 +44,87 @@ const balanceChanged: BalanceChangedEvent = {
 // ---------------------------------------------------------------------------
 
 describe('routeNotificationEvent — window focus routing', () => {
-	it('given a focused window: calls postMessage and does NOT call showNotification', async () => {
-		const focusedClient: WindowClient = { focused: true, postMessage: vi.fn() };
-		const ctx = makeCtx([focusedClient]);
+	describe('given a focused window', () => {
+		let ctx: SwContext;
+		let focusedClient: WindowClient;
 
-		await routeNotificationEvent(ctx, qrCompleted);
-
-		expect(focusedClient.postMessage).toHaveBeenCalledOnce();
-		expect(focusedClient.postMessage).toHaveBeenCalledWith({
-			type: 'push-notification',
-			payload: qrCompleted
+		beforeEach(() => {
+			focusedClient = { focused: true, postMessage: vi.fn() };
+			ctx = makeCtx([focusedClient]);
 		});
-		expect(ctx.registration.showNotification).not.toHaveBeenCalled();
+
+		it('calls postMessage and does NOT call showNotification', async () => {
+			await routeNotificationEvent(ctx, qrCompleted);
+
+			expect(focusedClient.postMessage).toHaveBeenCalledOnce();
+			expect(focusedClient.postMessage).toHaveBeenCalledWith({
+				type: 'push-notification',
+				payload: qrCompleted
+			});
+			expect(ctx.registration.showNotification).not.toHaveBeenCalled();
+		});
 	});
 
-	it('given an unfocused window: calls showNotification and does NOT call postMessage', async () => {
-		const unfocusedClient: WindowClient = { focused: false, postMessage: vi.fn() };
-		const ctx = makeCtx([unfocusedClient]);
+	describe('given an unfocused window', () => {
+		let ctx: SwContext;
+		let unfocusedClient: WindowClient;
 
-		await routeNotificationEvent(ctx, qrCompleted);
+		beforeEach(() => {
+			unfocusedClient = { focused: false, postMessage: vi.fn() };
+			ctx = makeCtx([unfocusedClient]);
+		});
 
-		expect(unfocusedClient.postMessage).not.toHaveBeenCalled();
-		expect(ctx.registration.showNotification).toHaveBeenCalledOnce();
+		it('calls showNotification and does NOT call postMessage', async () => {
+			await routeNotificationEvent(ctx, qrCompleted);
+
+			expect(unfocusedClient.postMessage).not.toHaveBeenCalled();
+			expect(ctx.registration.showNotification).toHaveBeenCalledOnce();
+		});
 	});
 
-	it('given no windows: calls showNotification', async () => {
-		const ctx = makeCtx([]);
+	describe('given no windows', () => {
+		let ctx: SwContext;
 
-		await routeNotificationEvent(ctx, qrCompleted);
+		beforeEach(() => {
+			ctx = makeCtx([]);
+		});
 
-		expect(ctx.registration.showNotification).toHaveBeenCalledOnce();
+		it('calls showNotification', async () => {
+			await routeNotificationEvent(ctx, qrCompleted);
+
+			expect(ctx.registration.showNotification).toHaveBeenCalledOnce();
+		});
 	});
 
-	it('picks the focused client when a mix of focused and unfocused clients exists', async () => {
-		const unfocused: WindowClient = { focused: false, postMessage: vi.fn() };
-		const focused: WindowClient = { focused: true, postMessage: vi.fn() };
-		const ctx = makeCtx([unfocused, focused]);
+	describe('given a mix of focused and unfocused clients', () => {
+		let ctx: SwContext;
+		let focused: WindowClient;
+		let unfocused: WindowClient;
 
-		await routeNotificationEvent(ctx, qrCompleted);
+		beforeEach(() => {
+			unfocused = { focused: false, postMessage: vi.fn() };
+			focused = { focused: true, postMessage: vi.fn() };
+			ctx = makeCtx([unfocused, focused]);
+		});
 
-		expect(focused.postMessage).toHaveBeenCalledOnce();
-		expect(unfocused.postMessage).not.toHaveBeenCalled();
-		expect(ctx.registration.showNotification).not.toHaveBeenCalled();
+		it('picks the focused client', async () => {
+			await routeNotificationEvent(ctx, qrCompleted);
+
+			expect(focused.postMessage).toHaveBeenCalledOnce();
+			expect(unfocused.postMessage).not.toHaveBeenCalled();
+			expect(ctx.registration.showNotification).not.toHaveBeenCalled();
+		});
 	});
 });
 
 describe('routeNotificationEvent — notification content', () => {
-	it('qr_completed: title is "Transaction settled" and body includes otherName and formattedAmount', async () => {
-		const ctx = makeCtx([]);
+	let ctx: SwContext;
 
+	beforeEach(() => {
+		ctx = makeCtx([]);
+	});
+
+	it('qr_completed: title is "Transaction settled" and body includes otherName and formattedAmount', async () => {
 		await routeNotificationEvent(ctx, qrCompleted);
 
 		expect(ctx.registration.showNotification).toHaveBeenCalledWith(
@@ -108,8 +140,6 @@ describe('routeNotificationEvent — notification content', () => {
 	});
 
 	it('qr_declined: title is "Transaction declined"', async () => {
-		const ctx = makeCtx([]);
-
 		await routeNotificationEvent(ctx, qrDeclined);
 
 		expect(ctx.registration.showNotification).toHaveBeenCalledWith(
@@ -119,8 +149,6 @@ describe('routeNotificationEvent — notification content', () => {
 	});
 
 	it('balance_changed: title is "Balance updated" and body is the formattedBalance', async () => {
-		const ctx = makeCtx([]);
-
 		await routeNotificationEvent(ctx, balanceChanged);
 
 		expect(ctx.registration.showNotification).toHaveBeenCalledWith(

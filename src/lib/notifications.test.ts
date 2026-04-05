@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	handleNotificationEvent,
 	SeenEventIds,
@@ -9,87 +9,94 @@ import {
 	type NotificationHandlers
 } from './notifications';
 
+const qrCompleted: QrCompletedEvent = {
+	type: 'qr_completed',
+	id: 'evt-1',
+	qrId: 'qr-abc',
+	otherName: 'Alice',
+	formattedAmount: '€10.00'
+};
+
+const qrDeclined: QrDeclinedEvent = {
+	type: 'qr_declined',
+	id: 'evt-2',
+	qrId: 'qr-abc'
+};
+
+const balanceChanged: BalanceChangedEvent = {
+	type: 'balance_changed',
+	id: 'evt-3',
+	newBalance: 500,
+	formattedBalance: '€5.00'
+};
+
 describe('handleNotificationEvent', () => {
-	const qrCompleted: QrCompletedEvent = {
-		type: 'qr_completed',
-		id: 'evt-1',
-		qrId: 'qr-abc',
-		otherName: 'Alice',
-		formattedAmount: '€10.00'
-	};
+	describe('given a fresh SeenEventIds set', () => {
+		let seen: SeenEventIds;
 
-	const qrDeclined: QrDeclinedEvent = {
-		type: 'qr_declined',
-		id: 'evt-2',
-		qrId: 'qr-abc'
-	};
+		beforeEach(() => {
+			seen = new SeenEventIds();
+		});
 
-	const balanceChanged: BalanceChangedEvent = {
-		type: 'balance_changed',
-		id: 'evt-3',
-		newBalance: 500,
-		formattedBalance: '€5.00'
-	};
+		it('dispatches qr_completed to onQrCompleted handler', () => {
+			const handlers: NotificationHandlers = { onQrCompleted: vi.fn() };
+			handleNotificationEvent(qrCompleted, handlers, seen);
+			expect(handlers.onQrCompleted).toHaveBeenCalledOnce();
+			expect(handlers.onQrCompleted).toHaveBeenCalledWith(qrCompleted);
+		});
 
-	it('dispatches qr_completed to onQrCompleted handler', () => {
-		const handlers: NotificationHandlers = { onQrCompleted: vi.fn() };
-		const seen = new SeenEventIds();
-		handleNotificationEvent(qrCompleted, handlers, seen);
-		expect(handlers.onQrCompleted).toHaveBeenCalledOnce();
-		expect(handlers.onQrCompleted).toHaveBeenCalledWith(qrCompleted);
+		it('dispatches qr_declined to onQrDeclined handler', () => {
+			const handlers: NotificationHandlers = { onQrDeclined: vi.fn() };
+			handleNotificationEvent(qrDeclined, handlers, seen);
+			expect(handlers.onQrDeclined).toHaveBeenCalledOnce();
+			expect(handlers.onQrDeclined).toHaveBeenCalledWith(qrDeclined);
+		});
+
+		it('dispatches balance_changed to onBalanceChanged handler', () => {
+			const handlers: NotificationHandlers = { onBalanceChanged: vi.fn() };
+			handleNotificationEvent(balanceChanged, handlers, seen);
+			expect(handlers.onBalanceChanged).toHaveBeenCalledOnce();
+			expect(handlers.onBalanceChanged).toHaveBeenCalledWith(balanceChanged);
+		});
+
+		it('returns true on the first call for a given event id', () => {
+			const result = handleNotificationEvent(qrCompleted, {}, seen);
+			expect(result).toBe(true);
+		});
+
+		it('does not throw when no handler is registered for an event type', () => {
+			expect(() => handleNotificationEvent(qrCompleted, {}, seen)).not.toThrow();
+			expect(() => handleNotificationEvent(qrDeclined, {}, seen)).not.toThrow();
+			expect(() => handleNotificationEvent(balanceChanged, {}, seen)).not.toThrow();
+		});
+
+		it('treats events with different ids as distinct even if same type', () => {
+			const handlers: NotificationHandlers = { onQrCompleted: vi.fn() };
+			const second: QrCompletedEvent = { ...qrCompleted, id: 'evt-1b' };
+			handleNotificationEvent(qrCompleted, handlers, seen);
+			handleNotificationEvent(second, handlers, seen);
+			expect(handlers.onQrCompleted).toHaveBeenCalledTimes(2);
+		});
 	});
 
-	it('dispatches qr_declined to onQrDeclined handler', () => {
-		const handlers: NotificationHandlers = { onQrDeclined: vi.fn() };
-		const seen = new SeenEventIds();
-		handleNotificationEvent(qrDeclined, handlers, seen);
-		expect(handlers.onQrDeclined).toHaveBeenCalledOnce();
-		expect(handlers.onQrDeclined).toHaveBeenCalledWith(qrDeclined);
-	});
+	describe('given a duplicate event id', () => {
+		let seen: SeenEventIds;
 
-	it('dispatches balance_changed to onBalanceChanged handler', () => {
-		const handlers: NotificationHandlers = { onBalanceChanged: vi.fn() };
-		const seen = new SeenEventIds();
-		handleNotificationEvent(balanceChanged, handlers, seen);
-		expect(handlers.onBalanceChanged).toHaveBeenCalledOnce();
-		expect(handlers.onBalanceChanged).toHaveBeenCalledWith(balanceChanged);
-	});
+		beforeEach(() => {
+			seen = new SeenEventIds();
+			handleNotificationEvent(qrCompleted, {}, seen);
+		});
 
-	it('returns true on the first call for a given event id', () => {
-		const seen = new SeenEventIds();
-		const result = handleNotificationEvent(qrCompleted, {}, seen);
-		expect(result).toBe(true);
-	});
+		it('returns false on a duplicate event id', () => {
+			const result = handleNotificationEvent(qrCompleted, {}, seen);
+			expect(result).toBe(false);
+		});
 
-	it('returns false on a duplicate event id', () => {
-		const seen = new SeenEventIds();
-		handleNotificationEvent(qrCompleted, {}, seen);
-		const result = handleNotificationEvent(qrCompleted, {}, seen);
-		expect(result).toBe(false);
-	});
-
-	it('does not call the handler for a duplicate event id', () => {
-		const handlers: NotificationHandlers = { onQrCompleted: vi.fn() };
-		const seen = new SeenEventIds();
-		handleNotificationEvent(qrCompleted, handlers, seen);
-		handleNotificationEvent(qrCompleted, handlers, seen);
-		expect(handlers.onQrCompleted).toHaveBeenCalledOnce();
-	});
-
-	it('does not throw when no handler is registered for an event type', () => {
-		const seen = new SeenEventIds();
-		expect(() => handleNotificationEvent(qrCompleted, {}, seen)).not.toThrow();
-		expect(() => handleNotificationEvent(qrDeclined, {}, seen)).not.toThrow();
-		expect(() => handleNotificationEvent(balanceChanged, {}, seen)).not.toThrow();
-	});
-
-	it('treats events with different ids as distinct even if same type', () => {
-		const handlers: NotificationHandlers = { onQrCompleted: vi.fn() };
-		const seen = new SeenEventIds();
-		const second: QrCompletedEvent = { ...qrCompleted, id: 'evt-1b' };
-		handleNotificationEvent(qrCompleted, handlers, seen);
-		handleNotificationEvent(second, handlers, seen);
-		expect(handlers.onQrCompleted).toHaveBeenCalledTimes(2);
+		it('does not call the handler for a duplicate event id', () => {
+			const handlers: NotificationHandlers = { onQrCompleted: vi.fn() };
+			handleNotificationEvent(qrCompleted, handlers, seen);
+			expect(handlers.onQrCompleted).not.toHaveBeenCalled();
+		});
 	});
 });
 
