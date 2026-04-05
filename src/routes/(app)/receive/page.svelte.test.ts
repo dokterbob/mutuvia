@@ -31,17 +31,6 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	receive_note_placeholder: () => 'Add a note',
 	receive_cta: () => 'Generate QR',
 	consent_back: () => 'Back',
-	qr_share_text: ({ amount, appName }: { amount: string; appName: string }) =>
-		`${amount} of credit through ${appName}.`,
-	qr_share_text_with_note: ({
-		amount,
-		note,
-		appName
-	}: {
-		amount: string;
-		note: string;
-		appName: string;
-	}) => `${amount} for "${note}" through ${appName}.`,
 	qr_copy_link: () => 'Copy link',
 	qr_share: () => 'Share',
 	qr_expires: ({ time }: { time: string }) => `Expires ${time}`,

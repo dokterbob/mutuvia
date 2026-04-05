@@ -43,6 +43,12 @@ describe('formatAmount', () => {
 		expect(formatAmount(1)).toMatch(/€\s*0\.01/);
 	});
 
+	test('uses the provided locale when given explicitly', () => {
+		getLocaleMock.mockReturnValue('de');
+		// German locale formats as "10,00 €", but explicit 'en' should give English format
+		expect(formatAmount(1000, 'en')).toMatch(/€\s*10\.00/);
+	});
+
 	test('returns locale-independent fallback when getLocale() throws', () => {
 		getLocaleMock.mockImplementationOnce(() => {
 			throw new Error('No AsyncLocalStorage context');

@@ -9,14 +9,20 @@ import { randomUUID } from 'crypto';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
 import { getPendingItemById } from '$lib/server/pending-qr';
+import { shareText } from '$lib/server/share-text';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const appUser = locals.appUser!;
 
 	const resumeQrId = url.searchParams.get('qrId');
-	let resumeQr: { qrUrl: string; qrId: string; expiresAt: string; isExpired: boolean } | null =
-		null;
+	let resumeQr: {
+		qrUrl: string;
+		qrId: string;
+		expiresAt: string;
+		isExpired: boolean;
+		shareDescription?: string;
+	} | null = null;
 
 	if (resumeQrId) {
 		const item = await getPendingItemById(resumeQrId, appUser.id);
@@ -38,7 +44,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 					qrUrl: buildQrUrl(token),
 					qrId: item.id,
 					expiresAt: item.expiresAt.toISOString(),
-					isExpired: false
+					isExpired: false,
+					shareDescription: shareText(item.amount, item.note)
 				};
 			}
 		}
@@ -98,7 +105,8 @@ export const actions: Actions = {
 		return {
 			qrUrl: buildQrUrl(token),
 			qrId,
-			expiresAt: new Date(now.getTime() + ttl * 1000).toISOString()
+			expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
+			shareDescription: shareText(amount, note)
 		};
 	},
 
