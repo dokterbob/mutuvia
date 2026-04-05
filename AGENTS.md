@@ -90,7 +90,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
 **Approach**: TDD + BDD-style naming (`describe`/`test`, nested Given-When-Then) — tests are the spec.
 
-**Layers**: unit (`foo.test.ts` co-located with source) → integration (`tests/integration/`, reserved for future real multi-module tests with in-memory SQLite — currently empty) → E2E (`e2e/`).
+**Layers**: unit (`foo.test.ts` co-located with source) → E2E (`e2e/`).
 
 ```ts
 import { describe, test, expect } from 'vitest';

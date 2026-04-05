@@ -36,14 +36,14 @@ Run these locally and fix any failures before pushing:
 bun run lint:fix          # auto-fix formatting and ESLint issues
 bun run check             # type-check (svelte-check)
 bun run test              # unit tests
-bunx playwright test      # E2E tests
+bun run test:e2e          # E2E tests
 ```
 
 Run `lint:fix` first, then the remaining three in parallel. CI runs the same checks — green locally means green in CI.
 
 ## Testing
 
-See [docs/testing.md](docs/testing.md) for the full testing guide, including the three-layer strategy (unit / integration / E2E), Vitest conventions, and Playwright patterns.
+See [docs/testing.md](docs/testing.md) for the full testing guide, including layer strategy (unit / E2E), Vitest conventions, and Playwright patterns.
 
 ## AI Agents
 

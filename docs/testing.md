@@ -1,12 +1,11 @@
 # Testing Guide
 
-## Three Layers
+## Two Layers
 
-| Layer       | Location                             | When to use                                                           |
-| ----------- | ------------------------------------ | --------------------------------------------------------------------- |
-| Unit        | `foo.test.ts` co-located with source | Pure logic, mocked dependencies — the default for new tests           |
-| Integration | `tests/integration/` (reserved)      | Future multi-module tests with real in-memory SQLite; currently empty |
-| E2E         | `e2e/`                               | Full user flows against a real built app on port 5174                 |
+| Layer | Location                             | When to use                                                 |
+| ----- | ------------------------------------ | ----------------------------------------------------------- |
+| Unit  | `foo.test.ts` co-located with source | Pure logic, mocked dependencies — the default for new tests |
+| E2E   | `e2e/`                               | Full user flows against a real built app on port 5174       |
 
 Start with a unit test. Reach for E2E only when you need to verify UI behaviour across the full stack.
 
@@ -15,7 +14,7 @@ Start with a unit test. Reach for E2E only when you need to verify UI behaviour 
 ```sh
 bun run test                          # all unit tests (vitest)
 bun --bun vitest run --coverage       # unit tests + Istanbul coverage report
-bunx playwright test                  # E2E tests (starts dev server automatically)
+bun run test:e2e                      # E2E tests (starts dev server automatically)
 ```
 
 Coverage baseline is stored in `coverage-baseline.txt` (~31% statements).
