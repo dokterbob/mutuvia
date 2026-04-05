@@ -77,11 +77,8 @@
 	"git-hooks": {
 		"pre-commit": {
 			"staged-lint": {
-				"*": "bun run format",
-				"**/*.{js,ts}": [
-					"bun run lint:fix",
-					"bun run check"
-				]
+				"*": "prettier --write --ignore-unknown",
+				"**/*.{js,ts}": "eslint --fix --no-error-on-unmatched-pattern"
 			}
 		},
 		"commit-msg": "true"

@@ -18,6 +18,8 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 | Paraglide JS                | `/opral/paraglide-js`                | i18n message functions, locale strategy                         |
 | bits-ui                     | `/llmstxt/bits-ui_llms_txt`          | Headless primitives (Popover, Dialog, Command, etc.)            |
 | shadcn-svelte-extras        | `/ieedan/shadcn-svelte-extras`       | CopyButton, LanguageSwitcher, PhoneInput — installed via jsrepo |
+| Prettier                    | `/prettier/prettier`                 | Code formatter — CLI flags, config, plugins                     |
+| ESLint                      | `/eslint/eslint`                     | Linter — flat config, rules, CLI                                |
 
 ---
 
@@ -53,10 +55,12 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 
 - **Run `bun install` first** — the pre-commit hook is registered by `bun install` via `bun-git-hooks`. Without it, linting won't run and the hook may not be present.
 - **Generate Paraglide output before type-checking** — `src/lib/paraglide/` is gitignored and must exist before `svelte-check` runs. The pre-commit hook generates it automatically via `bun run check`, but if you run `svelte-check` directly on a fresh clone you need `bun run dev` or `bun run build` first.
-- **Pre-commit hook** runs via `bun-git-hooks` (installed by `bun install`). Staged-lint rules:
-  - `*` → `bun run format` (Prettier)
-  - `**/*.{js,ts}` → `bun run lint:fix` then `bun run check` (Prettier + ESLint + svelte-check)
-  - To skip: `SKIP_BUN_GIT_HOOKS=1 git commit`
+- **`CLAUDE.md` is a symlink to `AGENTS.md`** — edit only `AGENTS.md`.
+- **Pre-commit hook** runs via `bun-git-hooks` (installed by `bun install`). Staged-lint rules apply to staged files only:
+  - `*` → `prettier --write --ignore-unknown` (format staged files only)
+  - `**/*.{js,ts}` → `eslint --fix` (lint staged files only)
+  - Run `bun run check` manually before submitting code — svelte-check is project-wide and not in the hook.
+  - To skip the hook: `SKIP_BUN_GIT_HOOKS=1 git commit`
 - **Before submitting code**, run `bun run lint:fix` first (formats + ESLint auto-fix), then run the following in parallel to catch remaining issues:
   - `bun run check` (type-check)
   - `bun run test` (unit tests)
