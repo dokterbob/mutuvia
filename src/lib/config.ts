@@ -41,6 +41,30 @@ export const config = {
 	get preludeApiToken() {
 		return env.PRELUDE_API_TOKEN || '';
 	},
+	// ── SMTP (email OTP) ──
+	get smtpHost() {
+		return env.SMTP_HOST || '';
+	},
+	get smtpPort() {
+		const portValue = env.SMTP_PORT || '587';
+		const port = parseInt(portValue, 10);
+		if (!Number.isInteger(port) || port < 1 || port > 65535) {
+			throw new Error(`SMTP_PORT "${portValue}" must be a valid integer between 1 and 65535`);
+		}
+		return port;
+	},
+	get smtpSecure() {
+		return env.SMTP_SECURE === 'true';
+	},
+	get smtpUser() {
+		return env.SMTP_USER || '';
+	},
+	get smtpPass() {
+		return env.SMTP_PASS || '';
+	},
+	get smtpFrom() {
+		return env.SMTP_FROM || `${this.appName} <noreply@example.com>`;
+	},
 	// ── Database ──
 	get dbProvider() {
 		return (env.DB_PROVIDER || 'sqlite') as 'sqlite' | 'pg';
