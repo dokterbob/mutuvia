@@ -46,7 +46,12 @@ export const config = {
 		return env.SMTP_HOST || '';
 	},
 	get smtpPort() {
-		return parseInt(env.SMTP_PORT || '587', 10);
+		const portValue = env.SMTP_PORT || '587';
+		const port = parseInt(portValue, 10);
+		if (!Number.isInteger(port) || port < 1 || port > 65535) {
+			throw new Error(`SMTP_PORT "${portValue}" must be a valid integer between 1 and 65535`);
+		}
+		return port;
 	},
 	get smtpSecure() {
 		return env.SMTP_SECURE === 'true';
@@ -58,7 +63,7 @@ export const config = {
 		return env.SMTP_PASS || '';
 	},
 	get smtpFrom() {
-		return env.SMTP_FROM || `Mutuvia <noreply@example.com>`;
+		return env.SMTP_FROM || `${this.appName} <noreply@example.com>`;
 	},
 	// ── Database ──
 	get dbProvider() {
