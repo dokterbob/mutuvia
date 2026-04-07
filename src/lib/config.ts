@@ -41,6 +41,25 @@ export const config = {
 	get preludeApiToken() {
 		return env.PRELUDE_API_TOKEN || '';
 	},
+	// ── SMTP (email OTP) ──
+	get smtpHost() {
+		return env.SMTP_HOST || '';
+	},
+	get smtpPort() {
+		return parseInt(env.SMTP_PORT || '587', 10);
+	},
+	get smtpSecure() {
+		return env.SMTP_SECURE === 'true';
+	},
+	get smtpUser() {
+		return env.SMTP_USER || '';
+	},
+	get smtpPass() {
+		return env.SMTP_PASS || '';
+	},
+	get smtpFrom() {
+		return env.SMTP_FROM || `Mutuvia <noreply@example.com>`;
+	},
 	// ── Database ──
 	get dbProvider() {
 		return (env.DB_PROVIDER || 'sqlite') as 'sqlite' | 'pg';

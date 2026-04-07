@@ -6,6 +6,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import Prelude from '@prelude.so/sdk';
 import { db } from './db';
 import { config } from '$lib/config';
+import { sendOtpEmail } from './mailer';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
@@ -22,21 +23,7 @@ export const auth = betterAuth({
 	plugins: [
 		emailOTP({
 			sendVerificationOTP: async ({ email, otp }) => {
-				if (!prelude) {
-					if (process.env.NODE_ENV !== 'production') {
-						console.log(`[DEV] Email OTP for ${email}: ${otp}`);
-					} else {
-						console.error('PRELUDE_API_TOKEN not configured');
-					}
-					return;
-				}
-				const result = await prelude.verification.create({
-					target: { type: 'email_address', value: email },
-					options: { code_size: 6, custom_code: otp }
-				});
-				if (result.status === 'blocked') {
-					console.error(`Prelude blocked verification for ${email}: ${result.reason}`);
-				}
+				await sendOtpEmail(email, otp);
 			},
 			otpLength: 6
 		}),
