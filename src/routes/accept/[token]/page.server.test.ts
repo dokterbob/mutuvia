@@ -111,7 +111,7 @@ vi.mock('@sveltejs/kit', () => ({
 		throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
 	})
 }));
-vi.mock('crypto', () => ({
+vi.mock('node:crypto', () => ({
 	randomUUID: vi.fn(() => 'mock-uuid')
 }));
 vi.mock('$lib/server/db', () => ({
