@@ -4,7 +4,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 

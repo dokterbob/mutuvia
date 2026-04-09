@@ -5,7 +5,7 @@ import { db } from '$lib/server/db';
 import { appUsers, pendingQr } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { signQrToken, buildQrUrl } from '$lib/server/qr';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
 import { getPendingItemById } from '$lib/server/pending-qr';

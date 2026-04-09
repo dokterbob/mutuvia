@@ -8,7 +8,7 @@ import { verifyQrToken } from '$lib/server/qr';
 import { getBalance, upsertConnection } from '$lib/server/balance';
 import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
 import type { PageServerLoad, Actions } from './$types';
