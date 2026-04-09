@@ -59,7 +59,6 @@
 		"clsx": "^2.1.1",
 		"country-flag-icons": "^1.6.15",
 		"drizzle-kit": "^0.31.10",
-		"drizzle-orm": "^0.45.1",
 		"eslint": "^9.39.2",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
@@ -99,6 +98,7 @@
 	},
 	"dependencies": {
 		"@sentry/sveltekit": "^10.46.0",
+		"drizzle-orm": "^0.45.1",
 		"nodemailer": "^8.0.4",
 		"web-push": "^3.6.7"
 	},
