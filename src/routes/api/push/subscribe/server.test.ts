@@ -69,7 +69,7 @@ vi.mock('drizzle-orm', () => ({
 	and: vi.fn((...args: unknown[]) => args.join(' AND '))
 }));
 
-vi.mock('crypto', () => ({ randomUUID: randomUUIDMock }));
+vi.mock('node:crypto', () => ({ randomUUID: randomUUIDMock }));
 
 vi.mock('@sveltejs/kit', () => ({
 	json: vi.fn(

@@ -5,7 +5,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { pushSubscriptions } from '$lib/server/schema';
 import { and, eq } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 export const POST: RequestHandler = async ({ locals, request }) => {
 	if (!locals.appUser) {
