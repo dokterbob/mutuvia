@@ -6,6 +6,7 @@
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { CopyButton } from '$lib/components/ui/copy-button';
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
@@ -36,6 +37,7 @@
 	let qrUrl = $state('');
 	let createQrLoading = $state(false);
 	let cancelLoading = $state(false);
+	let cancelDialogOpen = $state(false);
 	let canShare = $derived(browser && typeof navigator.share === 'function');
 	let currencyFormatter = $derived(
 		new Intl.NumberFormat(getLocale(), { style: 'currency', currency: data.unitCode })
@@ -237,34 +239,52 @@
 						<XIcon class="mr-2 h-4 w-4" />
 						{m.qr_close()}
 					</Button>
-					<form
-						method="POST"
-						action="?/cancel"
-						use:enhance={() => {
-							flushSync(() => {
-								cancelLoading = true;
-							});
-							return async ({ update }) => {
-								try {
-									await update();
-								} finally {
-									flushSync(() => {
-										cancelLoading = false;
-									});
-								}
-							};
-						}}
+					<Button
+						type="button"
+						variant="ghost"
+						class="text-sm text-muted-foreground"
+						onclick={() => (cancelDialogOpen = true)}
 					>
-						<input type="hidden" name="qrId" value={qrId} />
-						<Button
-							type="submit"
-							loading={cancelLoading}
-							variant="ghost"
-							class="text-sm text-muted-foreground"
-						>
-							{m.send_cancel()}
-						</Button>
-					</form>
+						{m.send_cancel()}
+					</Button>
+					<Dialog.Dialog bind:open={cancelDialogOpen}>
+						<Dialog.DialogContent showCloseButton={false}>
+							<Dialog.DialogHeader>
+								<Dialog.DialogTitle>{m.cancel_confirm_title()}</Dialog.DialogTitle>
+								<Dialog.DialogDescription>{m.cancel_confirm_body()}</Dialog.DialogDescription>
+							</Dialog.DialogHeader>
+							<Dialog.DialogFooter>
+								<Dialog.DialogClose>
+									{#snippet child({ props })}
+										<Button variant="outline" {...props}>{m.cancel_confirm_dismiss()}</Button>
+									{/snippet}
+								</Dialog.DialogClose>
+								<form
+									method="POST"
+									action="?/cancel"
+									use:enhance={() => {
+										flushSync(() => {
+											cancelLoading = true;
+										});
+										return async ({ update }) => {
+											try {
+												await update();
+											} finally {
+												flushSync(() => {
+													cancelLoading = false;
+												});
+											}
+										};
+									}}
+								>
+									<input type="hidden" name="qrId" value={qrId} />
+									<Button type="submit" loading={cancelLoading} variant="destructive">
+										{m.cancel_confirm_yes()}
+									</Button>
+								</form>
+							</Dialog.DialogFooter>
+						</Dialog.DialogContent>
+					</Dialog.Dialog>
 				</div>
 			{/if}
 		</div>

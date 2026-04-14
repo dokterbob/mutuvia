@@ -104,6 +104,10 @@
 	"send_qr_caption": "Laat dit aan de andere persoon zien. Die scant het om te accepteren.",
 	"send_qr_expired": "Verlopen — tik om terug te gaan.",
 	"send_cancel": "Annuleren",
+	"cancel_confirm_title": "Deze transactie annuleren?",
+	"cancel_confirm_body": "De QR-code wordt ongeldig en kan niet meer worden gebruikt.",
+	"cancel_confirm_yes": "Ja, annuleren",
+	"cancel_confirm_dismiss": "Blijven wachten",
 	"send_done": "Klaar. Je hebt {amount} gestuurd naar {name}.",
 	"send_declined": "Je krediet is geweigerd.",
 	"send_back_home": "Terug naar home",
@@ -167,7 +171,6 @@
 	"home_pending_send": "Versturen {amount}",
 	"home_pending_receive": "Aanvragen {amount}",
 	"home_pending_expired": "Verlopen",
-	"pending_cancel_aria": "Lopende transactie annuleren",
 	"history_pending": "In behandeling",
 
 	"locale_name": "Nederlands",
