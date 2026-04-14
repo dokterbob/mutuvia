@@ -104,8 +104,12 @@ export const authHandle: Handle = async ({ event, resolve }) => {
 	// Layout guards are insufficient: page loads run in parallel with layouts,
 	// and form actions bypass layout load functions entirely.
 	if (event.route.id?.startsWith('/(app)')) {
-		if (!event.locals.session) redirect(307, '/onboarding');
-		if (!event.locals.appUser) redirect(307, '/onboarding/intro1');
+		// Use 303 for POST/PUT/etc. so the browser follows up with GET;
+		// 307 would forward the original method to the onboarding page.
+		const status =
+			event.request.method === 'GET' || event.request.method === 'HEAD' ? 307 : 303;
+		if (!event.locals.session) redirect(status, '/onboarding');
+		if (!event.locals.appUser) redirect(status, '/onboarding/intro1');
 	}
 
 	// svelteKitHandler replaces the manual auth.handler() + resolve() calls.

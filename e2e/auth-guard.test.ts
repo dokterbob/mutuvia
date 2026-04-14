@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { test, expect, goto, deleteTestUser } from './test-utils.js';
+import { test, expect, goto, deleteTestUser, getAuthCookies } from './test-utils.js';
 import { auth } from './auth.js';
 import type { TestHelpers } from 'better-auth/plugins';
 
@@ -10,14 +10,6 @@ import type { TestHelpers } from 'better-auth/plugins';
  * state) must be redirected to /onboarding/intro1 rather than crashing with
  * "TypeError: null is not an object".
  */
-
-async function createSessionCookies(
-	userId: string
-): Promise<Awaited<ReturnType<TestHelpers['getCookies']>>> {
-	const ctx = await auth.$context;
-	const testUtils = (ctx as { test: TestHelpers }).test;
-	return testUtils.getCookies({ userId, domain: 'localhost' });
-}
 
 async function createBetterAuthUserOnly(email: string, displayName: string): Promise<string> {
 	const ctx = await auth.$context;
@@ -35,7 +27,7 @@ test.describe.serial('auth guard — session without appUser', () => {
 
 	test('redirects /home to /onboarding/intro1', async ({ page, context, email }) => {
 		const userId = await createBetterAuthUserOnly(email('user'), 'No AppUser');
-		const cookies = await createSessionCookies(userId);
+		const cookies = await getAuthCookies(userId);
 		await context.addCookies(cookies);
 
 		await goto(page, '/home');
@@ -46,7 +38,7 @@ test.describe.serial('auth guard — session without appUser', () => {
 
 	test('redirects /send to /onboarding/intro1', async ({ page, context, email }) => {
 		const userId = await createBetterAuthUserOnly(email('user'), 'No AppUser');
-		const cookies = await createSessionCookies(userId);
+		const cookies = await getAuthCookies(userId);
 		await context.addCookies(cookies);
 
 		await goto(page, '/send');

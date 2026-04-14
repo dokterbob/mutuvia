@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const REQUEST_STATE_ERROR =
 	'No request state found. Please make sure you are calling this function within a `runWithRequestState` callback.';
@@ -28,7 +28,16 @@ vi.mock('$lib/server/auth', () => ({
 }));
 
 vi.mock('$lib/server/db', () => ({
-	db: {},
+	db: {
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					// Default: no app_users row found
+					limit: () => Promise.resolve([])
+				})
+			})
+		})
+	},
 	sqlite: null
 }));
 
@@ -58,6 +67,71 @@ vi.mock('$app/environment', () => ({
 }));
 
 import { authHandle } from './hooks.server';
+
+beforeEach(() => vi.clearAllMocks());
+
+const mockSession = {
+	session: { id: 'sess1', userId: 'ba-user1', expiresAt: new Date() },
+	user: { id: 'ba-user1', email: 'test@example.com' }
+};
+
+function makeAppEvent(method: string) {
+	return {
+		event: {
+			url: new URL('https://example.test/home'),
+			request: new Request('https://example.test/home', { method }),
+			route: { id: '/(app)/home' },
+			locals: {}
+		},
+		resolve: vi.fn()
+	} as unknown as Parameters<typeof authHandle>[0];
+}
+
+describe('authHandle — (app)/ route guard redirect status', () => {
+	describe('session exists but no app_users row', () => {
+		test('GET redirects to /onboarding/intro1 with 307', async () => {
+			getSessionMock.mockResolvedValueOnce(mockSession);
+			await expect(authHandle(makeAppEvent('GET'))).rejects.toMatchObject({
+				status: 307,
+				location: '/onboarding/intro1'
+			});
+		});
+
+		test('HEAD redirects to /onboarding/intro1 with 307', async () => {
+			getSessionMock.mockResolvedValueOnce(mockSession);
+			await expect(authHandle(makeAppEvent('HEAD'))).rejects.toMatchObject({
+				status: 307,
+				location: '/onboarding/intro1'
+			});
+		});
+
+		test('POST redirects to /onboarding/intro1 with 303', async () => {
+			getSessionMock.mockResolvedValueOnce(mockSession);
+			await expect(authHandle(makeAppEvent('POST'))).rejects.toMatchObject({
+				status: 303,
+				location: '/onboarding/intro1'
+			});
+		});
+	});
+
+	describe('no session at all', () => {
+		test('GET redirects to /onboarding with 307', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			await expect(authHandle(makeAppEvent('GET'))).rejects.toMatchObject({
+				status: 307,
+				location: '/onboarding'
+			});
+		});
+
+		test('POST redirects to /onboarding with 303', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			await expect(authHandle(makeAppEvent('POST'))).rejects.toMatchObject({
+				status: 303,
+				location: '/onboarding'
+			});
+		});
+	});
+});
 
 describe('authHandle', () => {
 	test('regression: bypasses Better Auth session lookup for /sentry-tunnel', async () => {
