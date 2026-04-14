@@ -45,9 +45,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		return { expired: true, error: 'Initiator not found.' };
 	}
 
-	const needsAuth = !locals.session || !locals.appUser;
-
-	if (needsAuth) {
+	if (!locals.session || !locals.appUser) {
 		// Return enough info to show the transaction preview. qrId is included only for the
 		// Decline action; the Accept action enforces auth server-side and is not rendered here.
 		// The startFastTrack / startFullOnboarding actions handle the auth redirect.
@@ -64,8 +62,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
-	// Prevent self-acceptance (appUser is non-null here: needsAuth guard above returned early)
-	if (locals.appUser!.id === qr.initiatingUserId) {
+	// Prevent self-acceptance (locals.appUser is narrowed to non-null by the check above)
+	if (locals.appUser.id === qr.initiatingUserId) {
 		return {
 			expired: true,
 			error: 'You cannot accept your own QR code.'
