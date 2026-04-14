@@ -57,9 +57,7 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
 // Validate the base locale file before comparing other locales against it.
 const baseKeys = locales[baseLocale];
 if (!baseKeys || baseKeys.length === 0) {
-	console.error(
-		`[check-translations] Base locale messages/${baseLocale}.json is missing or empty`
-	);
+	console.error(`[check-translations] Base locale messages/${baseLocale}.json is missing or empty`);
 	process.exit(1);
 }
 
