@@ -106,8 +106,7 @@ export const authHandle: Handle = async ({ event, resolve }) => {
 	if (event.route.id?.startsWith('/(app)')) {
 		// Use 303 for POST/PUT/etc. so the browser follows up with GET;
 		// 307 would forward the original method to the onboarding page.
-		const status =
-			event.request.method === 'GET' || event.request.method === 'HEAD' ? 307 : 303;
+		const status = event.request.method === 'GET' || event.request.method === 'HEAD' ? 307 : 303;
 		if (!event.locals.session) redirect(status, '/onboarding');
 		if (!event.locals.appUser) redirect(status, '/onboarding/intro1');
 	}
