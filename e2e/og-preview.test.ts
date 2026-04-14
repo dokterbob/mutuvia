@@ -10,7 +10,7 @@ import {
 	getAppUserId
 } from './test-utils.js';
 import { sqlite } from './auth.js';
-import { E2E_QR_JWT_SECRET, E2E_BASE_URL } from './config.js';
+import { E2E_QR_JWT_SECRET, E2E_BASE_URL, E2E_APP_NAME } from './config.js';
 
 const INITIATOR_NAME = 'OG Initiator';
 
@@ -79,7 +79,7 @@ test.describe('OG meta tags on /accept/[token]', () => {
 
 		// og:site_name
 		const ogSiteName = page.locator('meta[property="og:site_name"]');
-		await expect(ogSiteName).toHaveAttribute('content', 'Mutuvia');
+		await expect(ogSiteName).toHaveAttribute('content', E2E_APP_NAME);
 
 		// og:type
 		const ogType = page.locator('meta[property="og:type"]');
