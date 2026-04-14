@@ -5,7 +5,7 @@ import { auth } from '$lib/server/auth';
 import { db, sqlite } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import type { Handle, ServerInit } from '@sveltejs/kit';
+import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { config } from '$lib/config';
 import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
@@ -98,6 +98,14 @@ export const authHandle: Handle = async ({ event, resolve }) => {
 		event.locals.session = null;
 		event.locals.user = null;
 		event.locals.appUser = null;
+	}
+
+	// Guard (app) routes here — before load functions and actions run.
+	// Layout guards are insufficient: page loads run in parallel with layouts,
+	// and form actions bypass layout load functions entirely.
+	if (event.route.id?.startsWith('/(app)')) {
+		if (!event.locals.session) redirect(307, '/onboarding');
+		if (!event.locals.appUser) redirect(307, '/onboarding/intro1');
 	}
 
 	// svelteKitHandler replaces the manual auth.handler() + resolve() calls.
