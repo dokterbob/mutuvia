@@ -7,3 +7,7 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# inlang SDK-generated files (everything except settings.json is gitignored by project.inlang/.gitignore)
+project.inlang/.meta.json
+project.inlang/README.md
