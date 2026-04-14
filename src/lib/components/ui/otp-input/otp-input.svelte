@@ -39,7 +39,11 @@
 
 	async function verify() {
 		if (loading || otpCode.length < 6) return;
-		await onSubmit(otpCode);
+		try {
+			await onSubmit(otpCode);
+		} catch (e) {
+			console.error('OTP submit failed:', e);
+		}
 	}
 
 	async function resend() {
@@ -62,8 +66,12 @@
 		otpCode = input.value.replace(/\D/g, '').slice(0, 6);
 		input.value = otpCode;
 		if (otpCode.length === 6) {
-			verify();
+			void verify();
 		}
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') void verify();
 	}
 </script>
 
@@ -77,7 +85,9 @@
 		maxlength="6"
 		pattern="[0-9]*"
 		value={otpCode}
+		aria-label="One-time code"
 		oninput={handleInput}
+		onkeydown={handleKeydown}
 		class="absolute inset-0 z-10 w-full cursor-text bg-transparent text-[32px] tracking-[2.4em] caret-transparent opacity-0 outline-none"
 	/>
 	{#each Array(6) as _, i (i)}
@@ -103,6 +113,7 @@
 		</span>
 	{:else}
 		<button
+			type="button"
 			class="font-medium text-[#2D4A32] hover:underline disabled:opacity-50"
 			onclick={resend}
 			disabled={resendLoading}

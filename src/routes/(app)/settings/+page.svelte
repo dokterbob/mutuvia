@@ -3,6 +3,7 @@
 	import { getLocale, setLocale, locales, isLocale } from '$lib/paraglide/runtime.js';
 	import { invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
 	import { authClient } from '$lib/auth-client';
 	import { isPlaceholderEmail } from '$lib/placeholder-email';
 	import { Button } from '$lib/components/ui/button';
@@ -45,6 +46,7 @@
 	let emailError = $state('');
 	let emailSendLoading = $state(false);
 	let emailVerifyLoading = $state(false);
+	let emailResetTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const displayEmail = $derived(
 		isPlaceholderEmail(data.credentials.email) ? null : data.credentials.email
@@ -80,7 +82,8 @@
 			} else {
 				emailState = 'success';
 				await invalidateAll();
-				setTimeout(() => {
+				clearTimeout(emailResetTimer);
+				emailResetTimer = setTimeout(() => {
 					emailState = 'idle';
 					newEmail = '';
 				}, 2000);
@@ -91,6 +94,7 @@
 	}
 
 	async function resendEmailCode() {
+		emailError = '';
 		const { error } = await authClient.emailOtp.requestEmailChange({ newEmail: pendingEmail });
 		if (error) {
 			emailError = error.message || m.error_send_code();
@@ -106,6 +110,7 @@
 	let phoneError = $state('');
 	let phoneSendLoading = $state(false);
 	let phoneVerifyLoading = $state(false);
+	let phoneResetTimer: ReturnType<typeof setTimeout> | undefined;
 
 	async function sendPhoneCode() {
 		if (!newPhone) return;
@@ -138,7 +143,8 @@
 			} else {
 				phoneState = 'success';
 				await invalidateAll();
-				setTimeout(() => {
+				clearTimeout(phoneResetTimer);
+				phoneResetTimer = setTimeout(() => {
 					phoneState = 'idle';
 					newPhone = null;
 				}, 2000);
@@ -149,12 +155,18 @@
 	}
 
 	async function resendPhoneCode() {
+		phoneError = '';
 		const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: pendingPhone });
 		if (error) {
 			phoneError = error.message || m.error_send_code();
 			throw new Error(phoneError);
 		}
 	}
+
+	onDestroy(() => {
+		clearTimeout(emailResetTimer);
+		clearTimeout(phoneResetTimer);
+	});
 </script>
 
 <div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
