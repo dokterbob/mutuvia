@@ -104,6 +104,10 @@
 	"send_qr_caption": "Show this to the other person. They scan it to accept.",
 	"send_qr_expired": "Expired — tap to go back.",
 	"send_cancel": "Cancel",
+	"cancel_confirm_title": "Cancel this transaction?",
+	"cancel_confirm_body": "The QR code will be invalidated and can no longer be used.",
+	"cancel_confirm_yes": "Yes, cancel",
+	"cancel_confirm_dismiss": "Keep waiting",
 	"send_done": "Done. You sent {amount} to {name}.",
 	"send_declined": "Your credit was declined.",
 	"send_back_home": "Back to home",
@@ -167,7 +171,6 @@
 	"home_pending_send": "Sending {amount}",
 	"home_pending_receive": "Requesting {amount}",
 	"home_pending_expired": "Expired",
-	"pending_cancel_aria": "Cancel pending transaction",
 	"history_pending": "Pending",
 
 	"locale_name": "English",

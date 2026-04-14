@@ -104,6 +104,10 @@
 	"send_qr_caption": "Zeige das der anderen Person. Sie scannt es, um anzunehmen.",
 	"send_qr_expired": "Abgelaufen — tippe, um zurückzugehen.",
 	"send_cancel": "Abbrechen",
+	"cancel_confirm_title": "Diese Transaktion abbrechen?",
+	"cancel_confirm_body": "Der QR-Code wird ungültig und kann nicht mehr verwendet werden.",
+	"cancel_confirm_yes": "Ja, abbrechen",
+	"cancel_confirm_dismiss": "Weiter warten",
 	"send_done": "Fertig. Du hast {amount} an {name} gesendet.",
 	"send_declined": "Dein Kredit wurde abgelehnt.",
 	"send_back_home": "Zurück zur Startseite",
@@ -167,7 +171,6 @@
 	"home_pending_send": "Sende {amount}",
 	"home_pending_receive": "Fordere {amount} an",
 	"home_pending_expired": "Abgelaufen",
-	"pending_cancel_aria": "Ausstehende Transaktion abbrechen",
 	"history_pending": "Ausstehend",
 
 	"locale_name": "Deutsch",

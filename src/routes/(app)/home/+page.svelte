@@ -1,13 +1,12 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { goto, invalidateAll } from '$app/navigation';
-	import { enhance } from '$app/forms';
 	import { sseManager } from '$lib/sse-client';
 	import { Card } from '$lib/components/ui/card';
 	import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
 	import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
 	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
-	import XIcon from '@lucide/svelte/icons/x';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { NavMenu } from '$lib/components/ui/nav-menu';
 
 	import { browser } from '$app/environment';
@@ -177,17 +176,8 @@
 									time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
 								})}
 							</p>
+							<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
 						{/if}
-						<form method="POST" action="?/cancelQr" use:enhance>
-							<input type="hidden" name="qrId" value={item.id} />
-							<button
-								type="submit"
-								class="text-muted-foreground hover:text-red-600"
-								aria-label={m.pending_cancel_aria()}
-							>
-								<XIcon class="h-4 w-4" />
-							</button>
-						</form>
 					</div>
 				</div>
 			{/each}

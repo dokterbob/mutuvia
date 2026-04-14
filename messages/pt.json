@@ -104,6 +104,10 @@
 	"send_qr_caption": "Mostra isto à outra pessoa. Ela digitaliza para aceitar.",
 	"send_qr_expired": "Expirado — toca para voltar.",
 	"send_cancel": "Cancelar",
+	"cancel_confirm_title": "Cancelar esta transação?",
+	"cancel_confirm_body": "O código QR será invalidado e não poderá ser utilizado.",
+	"cancel_confirm_yes": "Sim, cancelar",
+	"cancel_confirm_dismiss": "Continuar à espera",
 	"send_done": "Feito. Enviaste {amount} a {name}.",
 	"send_declined": "O teu crédito foi recusado.",
 	"send_back_home": "Voltar ao início",
@@ -167,7 +171,6 @@
 	"home_pending_send": "Enviando {amount}",
 	"home_pending_receive": "Solicitando {amount}",
 	"home_pending_expired": "Expirado",
-	"pending_cancel_aria": "Cancelar transação pendente",
 	"history_pending": "Pendente",
 
 	"locale_name": "Português",

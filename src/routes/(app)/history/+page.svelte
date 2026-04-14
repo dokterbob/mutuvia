@@ -2,10 +2,9 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { goto } from '$app/navigation';
-	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import XIcon from '@lucide/svelte/icons/x';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
 
 	let { data } = $props();
@@ -82,27 +81,16 @@
 							</a>
 						{/if}
 						<div class="flex items-center gap-2">
-							<div class="text-right">
-								{#if item.isExpired}
-									<p class="text-xs text-red-600">{m.home_pending_expired()}</p>
-								{:else}
-									<p class="text-xs text-muted-foreground">
-										{m.qr_expires({
-											time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
-										})}
-									</p>
-								{/if}
-							</div>
-							<form method="POST" action="?/cancelQr" use:enhance>
-								<input type="hidden" name="qrId" value={item.id} />
-								<button
-									type="submit"
-									class="text-muted-foreground hover:text-red-600"
-									aria-label={m.pending_cancel_aria()}
-								>
-									<XIcon class="h-4 w-4" />
-								</button>
-							</form>
+							{#if item.isExpired}
+								<p class="text-xs text-red-600">{m.home_pending_expired()}</p>
+							{:else}
+								<p class="text-xs text-muted-foreground">
+									{m.qr_expires({
+										time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+									})}
+								</p>
+								<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
+							{/if}
 						</div>
 					</div>
 				{/each}
