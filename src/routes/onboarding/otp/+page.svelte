@@ -34,6 +34,7 @@
 	}
 
 	async function resendOtp() {
+		authError = '';
 		const result =
 			data.otpMethod === 'phone'
 				? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })

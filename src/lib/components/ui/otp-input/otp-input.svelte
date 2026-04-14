@@ -30,6 +30,13 @@
 		return () => clearInterval(interval);
 	});
 
+	$effect(() => {
+		if (error) {
+			otpCode = '';
+			otpInput?.focus();
+		}
+	});
+
 	async function verify() {
 		if (loading || otpCode.length < 6) return;
 		await onSubmit(otpCode);
@@ -43,6 +50,8 @@
 			otpCode = '';
 			countdown = 30;
 			otpInput?.focus();
+		} catch (e) {
+			console.error('OTP resend failed:', e);
 		} finally {
 			resendLoading = false;
 		}
