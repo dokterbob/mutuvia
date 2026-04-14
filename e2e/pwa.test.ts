@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { goto } from './test-utils.js';
+import { E2E_APP_NAME } from './config.js';
 
 test.describe('PWA head tags', () => {
 	// Use /faq — it is public and renders the full SvelteKit layout without
@@ -38,12 +39,20 @@ test.describe('PWA manifest content', () => {
 	});
 
 	test('manifest returns 200 with correct JSON fields', async () => {
-		expect(manifest.name).toBe('Mutuvia');
-		expect(manifest.short_name).toBe('Mutuvia');
+		expect(manifest.name).toBe(E2E_APP_NAME);
+		expect(manifest.short_name).toBe(E2E_APP_NAME);
 		expect(manifest.display).toBe('standalone');
 		expect(manifest.theme_color).toBe('#2D4A32');
 		expect(manifest.background_color).toBe('#ffffff');
 		expect(manifest.start_url).toBe('/');
+		expect(manifest.id).toBe('/');
+	});
+
+	test('manifest includes screenshots for both form factors', async () => {
+		const screenshots = manifest.screenshots as { src: string; form_factor?: string }[];
+		expect(Array.isArray(screenshots)).toBe(true);
+		expect(screenshots.some((s) => s.form_factor === 'wide')).toBe(true);
+		expect(screenshots.some((s) => s.form_factor === 'narrow')).toBe(true);
 	});
 
 	test('manifest icons array has at least 3 entries', async () => {

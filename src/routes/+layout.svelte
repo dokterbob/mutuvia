@@ -2,15 +2,25 @@
 	import './layout.css';
 	import '@fontsource-variable/noto-sans';
 	import { onMount } from 'svelte';
-	import { navigating } from '$app/state';
+	import { navigating, page } from '$app/state';
 	import { Toaster } from '$lib/components/ui/sonner';
 
-	let { children } = $props();
+	let { data, children } = $props();
+
+	const ogImage = $derived(`${page.url.origin}/screenshots/desktop.png`);
 
 	onMount(() => {
 		document.body.classList.add('hydrated');
 	});
 </script>
+
+<svelte:head>
+	<meta property="og:image" content={ogImage} />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content={data.appName} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content={ogImage} />
+</svelte:head>
 
 {#if navigating}
 	<div
