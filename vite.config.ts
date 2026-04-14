@@ -57,6 +57,23 @@ export default defineConfig({
 				background_color: '#ffffff',
 				display: 'standalone',
 				start_url: '/',
+				id: '/',
+				screenshots: [
+					{
+						src: '/screenshots/desktop.png',
+						sizes: '1280x720',
+						type: 'image/png',
+						form_factor: 'wide',
+						label: 'Mutuvia home screen on desktop'
+					},
+					{
+						src: '/screenshots/mobile.png',
+						sizes: '750x1334',
+						type: 'image/png',
+						form_factor: 'narrow',
+						label: 'Mutuvia home screen on mobile'
+					}
+				],
 				share_target: {
 					action: '/share',
 					method: 'POST',

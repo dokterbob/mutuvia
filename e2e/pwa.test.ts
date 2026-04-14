@@ -44,6 +44,14 @@ test.describe('PWA manifest content', () => {
 		expect(manifest.theme_color).toBe('#2D4A32');
 		expect(manifest.background_color).toBe('#ffffff');
 		expect(manifest.start_url).toBe('/');
+		expect(manifest.id).toBe('/');
+	});
+
+	test('manifest includes screenshots for both form factors', async () => {
+		const screenshots = manifest.screenshots as { src: string; form_factor?: string }[];
+		expect(Array.isArray(screenshots)).toBe(true);
+		expect(screenshots.some((s) => s.form_factor === 'wide')).toBe(true);
+		expect(screenshots.some((s) => s.form_factor === 'narrow')).toBe(true);
 	});
 
 	test('manifest icons array has at least 3 entries', async () => {

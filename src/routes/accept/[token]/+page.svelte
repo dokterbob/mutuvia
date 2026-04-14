@@ -33,10 +33,7 @@
 	<title>{ogTitle} — {appName}</title>
 	<meta property="og:title" content={ogTitle} />
 	<meta property="og:description" content={ogDescription} />
-	<meta property="og:site_name" content={appName} />
-	<meta property="og:type" content="website" />
 	<meta property="og:url" content={page.url.href} />
-	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:title" content={ogTitle} />
 	<meta name="twitter:description" content={ogDescription} />
 </svelte:head>
