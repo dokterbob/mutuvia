@@ -7,8 +7,15 @@ import { eq } from 'drizzle-orm';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	const user = locals.user!;
 	return {
-		appUser: locals.appUser!
+		appUser: locals.appUser!,
+		credentials: {
+			email: user.email,
+			emailVerified: user.emailVerified,
+			phoneNumber: user.phoneNumber ?? null,
+			phoneNumberVerified: user.phoneNumberVerified ?? false
+		}
 	};
 };
 

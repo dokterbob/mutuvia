@@ -2,14 +2,15 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 /// <reference types="vite-plugin-pwa/client" />
 
-import type { Session, User } from 'better-auth';
+import type { Session } from 'better-auth';
+import type { auth } from '$lib/server/auth';
 
 declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
 			session: Session | null;
-			user: User | null;
+			user: typeof auth.$Infer.Session.user | null;
 			appUser: {
 				id: string;
 				betterAuthUserId: string;
