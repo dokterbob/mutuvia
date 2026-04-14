@@ -91,7 +91,7 @@ test.describe('OG meta tags on /accept/[token]', () => {
 
 		// twitter:card
 		const twitterCard = page.locator('meta[name="twitter:card"]');
-		await expect(twitterCard).toHaveAttribute('content', 'summary');
+		await expect(twitterCard).toHaveAttribute('content', 'summary_large_image');
 
 		// twitter:title
 		const twitterTitle = page.locator('meta[name="twitter:title"]');
