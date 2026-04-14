@@ -7,6 +7,7 @@ import Prelude from '@prelude.so/sdk';
 import { db } from './db';
 import { config } from '$lib/config';
 import { sendOtpEmail } from './mailer';
+import { makePlaceholderEmail } from '$lib/placeholder-email';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
@@ -25,11 +26,14 @@ export const auth = betterAuth({
 			sendVerificationOTP: async ({ email, otp }) => {
 				await sendOtpEmail(email, otp);
 			},
-			otpLength: 6
+			otpLength: 6,
+			changeEmail: {
+				enabled: true
+			}
 		}),
 		phoneNumber({
 			signUpOnVerification: {
-				getTempEmail: () => null as unknown as string
+				getTempEmail: (phoneNumber) => makePlaceholderEmail(phoneNumber)
 			},
 			sendOTP: async ({ phoneNumber: phone, code }) => {
 				if (!prelude) {

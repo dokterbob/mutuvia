@@ -3,30 +3,15 @@
 	import * as m from '$lib/paraglide/messages.js';
 	import { authClient } from '$lib/auth-client';
 	import { Button } from '$lib/components/ui/button';
-	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+	import { OtpInput } from '$lib/components/ui/otp-input';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 
 	let { data } = $props();
 
-	let otpCode = $state('');
 	let isLoading = $state(false);
-	let resendLoading = $state(false);
 	let authError = $state('');
-	let countdown = $state(30);
-	let otpInput = $state<HTMLInputElement | undefined>(undefined);
 
-	$effect(() => {
-		otpInput?.focus();
-	});
-
-	$effect(() => {
-		const interval = setInterval(() => {
-			if (countdown > 0) countdown--;
-		}, 1000);
-		return () => clearInterval(interval);
-	});
-
-	async function verifyOtp() {
+	async function verifyOtp(code: string) {
 		if (isLoading) return;
 		isLoading = true;
 		authError = '';
@@ -35,13 +20,11 @@
 				data.otpMethod === 'phone'
 					? await authClient.phoneNumber.verify({
 							phoneNumber: data.otpDestination,
-							code: otpCode
+							code
 						})
-					: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: otpCode });
+					: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: code });
 			if (result.error) {
 				authError = result.error.message || m.otp_invalid_code();
-				otpCode = '';
-				otpInput?.focus();
 			} else {
 				goto('/onboarding/verified', { invalidateAll: true });
 			}
@@ -51,35 +34,16 @@
 	}
 
 	async function resendOtp() {
-		if (countdown > 0) return;
-		resendLoading = true;
-		try {
-			const result =
-				data.otpMethod === 'phone'
-					? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
-					: await authClient.emailOtp.sendVerificationOtp({
-							email: data.otpDestination,
-							type: 'sign-in'
-						});
-			if (result.error) {
-				authError = result.error.message || m.error_send_code();
-				return;
-			}
-			otpCode = '';
-			authError = '';
-			countdown = 30;
-			otpInput?.focus();
-		} finally {
-			resendLoading = false;
-		}
-	}
-
-	function handleOtpInput(e: Event) {
-		const input = e.target as HTMLInputElement;
-		otpCode = input.value.replace(/\D/g, '').slice(0, 6);
-		input.value = otpCode;
-		if (otpCode.length === 6) {
-			verifyOtp();
+		authError = '';
+		const result =
+			data.otpMethod === 'phone'
+				? await authClient.phoneNumber.sendOtp({ phoneNumber: data.otpDestination })
+				: await authClient.emailOtp.sendVerificationOtp({
+						email: data.otpDestination,
+						type: 'sign-in'
+					});
+		if (result.error) {
+			authError = result.error.message || m.error_send_code();
 		}
 	}
 </script>
@@ -102,64 +66,15 @@
 		{m.otp_sent_to({ destination: data.otpDestination })}
 	</div>
 
-	<!-- OTP input -->
-	<div class="relative mx-auto mb-6 flex justify-center gap-2.5">
-		<input
-			bind:this={otpInput}
-			type="text"
-			inputmode="numeric"
-			autocomplete="one-time-code"
-			maxlength="6"
-			pattern="[0-9]*"
-			value={otpCode}
-			oninput={handleOtpInput}
-			class="absolute inset-0 z-10 w-full cursor-text bg-transparent text-[32px] tracking-[2.4em] caret-transparent opacity-0 outline-none"
-		/>
-		{#each Array(6) as _, i (i)}
-			<div
-				class="flex h-[58px] w-[46px] items-center justify-center rounded-xl border-[1.5px] bg-white font-serif text-[26px] font-semibold text-[#1E2820] transition
-				{otpCode[i]
-					? 'border-[#7A9E7E] bg-[#EDE7D9]'
-					: i === otpCode.length
-						? 'border-[#2D4A32] shadow-[0_0_0_3px_rgba(45,74,50,0.12)]'
-						: 'border-[#DDD8CE]'}"
-			>
-				{otpCode[i] ?? ''}
-			</div>
-		{/each}
-	</div>
-
-	<div class="mb-4 text-center text-sm text-[#6B7A6E]">
-		{m.otp_resend_prompt()}
-		{#if countdown > 0}
-			<span class="text-[#6B7A6E]">
-				{m.otp_resend()} ({m.otp_countdown({ seconds: countdown })})
-			</span>
-		{:else}
-			<button
-				class="font-medium text-[#2D4A32] hover:underline disabled:opacity-50"
-				onclick={resendOtp}
-				disabled={resendLoading}
-			>
-				{m.otp_resend()}
-			</button>
-		{/if}
-	</div>
-
-	{#if authError}
-		<p class="mb-3 text-center text-sm text-red-600">{authError}</p>
-	{/if}
+	<OtpInput
+		onSubmit={verifyOtp}
+		onResend={resendOtp}
+		error={authError}
+		loading={isLoading}
+		submitLabel={m.otp_cta()}
+	/>
 
 	<div class="flex-1"></div>
-	<Button
-		class="w-full rounded-xl bg-[#2D4A32] py-6 text-base font-medium text-white hover:bg-[#3D6145] disabled:opacity-40"
-		disabled={otpCode.length < 6 || isLoading}
-		loading={isLoading}
-		onclick={verifyOtp}
-	>
-		{m.otp_cta()}
-		<ArrowRightIcon class="ml-2 h-4 w-4" />
-	</Button>
 	<Button
 		variant="ghost"
 		class="mt-2 w-full text-sm text-[#6B7A6E]"
