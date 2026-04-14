@@ -10,13 +10,15 @@ test.describe('LanguageSwitcher', () => {
 		await expect(page.getByRole('button', { name: 'Change language' })).toBeVisible();
 	});
 
-	test('opens dropdown with all 3 languages', async ({ page }) => {
+	test('opens dropdown with all 5 languages', async ({ page }) => {
 		await page.getByRole('button', { name: 'Change language' }).click();
 		// Wait for portal-rendered menu to mount before asserting on items
 		await expect(page.getByRole('menu')).toBeVisible();
 		await expect(page.getByRole('menuitemradio', { name: 'English' })).toBeVisible();
 		await expect(page.getByRole('menuitemradio', { name: 'Português' })).toBeVisible();
 		await expect(page.getByRole('menuitemradio', { name: 'Nederlands' })).toBeVisible();
+		await expect(page.getByRole('menuitemradio', { name: 'Deutsch' })).toBeVisible();
+		await expect(page.getByRole('menuitemradio', { name: 'Español' })).toBeVisible();
 	});
 
 	test('switching to Portuguese updates page text', async ({ page }) => {
@@ -33,6 +35,14 @@ test.describe('LanguageSwitcher', () => {
 		await page.getByRole('menuitemradio', { name: 'Nederlands' }).click();
 		await expect(page.getByRole('button', { name: 'Ik begrijp het, doorgaan' })).toBeVisible();
 		await expect(page.getByText('Waar je mee akkoord gaat')).toBeVisible();
+	});
+
+	test('switching to Spanish updates page text', async ({ page }) => {
+		await page.getByRole('button', { name: 'Change language' }).click();
+		await expect(page.getByRole('menu')).toBeVisible();
+		await page.getByRole('menuitemradio', { name: 'Español' }).click();
+		await expect(page.getByRole('button', { name: 'Entendido, continuar' })).toBeVisible();
+		await expect(page.getByText('A lo que estás de acuerdo')).toBeVisible();
 	});
 
 	test('dropdown closes after selection', async ({ page }) => {
