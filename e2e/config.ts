@@ -13,3 +13,4 @@ export const E2E_DB_FILE = path.resolve(__dirname, '..', 'test.db');
 export const E2E_AUTH_SECRET = 'e2e-test-only-better-auth-secret-not-for-production!!';
 export const E2E_BASE_URL = 'http://localhost:5174';
 export const E2E_QR_JWT_SECRET = 'e2e-test-only-secret-do-not-use-in-production!!';
+export const E2E_APP_NAME = process.env.PUBLIC_APP_NAME || 'Mutuvia';
