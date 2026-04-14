@@ -15,6 +15,13 @@
 			"when": 1775126246959,
 			"tag": "0001_last_green_goblin",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1776164754185,
+			"tag": "0002_fix_null_placeholder_emails",
+			"breakpoints": true
 		}
 	]
 }

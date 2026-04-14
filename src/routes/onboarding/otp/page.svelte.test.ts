@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Tests for loading spinner wiring on the onboarding OTP page.
 
-import { vi, describe, test, expect, beforeEach } from 'vitest';
+import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import OtpPage from './+page.svelte';
 
@@ -111,6 +111,58 @@ describe('OTP page – loading spinner', () => {
 			expect(primaryButton).not.toBeNull();
 			expect(primaryButton!.querySelector('.animate-spin')).toBeNull();
 			expect(container.textContent).toContain('Invalid code');
+		});
+	});
+});
+
+describe('OTP page – resend clears error', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	test('successful resend clears visible error message', async () => {
+		vi.useFakeTimers();
+
+		const { authClient } = await import('$lib/auth-client');
+		const verifyMock = vi.mocked(authClient.phoneNumber.verify);
+		const sendOtpMock = vi.mocked(authClient.phoneNumber.sendOtp);
+
+		// First: fail a verify attempt to produce an error
+		verifyMock.mockResolvedValueOnce({ error: { message: 'Invalid code' } } as never);
+		// Then: successful resend
+		sendOtpMock.mockResolvedValueOnce({ error: null } as never);
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { container } = render(OtpPage, { props: { data: mockData as any } });
+
+		// Submit wrong OTP to trigger an error
+		const otpInput = container.querySelector('input[inputmode="numeric"]')!;
+		await fireEvent.input(otpInput, { target: { value: '000000' } });
+
+		// Error is visible
+		await waitFor(() => {
+			expect(container.textContent).toContain('Invalid code');
+		});
+
+		// Advance timers so the countdown reaches 0 and the resend button appears
+		await vi.advanceTimersByTimeAsync(30_000);
+
+		// Click the resend button
+		await waitFor(() => {
+			const resendButton = Array.from(container.querySelectorAll('button')).find(
+				(btn) => btn.textContent?.trim() === 'Resend'
+			);
+			expect(resendButton).not.toBeNull();
+		});
+
+		const resendButton = Array.from(container.querySelectorAll('button')).find(
+			(btn) => btn.textContent?.trim() === 'Resend'
+		)!;
+		await fireEvent.click(resendButton);
+
+		// After successful resend, error should be cleared
+		await waitFor(() => {
+			expect(container.textContent).not.toContain('Invalid code');
 		});
 	});
 });
