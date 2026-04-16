@@ -2,7 +2,7 @@
 
 > _Together, we are more._ Mutual credit for the rest of us.
 
-A minimal mutual credit app for small communities. Members send and receive credit obligations denominated in a configurable unit. No real money transfers — the ledger records mutual debts. Mobile-first, multilingual (EN / PT / NL / DE), privacy-respecting.
+A minimal mutual credit app for small communities. Members send and receive credit obligations denominated in a configurable unit. No real money transfers — the ledger records mutual debts. Mobile-first, multilingual (EN / PT / NL / DE / ES), privacy-respecting.
 
 **The FOSS package is named _Mutuvia_. Any community deploying it may rebrand freely** via the `APP_NAME` and `APP_TAGLINE` environment variables.
 
@@ -123,7 +123,7 @@ docker compose --profile postgres up -d
 | Auth          | Better Auth (SMS OTP via Prelude Verify, email OTP via SMTP)                    |
 | ORM           | Drizzle ORM                                                                     |
 | Database      | SQLite (default, WAL mode, via bun:sqlite) or PostgreSQL (via `DB_PROVIDER=pg`) |
-| i18n          | Paraglide JS v2 (EN, PT, NL, DE)                                                |
+| i18n          | Paraglide JS v2 (EN, PT, NL, DE, ES)                                            |
 | QR            | jose (JWT) + qrcode                                                             |
 | Realtime      | SSE (server-sent events) + Web Push (`web-push`, VAPID)                         |
 | Observability | Sentry (optional — error tracking + feedback widget)                            |
