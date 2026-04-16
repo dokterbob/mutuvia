@@ -262,5 +262,9 @@
 	"install_banner_not_now": "Agora não",
 
 	"toast_transaction_accepted": "{name} — {amount}",
-	"toast_transaction_declined": "O teu pedido foi recusado"
+	"toast_transaction_declined": "O teu pedido foi recusado",
+	"whats_new_title": "O que há de novo",
+	"whats_new_dismiss": "Entendi",
+	"whats_new_version_label": "Versão {version}",
+	"whats_new_v0_2_0": "Gerencie seu e-mail e número de telefone nas configurações\nSuporte ao idioma espanhol\nNavegação melhorada com botão de voltar e confirmação de cancelamento"
 }

@@ -22,6 +22,13 @@
 			"when": 1776164754185,
 			"tag": "0002_fix_null_placeholder_emails",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1776351616340,
+			"tag": "0003_new_white_tiger",
+			"breakpoints": true
 		}
 	]
 }

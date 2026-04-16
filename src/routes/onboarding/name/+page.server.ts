@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { Cookies } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { config } from '$lib/config';
 
 function consumeQrReturnTo(cookies: Cookies): string | null {
 	const returnTo = cookies.get('qr_return_to');
@@ -57,6 +58,7 @@ export const actions: Actions = {
 			id: randomUUID(),
 			betterAuthUserId: locals.user.id,
 			displayName,
+			lastSeenVersion: config.appVersion,
 			createdAt: new Date()
 		});
 

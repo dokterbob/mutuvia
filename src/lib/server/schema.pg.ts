@@ -75,7 +75,8 @@ export const appUsers = pgTable('app_users', {
 		.references(() => user.id),
 	displayName: text('display_name').notNull(),
 	sendConsentAt: timestamp('send_consent_at'),
-	createdAt: timestamp('created_at').notNull()
+	createdAt: timestamp('created_at').notNull(),
+	lastSeenVersion: text('last_seen_version')
 });
 
 export const transactions = pgTable('transactions', {

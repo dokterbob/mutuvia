@@ -88,5 +88,8 @@ export const config = {
 	},
 	get vapidSubject() {
 		return env.VAPID_SUBJECT ?? `mailto:admin@example.com`;
+	},
+	get appVersion(): string {
+		return __APP_VERSION__;
 	}
 };

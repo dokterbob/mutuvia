@@ -1,12 +1,13 @@
 <script lang="ts">
 	import InstallBanner from '$lib/components/install-banner.svelte';
+	import WhatsNewDialog from '$lib/components/whats-new-dialog.svelte';
 	import { onMount } from 'svelte';
 	import { sseManager } from '$lib/sse-client';
 	import { toast } from 'svelte-sonner';
 	import { page } from '$app/state';
 	import * as m from '$lib/paraglide/messages.js';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
 	onMount(() => {
 		sseManager.connect();
@@ -37,3 +38,7 @@
 </div>
 
 <InstallBanner />
+<WhatsNewDialog
+	appVersion={data.appVersion}
+	lastSeenVersion={data.appUser?.lastSeenVersion ?? null}
+/>
