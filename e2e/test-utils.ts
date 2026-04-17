@@ -235,19 +235,36 @@ export async function onboardUserViaEmail(
 	await page.waitForURL(/\/home/, { timeout: 10_000 });
 }
 
+// ── Fixture types ────────────────────────────────────────────────────────────
+
+export type WithAuthResult = {
+	context: BrowserContext;
+	email: string;
+	userId: string;
+	appUserId: string;
+};
+
+export type WithAuthOptions = {
+	displayName?: string;
+} & Omit<NonNullable<Parameters<import('@playwright/test').Browser['newContext']>[0]>, 'baseURL'>;
+
+export type TestUserResult = {
+	email: string;
+	userId: string;
+	appUserId: string;
+};
+
+export type TestUserOptions = {
+	displayName?: string;
+};
+
 // ── Playwright fixtures ───────────────────────────────────────────────────────
 
-/**
- * Custom test fixture that provides a fresh unauthenticated browser context
- * as `secondContext`. The context is automatically closed after each test,
- * eliminating the need for try/finally blocks.
- *
- * Also provides an `email` fixture that derives unique email addresses from the
- * test filename, preventing parallel test collisions.
- */
 export const test = base.extend<{
 	email: (role: string) => string;
-	secondContext: import('@playwright/test').BrowserContext;
+	secondContext: BrowserContext;
+	withAuth: (options?: WithAuthOptions) => Promise<WithAuthResult>;
+	testUser: (options?: TestUserOptions) => Promise<TestUserResult>;
 }>({
 	// eslint-disable-next-line no-empty-pattern
 	email: async ({}: object, use, testInfo) => {
@@ -258,5 +275,59 @@ export const test = base.extend<{
 		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
 		await use(ctx);
 		await ctx.close();
+	},
+
+	/**
+	 * Factory fixture: each call creates a unique user + authenticated BrowserContext.
+	 * All resources are cleaned up automatically after the test.
+	 */
+	withAuth: async ({ browser }, use, testInfo) => {
+		const teardowns: (() => Promise<void>)[] = [];
+
+		await use(async ({ displayName = 'Test User', ...contextOptions }: WithAuthOptions = {}) => {
+			const uniqueEmail = `e2e-${crypto.randomUUID().slice(0, 8)}@test.example`;
+			const ctx = await browser.newContext({
+				baseURL: testInfo.project.use.baseURL!,
+				...contextOptions
+			});
+			const userId = await setupAuthenticatedUser(ctx, uniqueEmail, displayName);
+			const appUserId = getAppUserId(userId);
+
+			teardowns.push(async () => {
+				await ctx.close().catch(() => {});
+				await deleteTestUser(uniqueEmail);
+			});
+
+			return { context: ctx, email: uniqueEmail, userId, appUserId };
+		});
+
+		for (const td of teardowns.reverse()) {
+			await td();
+		}
+	},
+
+	/**
+	 * Factory fixture: each call creates a unique user in the DB (no browser context).
+	 * Useful for tests that only need a user ID for DB operations.
+	 */
+	// eslint-disable-next-line no-empty-pattern
+	testUser: async ({}: object, use) => {
+		const teardowns: (() => Promise<void>)[] = [];
+
+		await use(async ({ displayName = 'Test User' }: TestUserOptions = {}) => {
+			const uniqueEmail = `e2e-${crypto.randomUUID().slice(0, 8)}@test.example`;
+			const userId = await createTestUser(uniqueEmail, displayName);
+			const appUserId = getAppUserId(userId);
+
+			teardowns.push(async () => {
+				await deleteTestUser(uniqueEmail);
+			});
+
+			return { email: uniqueEmail, userId, appUserId };
+		});
+
+		for (const td of teardowns.reverse()) {
+			await td();
+		}
 	}
 });

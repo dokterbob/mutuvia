@@ -1,15 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import * as jose from 'jose';
-import {
-	test,
-	expect,
-	goto,
-	setupAuthenticatedUser,
-	deleteTestUser,
-	createPendingQr,
-	getAppUserId
-} from './test-utils.js';
+import { test, expect, goto, createPendingQr } from './test-utils.js';
 import { sqlite } from './auth.js';
 import { E2E_QR_JWT_SECRET, E2E_BASE_URL, E2E_APP_NAME } from './config.js';
 
@@ -46,25 +38,13 @@ async function createReceiveQr(
 	return { token, qrId };
 }
 
-test.describe.serial('OG meta tags on /accept/[token]', () => {
-	let initiatorAppUserId: string;
-
-	test.beforeAll(async ({ browser, email }, testInfo) => {
-		const baseURL = testInfo.project.use.baseURL!;
-		const ctx = await browser.newContext({ baseURL });
-		const initiatorBaUserId = await setupAuthenticatedUser(ctx, email('initiator'), INITIATOR_NAME);
-		initiatorAppUserId = getAppUserId(initiatorBaUserId);
-		await ctx.close();
-	});
-
-	test.afterAll(async ({ email }) => {
-		await deleteTestUser(email('initiator'));
-	});
-
+test.describe('OG meta tags on /accept/[token]', () => {
 	test('send direction: OG tags contain payment amount and correct metadata', async ({
+		testUser,
 		secondContext
 	}) => {
-		const { token } = await createPendingQr(initiatorAppUserId, INITIATOR_NAME);
+		const { appUserId } = await testUser({ displayName: INITIATOR_NAME });
+		const { token } = await createPendingQr(appUserId, INITIATOR_NAME);
 		const page = await secondContext.newPage();
 
 		await goto(page, `/accept/${token}`);
@@ -113,8 +93,9 @@ test.describe.serial('OG meta tags on /accept/[token]', () => {
 		expect(ogDescriptionContent).not.toContain(INITIATOR_NAME);
 	});
 
-	test('receive direction: OG tags contain request amount', async ({ secondContext }) => {
-		const { token } = await createReceiveQr(initiatorAppUserId, INITIATOR_NAME, 750);
+	test('receive direction: OG tags contain request amount', async ({ testUser, secondContext }) => {
+		const { appUserId } = await testUser({ displayName: INITIATOR_NAME });
+		const { token } = await createReceiveQr(appUserId, INITIATOR_NAME, 750);
 		const page = await secondContext.newPage();
 
 		await goto(page, `/accept/${token}`);

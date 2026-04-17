@@ -1,5 +1,5 @@
-import { expect, type BrowserContext } from '@playwright/test';
-import { test, goto, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
+import { expect } from '@playwright/test';
+import { test, goto } from './test-utils.js';
 
 const FAQ_NAME = 'FAQ User';
 
@@ -60,40 +60,14 @@ test.describe('FAQ page (public)', () => {
 	});
 });
 
-test.describe.serial('FAQ hamburger menu (authenticated)', () => {
-	let storage: Awaited<ReturnType<BrowserContext['storageState']>>;
-
-	test.beforeAll(async ({ browser, email }, testInfo) => {
-		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
-		await setupAuthenticatedUser(ctx, email('user'), FAQ_NAME);
-		storage = await ctx.storageState();
-		await ctx.close();
-	});
-
-	test.afterAll(async ({ email }) => {
-		await deleteTestUser(email('user'));
-	});
-
+test.describe('FAQ hamburger menu (authenticated)', () => {
 	test.describe('menu navigation', () => {
-		let ctx: BrowserContext;
-		let page: import('@playwright/test').Page;
-
-		test.beforeEach(async ({ browser }, testInfo) => {
-			ctx = await browser.newContext({
-				storageState: storage,
-				baseURL: testInfo.project.use.baseURL!
-			});
-			page = await ctx.newPage();
+		test('hamburger menu shows all items', async ({ withAuth }) => {
+			const { context } = await withAuth({ displayName: FAQ_NAME });
+			const page = await context.newPage();
 			await goto(page, '/home');
 			await page.getByRole('button', { name: /menu/i }).click();
 			await expect(page.getByRole('menu')).toBeVisible();
-		});
-
-		test.afterEach(async () => {
-			await ctx.close();
-		});
-
-		test('hamburger menu shows all items', async () => {
 			await expect(page.getByRole('menuitem', { name: /settings/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /faq/i })).toBeVisible();
 			await expect(page.getByRole('menuitem', { name: /how it works/i })).toBeVisible();
@@ -102,48 +76,54 @@ test.describe.serial('FAQ hamburger menu (authenticated)', () => {
 			await expect(page.getByRole('menuitem', { name: /sign out/i })).toBeVisible();
 		});
 
-		test('Settings menu item navigates to /settings', async () => {
+		test('Settings menu item navigates to /settings', async ({ withAuth }) => {
+			const { context } = await withAuth({ displayName: FAQ_NAME });
+			const page = await context.newPage();
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
 			await page.getByRole('menuitem', { name: /settings/i }).click();
 			await expect(page).toHaveURL(/\/settings/);
 		});
 
-		test('FAQ menu item navigates to /faq', async () => {
+		test('FAQ menu item navigates to /faq', async ({ withAuth }) => {
+			const { context } = await withAuth({ displayName: FAQ_NAME });
+			const page = await context.newPage();
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
 			await page.getByRole('menuitem', { name: /faq/i }).click();
 			await expect(page).toHaveURL(/\/faq/);
 		});
 
-		test('How it works navigates to /onboarding/intro1?review', async () => {
+		test('How it works navigates to /onboarding/intro1?review', async ({ withAuth }) => {
+			const { context } = await withAuth({ displayName: FAQ_NAME });
+			const page = await context.newPage();
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
 			await page.getByRole('menuitem', { name: /how it works/i }).click();
 			await expect(page).toHaveURL(/\/onboarding\/intro1/);
 		});
 
-		test('About navigates to /about', async () => {
+		test('About navigates to /about', async ({ withAuth }) => {
+			const { context } = await withAuth({ displayName: FAQ_NAME });
+			const page = await context.newPage();
+			await goto(page, '/home');
+			await page.getByRole('button', { name: /menu/i }).click();
+			await expect(page.getByRole('menu')).toBeVisible();
 			await page.getByRole('menuitem', { name: /about/i }).click();
 			await expect(page).toHaveURL(/\/about/);
 		});
 	});
 
-	test('Sign out navigates to /onboarding', async ({ browser }, testInfo) => {
-		const signOutEmail = 'e2e-faq-signout@test.example';
-		const signOutName = 'FAQ Signout User';
-		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
-		await setupAuthenticatedUser(ctx, signOutEmail, signOutName);
-		const signOutStorage = await ctx.storageState();
-		await ctx.close();
-
-		const authCtx = await browser.newContext({
-			storageState: signOutStorage,
-			baseURL: testInfo.project.use.baseURL!
-		});
-		const page = await authCtx.newPage();
-		try {
-			await goto(page, '/home');
-			await page.getByRole('button', { name: /menu/i }).click();
-			await expect(page.getByRole('menu')).toBeVisible();
-			await page.getByRole('menuitem', { name: /sign out/i }).click();
-			await expect(page).toHaveURL(/\/onboarding/);
-		} finally {
-			await authCtx.close();
-		}
+	test('Sign out navigates to /onboarding', async ({ withAuth }) => {
+		const { context } = await withAuth({ displayName: 'FAQ Signout User' });
+		const page = await context.newPage();
+		await goto(page, '/home');
+		await page.getByRole('button', { name: /menu/i }).click();
+		await expect(page.getByRole('menu')).toBeVisible();
+		await page.getByRole('menuitem', { name: /sign out/i }).click();
+		await expect(page).toHaveURL(/\/onboarding/);
 	});
 });
