@@ -6,6 +6,7 @@ import {
 	expect,
 	goto,
 	setupAuthenticatedUser,
+	deleteTestUser,
 	createPendingQr,
 	getAppUserId
 } from './test-utils.js';
@@ -45,7 +46,7 @@ async function createReceiveQr(
 	return { token, qrId };
 }
 
-test.describe('OG meta tags on /accept/[token]', () => {
+test.describe.serial('OG meta tags on /accept/[token]', () => {
 	let initiatorAppUserId: string;
 
 	test.beforeAll(async ({ browser, email }, testInfo) => {
@@ -54,6 +55,10 @@ test.describe('OG meta tags on /accept/[token]', () => {
 		const initiatorBaUserId = await setupAuthenticatedUser(ctx, email('initiator'), INITIATOR_NAME);
 		initiatorAppUserId = getAppUserId(initiatorBaUserId);
 		await ctx.close();
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('initiator'));
 	});
 
 	test('send direction: OG tags contain payment amount and correct metadata', async ({
@@ -138,4 +143,3 @@ test.describe('OG meta tags on /accept/[token]', () => {
 		await expect(ogDescription).toHaveAttribute('content', 'Mutual credit for your community');
 	});
 });
-// Initiator user is intentionally not cleaned up — global setup deletes test.db on the next run.

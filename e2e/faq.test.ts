@@ -1,5 +1,5 @@
 import { expect, type BrowserContext } from '@playwright/test';
-import { test, goto, setupAuthenticatedUser } from './test-utils.js';
+import { test, goto, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
 
 const FAQ_NAME = 'FAQ User';
 
@@ -60,7 +60,7 @@ test.describe('FAQ page (public)', () => {
 	});
 });
 
-test.describe('FAQ hamburger menu (authenticated)', () => {
+test.describe.serial('FAQ hamburger menu (authenticated)', () => {
 	let storage: Awaited<ReturnType<BrowserContext['storageState']>>;
 
 	test.beforeAll(async ({ browser, email }, testInfo) => {
@@ -68,6 +68,10 @@ test.describe('FAQ hamburger menu (authenticated)', () => {
 		await setupAuthenticatedUser(ctx, email('user'), FAQ_NAME);
 		storage = await ctx.storageState();
 		await ctx.close();
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('user'));
 	});
 
 	test.describe('menu navigation', () => {
