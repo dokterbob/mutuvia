@@ -112,6 +112,24 @@ Both fixtures use UUID-based emails, so parallel workers can never collide — n
 
 These replace the old pattern of `test.describe.serial()` + `beforeAll` / `afterAll` + `storageState` files.
 
+**Parallel safety — never use hardcoded shared data** — Static identifiers (email addresses, phone numbers, usernames, IDs) defined at module scope collide when two workers run the same test simultaneously. This applies in `fullyParallel: true` mode and becomes especially visible under `--repeat-each` stress testing.
+
+| Fixture | When to use | How it stays unique |
+| --- | --- | --- |
+| `email(role)` | UI sign-up flows | `e2e-{filename}-{role}[-w{workerIndex}]@test.example` — adds `-w{N}` suffix for workers N > 0 |
+| `phone(slot)` | Phone OTP onboarding/auth | `+35191…` E164 number keyed to `workerIndex × 10 + slot`; call `phone(1)`, `phone(2)` etc. for distinct numbers |
+| `withAuth(options?)` / `testUser(options?)` | Authenticated context or DB user ID only | UUID-based email per call — inherently unique with no coordination needed |
+
+```ts
+// ❌ hardcoded — collides when two workers run this test simultaneously
+const PHONE_A = '+351910000001';
+const USER_EMAIL = 'e2e-mytest-user@test.example';
+
+// ✅ safe — unique per worker
+const PHONE_A = phone(1);
+const USER_EMAIL = email('user');
+```
+
 **`test.describe.serial()` for ordered flows** — Use when steps depend on state created by earlier steps (e.g. send/receive flow that needs a QR created in step 1).
 
 **bits-ui portals** — After clicking a trigger, wait for the portal to mount before asserting on its contents:

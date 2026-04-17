@@ -267,6 +267,7 @@ export type TestUserOptions = {
 
 export const test = base.extend<{
 	email: (role: string) => string;
+	phone: (slot: number) => string;
 	secondContext: BrowserContext;
 	withAuth: (options?: WithAuthOptions) => Promise<WithAuthResult>;
 	testUser: (options?: TestUserOptions) => Promise<TestUserResult>;
@@ -274,7 +275,23 @@ export const test = base.extend<{
 	// eslint-disable-next-line no-empty-pattern
 	email: async ({}: object, use, testInfo) => {
 		const prefix = basename(testInfo.file).replace(/\.test\.ts$/, '');
-		await use((role: string) => `e2e-${prefix}-${role}@test.example`);
+		const workerSuffix = testInfo.workerIndex > 0 ? `-w${testInfo.workerIndex}` : '';
+		await use((role: string) => `e2e-${prefix}-${role}${workerSuffix}@test.example`);
+	},
+
+	/**
+	 * Generates unique E164 phone numbers per worker, preventing parallel-worker
+	 * collisions on shared verification records. Each slot maps to a distinct
+	 * number: phone(1), phone(2), … are stable within one worker and distinct
+	 * across workers. Portuguese mobile (+351 91x) format.
+	 *
+	 * Usage: const phone = phone(1) → '+351910000001' on worker 0,
+	 *                                  '+351910000011' on worker 1, etc.
+	 */
+	// eslint-disable-next-line no-empty-pattern
+	phone: async ({}: object, use, testInfo) => {
+		const w = testInfo.workerIndex;
+		await use((slot: number) => `+35191${String(w * 10 + slot).padStart(7, '0')}`);
 	},
 	secondContext: async ({ browser }, use, testInfo) => {
 		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
