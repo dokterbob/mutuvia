@@ -48,10 +48,15 @@ export function getAppUserId(betterAuthUserId: string): string {
 /**
  * Insert a pending QR row and sign a JWT for it. Returns { token, qrId }.
  * Uses the same JWT format as src/lib/server/qr.ts (HS256, issuer=appUrl).
+ *
+ * Pass an optional options object to override the defaults:
+ *   - `direction` (default: `'send'`)
+ *   - `amount` in cents (default: `500`)
  */
 export async function createPendingQr(
 	initiatingAppUserId: string,
-	senderName: string
+	senderName: string,
+	{ direction = 'send', amount = 500 }: { direction?: 'send' | 'receive'; amount?: number } = {}
 ): Promise<{ token: string; qrId: string }> {
 	const qrId = crypto.randomUUID();
 	const now = Math.floor(Date.now() / 1000);
@@ -59,12 +64,12 @@ export async function createPendingQr(
 	sqlite
 		.prepare(
 			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, status, created_at, expires_at)
-			 VALUES (?, ?, 'send', 500, 'pending', ?, ?)`
+			 VALUES (?, ?, ?, ?, 'pending', ?, ?)`
 		)
-		.run(qrId, initiatingAppUserId, now, now + 600);
+		.run(qrId, initiatingAppUserId, direction, amount, now, now + 600);
 
 	const secret = new TextEncoder().encode(E2E_QR_JWT_SECRET);
-	const token = await new jose.SignJWT({ amt: 500, dir: 'send', dn: senderName })
+	const token = await new jose.SignJWT({ amt: amount, dir: direction, dn: senderName })
 		.setProtectedHeader({ alg: 'HS256' })
 		.setJti(qrId)
 		.setIssuer(E2E_BASE_URL)
@@ -290,11 +295,14 @@ export const test = base.extend<{
 				baseURL: testInfo.project.use.baseURL!,
 				...contextOptions
 			});
-			const userId = await setupAuthenticatedUser(ctx, uniqueEmail, displayName);
-			const appUserId = getAppUserId(userId);
-
+			// Register context teardown immediately so it's always closed, even if setup below throws
 			teardowns.push(async () => {
 				await ctx.close().catch(() => {});
+			});
+			const userId = await setupAuthenticatedUser(ctx, uniqueEmail, displayName);
+			const appUserId = getAppUserId(userId);
+			// Register user teardown separately (after we know the email is in the DB)
+			teardowns.push(async () => {
 				await deleteTestUser(uniqueEmail);
 			});
 

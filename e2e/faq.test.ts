@@ -118,7 +118,7 @@ test.describe('FAQ hamburger menu (authenticated)', () => {
 	});
 
 	test('Sign out navigates to /onboarding', async ({ withAuth }) => {
-		const { context } = await withAuth({ displayName: 'FAQ Signout User' });
+		const { context } = await withAuth({ displayName: FAQ_NAME });
 		const page = await context.newPage();
 		await goto(page, '/home');
 		await page.getByRole('button', { name: /menu/i }).click();
