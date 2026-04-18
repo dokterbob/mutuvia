@@ -87,12 +87,47 @@ test('onboarding', async ({ page, email }) => {
 });
 ```
 
-**`setupAuthenticatedUser()` for fast auth** — Programmatically creates a user and injects session cookies into a browser context. Use this in all tests that don't specifically test the onboarding flow itself.
+**`withAuth(options?)` fixture — authenticated browser context per test** — Creates a unique user and a fully authenticated `BrowserContext` in one call. Options accept a `displayName` string and any Playwright `BrowserContext` options (e.g. `userAgent`). Returns `{ context, email, userId, appUserId }`. The context and user are automatically cleaned up after the test.
 
 ```ts
-test.beforeEach(async ({ context, email }) => {
-	await setupAuthenticatedUser(context, email('alice'), 'Alice');
+test('home loads for authenticated user', async ({ withAuth }) => {
+	const { context } = await withAuth({ displayName: 'Alice' });
+	const page = await context.newPage();
+	await goto(page, '/home');
+	// assertions here
 });
+```
+
+**`testUser(options?)` fixture — DB-only user per test** — Creates a unique user in the database without opening a browser session. Returns `{ email, userId, appUserId }`. User is auto-cleaned up after the test. Use this when a test needs a user ID for DB assertions but visits pages unauthenticated.
+
+```ts
+test('profile page redirects unauthenticated', async ({ page, testUser }) => {
+	const { userId } = await testUser({ displayName: 'Bob' });
+	await goto(page, `/profile/${userId}`);
+	await expect(page).toHaveURL(/\/onboarding/);
+});
+```
+
+Both fixtures use UUID-based emails, so parallel worker collisions are extremely unlikely — no `test.describe.serial()` is needed. They can be called multiple times within a single test to create independent users.
+
+These replace the old pattern of `test.describe.serial()` + `beforeAll` / `afterAll` + `storageState` files.
+
+**Parallel safety — never use hardcoded shared data** — Static identifiers (email addresses, phone numbers, usernames, IDs) defined at module scope collide when two workers run the same test simultaneously. This applies in `fullyParallel: true` mode and becomes especially visible under `--repeat-each` stress testing.
+
+| Fixture                                     | When to use                              | How it stays unique                                                                                                                                                                  |
+| ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `email(role)`                               | UI sign-up flows                         | `e2e-{filename}-{role}[-w{workerIndex}]@test.example` — adds `-w{N}` suffix for workers N > 0                                                                                        |
+| `phone(slot)`                               | Phone OTP onboarding/auth                | `+35191…` E164 number keyed to `workerIndex × 1000 + slot`; call `phone(1)`, `phone(2)` etc. for distinct numbers. Keep slots single-digit to avoid hitting the next worker's range. |
+| `withAuth(options?)` / `testUser(options?)` | Authenticated context or DB user ID only | UUID-based email per call — inherently unique with no coordination needed                                                                                                            |
+
+```ts
+// ❌ hardcoded — collides when two workers run this test simultaneously
+const PHONE_A = '+351910000001';
+const USER_EMAIL = 'e2e-mytest-user@test.example';
+
+// ✅ safe — unique per worker
+const PHONE_A = phone(1);
+const USER_EMAIL = email('user');
 ```
 
 **`test.describe.serial()` for ordered flows** — Use when steps depend on state created by earlier steps (e.g. send/receive flow that needs a QR created in step 1).

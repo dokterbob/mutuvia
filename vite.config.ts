@@ -54,6 +54,12 @@ export default defineConfig({
 			strategies: 'injectManifest',
 			srcDir: 'src',
 			filename: 'service-worker.ts',
+			// Force an absolute SW registration path so browsers on sub-routes like
+			// /onboarding don't resolve './service-worker.js' relative to the page URL.
+			// Without this, Workbox/registerSW can use './service-worker.js', which
+			// then 404s when loaded from sub-route pages.
+			scope: '/',
+			buildBase: '/',
 			manifest: {
 				name: process.env.PUBLIC_APP_NAME || 'Mutuvia',
 				short_name: process.env.PUBLIC_APP_NAME || 'Mutuvia',
@@ -63,6 +69,7 @@ export default defineConfig({
 				display: 'standalone',
 				start_url: '/',
 				id: '/',
+				scope: '/',
 				screenshots: [
 					{
 						src: '/screenshots/desktop.png',

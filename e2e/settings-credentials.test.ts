@@ -261,43 +261,38 @@ async function addOrChangePhone(page: Page, newPhone: string, hasPhone = false):
 // Use .serial so each test starts with a fresh page state and the shared
 // onboarding/sign-out helpers don't race with parallel tabs.
 test.describe.serial('Credential management — Sign-in methods settings', () => {
-	// Fixed test phones — unique per test via numeric suffix to avoid collisions
-	// across parallel test file runs.
-	const PHONE_A = '+351910000001';
-	const PHONE_B = '+351910000002';
-	const PHONE_C = '+351910000003';
-
-	test.afterEach(async ({ email }) => {
+	test.afterEach(async ({ email, phone }) => {
 		// Clean up all credentials used by this test suite
 		await deleteTestUser(email('user'));
 		clearOTPs(email('user'));
 		await deleteTestUser(email('new-email'));
 		clearOTPs(email('new-email'));
 		// Phone users are registered under a placeholder email
-		await deleteTestUser(makePlaceholderEmail(PHONE_A));
-		await deleteTestUser(makePlaceholderEmail(PHONE_B));
-		await deleteTestUser(makePlaceholderEmail(PHONE_C));
-		clearPhoneOTPs(PHONE_A);
-		clearPhoneOTPs(PHONE_B);
-		clearPhoneOTPs(PHONE_C);
+		await deleteTestUser(makePlaceholderEmail(phone(1)));
+		await deleteTestUser(makePlaceholderEmail(phone(2)));
+		await deleteTestUser(makePlaceholderEmail(phone(3)));
+		clearPhoneOTPs(phone(1));
+		clearPhoneOTPs(phone(2));
+		clearPhoneOTPs(phone(3));
 	});
 
 	// ── Test 1: Phone-signup user adds an email ───────────────────────────────
 
 	test('Given phone-only signup, when user adds email in settings, then sign-in with new email lands on home', async ({
 		page,
-		email
+		email,
+		phone
 	}) => {
 		const newEmail = email('user');
 
 		// Given: onboarded via phone
-		await onboardViaPhone(page, PHONE_A, 'Phone User');
+		await onboardViaPhone(page, phone(1), 'Phone User');
 
 		// When: navigate to Settings and add an email.
 		// The DB stores the placeholder email for phone-only users.
 		await goToSettings(page);
 		await expect(page.getByText('Sign-in methods')).toBeVisible();
-		await addOrChangeEmail(page, newEmail, makePlaceholderEmail(PHONE_A), false);
+		await addOrChangeEmail(page, newEmail, makePlaceholderEmail(phone(1)), false);
 
 		// Sign out
 		await goto(page, '/home');
@@ -312,7 +307,8 @@ test.describe.serial('Credential management — Sign-in methods settings', () =>
 
 	test('Given email-only signup, when user adds phone in settings, then sign-in with new phone lands on home', async ({
 		page,
-		email
+		email,
+		phone
 	}) => {
 		const userEmail = email('user');
 
@@ -322,36 +318,37 @@ test.describe.serial('Credential management — Sign-in methods settings', () =>
 		// When: navigate to Settings and add a phone number
 		await goToSettings(page);
 		await expect(page.getByText('Sign-in methods')).toBeVisible();
-		await addOrChangePhone(page, PHONE_B);
+		await addOrChangePhone(page, phone(2));
 
 		// Sign out
 		await goto(page, '/home');
 		await signOut(page);
 
 		// Then: signing in with the new phone should land on /home
-		await signInViaPhone(page, PHONE_B);
+		await signInViaPhone(page, phone(2));
 		await expect(page).toHaveURL(/\/home/);
 	});
 
 	// ── Test 3: Change phone ──────────────────────────────────────────────────
 
 	test('Given phone-only signup, when user changes phone in settings, then sign-in with new phone lands on home', async ({
-		page
+		page,
+		phone
 	}) => {
-		// Given: onboarded via phone (PHONE_B)
-		await onboardViaPhone(page, PHONE_B, 'Phone Changer');
+		// Given: onboarded via phone (slot 2)
+		await onboardViaPhone(page, phone(2), 'Phone Changer');
 
 		// When: navigate to Settings and change to a new phone number
 		await goToSettings(page);
 		await expect(page.getByText('Sign-in methods')).toBeVisible();
-		await addOrChangePhone(page, PHONE_C, true);
+		await addOrChangePhone(page, phone(3), true);
 
 		// Sign out
 		await goto(page, '/home');
 		await signOut(page);
 
 		// Then: signing in with the new phone should land on /home
-		await signInViaPhone(page, PHONE_C);
+		await signInViaPhone(page, phone(3));
 		await expect(page).toHaveURL(/\/home/);
 	});
 
