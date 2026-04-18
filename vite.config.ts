@@ -49,10 +49,10 @@ export default defineConfig({
 			strategies: 'injectManifest',
 			srcDir: 'src',
 			filename: 'service-worker.ts',
-			// Force absolute SW registration path so browsers on sub-routes like
-			// /onboarding don't resolve './service-worker.js' relative to their URL.
-			// Without this, vite-plugin-pwa inherits SvelteKit's base='.' and generates
-			// new Workbox('./service-worker.js') which 404s on every sub-route page load.
+			// Force an absolute SW registration path so browsers on sub-routes like
+			// /onboarding don't resolve './service-worker.js' relative to the page URL.
+			// Without this, Workbox/registerSW can use './service-worker.js', which
+			// then 404s when loaded from sub-route pages.
 			scope: '/',
 			buildBase: '/',
 			manifest: {

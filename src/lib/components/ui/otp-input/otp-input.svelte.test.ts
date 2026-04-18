@@ -11,7 +11,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 }));
 
 describe('OtpInput', () => {
-	describe('Test A — clears input when error prop becomes non-empty', () => {
+	describe('clears input when error prop becomes non-empty', () => {
 		test('Given a typed OTP, when error is set, then the input is cleared', async () => {
 			const onSubmit = vi.fn().mockResolvedValue(undefined);
 			const onResend = vi.fn().mockResolvedValue(undefined);
@@ -37,7 +37,7 @@ describe('OtpInput', () => {
 		});
 	});
 
-	describe('Test C — sequential character input triggers auto-submit', () => {
+	describe('sequential character input triggers auto-submit', () => {
 		test('Given digits typed one-by-one, when 6th digit is entered, then onSubmit is called with the full code', async () => {
 			const onSubmit = vi.fn().mockResolvedValue(undefined);
 			const onResend = vi.fn().mockResolvedValue(undefined);
@@ -65,7 +65,7 @@ describe('OtpInput', () => {
 		});
 	});
 
-	describe('Test B — resend: when onResend throws, console.error is called and state is not reset', () => {
+	describe('resend: when onResend throws, console.error is called and state is not reset', () => {
 		beforeEach(() => {
 			vi.useFakeTimers();
 		});

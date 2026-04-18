@@ -291,7 +291,7 @@ export const test = base.extend<{
 	// eslint-disable-next-line no-empty-pattern
 	phone: async ({}: object, use, testInfo) => {
 		const w = testInfo.workerIndex;
-		await use((slot: number) => `+35191${String(w * 10 + slot).padStart(7, '0')}`);
+		await use((slot: number) => `+35191${String(w * 1000 + slot).padStart(7, '0')}`);
 	},
 	secondContext: async ({ browser }, use, testInfo) => {
 		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
@@ -307,10 +307,15 @@ export const test = base.extend<{
 		const teardowns: (() => Promise<void>)[] = [];
 
 		await use(async ({ displayName = 'Test User', ...contextOptions }: WithAuthOptions = {}) => {
-			const uniqueEmail = `e2e-${crypto.randomUUID().slice(0, 8)}@test.example`;
+			const uniqueEmail = `e2e-${crypto.randomUUID()}@test.example`;
+			// Register user teardown immediately — deleteTestUser is a no-op if the user
+			// doesn't exist yet, so early registration ensures cleanup even if setup throws.
+			teardowns.push(async () => {
+				await deleteTestUser(uniqueEmail);
+			});
 			const ctx = await browser.newContext({
-				baseURL: testInfo.project.use.baseURL!,
-				...contextOptions
+				...contextOptions,
+				baseURL: testInfo.project.use.baseURL!
 			});
 			// Register context teardown immediately so it's always closed, even if setup below throws
 			teardowns.push(async () => {
@@ -318,10 +323,6 @@ export const test = base.extend<{
 			});
 			const userId = await setupAuthenticatedUser(ctx, uniqueEmail, displayName);
 			const appUserId = getAppUserId(userId);
-			// Register user teardown separately (after we know the email is in the DB)
-			teardowns.push(async () => {
-				await deleteTestUser(uniqueEmail);
-			});
 
 			return { context: ctx, email: uniqueEmail, userId, appUserId };
 		});
@@ -340,7 +341,7 @@ export const test = base.extend<{
 		const teardowns: (() => Promise<void>)[] = [];
 
 		await use(async ({ displayName = 'Test User' }: TestUserOptions = {}) => {
-			const uniqueEmail = `e2e-${crypto.randomUUID().slice(0, 8)}@test.example`;
+			const uniqueEmail = `e2e-${crypto.randomUUID()}@test.example`;
 			const userId = await createTestUser(uniqueEmail, displayName);
 			const appUserId = getAppUserId(userId);
 
