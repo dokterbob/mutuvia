@@ -2,6 +2,7 @@
 
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
+import { config } from '$lib/config';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
 	if (!locals.session) {
@@ -12,6 +13,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	}
 
 	return {
-		appUser: locals.appUser
+		appUser: locals.appUser,
+		appVersion: config.appVersion
 	};
 };

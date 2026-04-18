@@ -44,6 +44,10 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 vi.mock('$lib/paraglide/runtime.js', () => ({ getLocale: () => 'en' }));
 
 vi.mock('$lib/components/install-banner.svelte', () => ({ default: () => {} }));
+vi.mock('$lib/components/whats-new-dialog.svelte', () => ({ default: () => {} }));
+vi.mock('$lib/whats-new', () => ({
+	getUnseenEntries: () => []
+}));
 
 vi.mock('$app/environment', () => ({ browser: true }));
 
@@ -79,8 +83,10 @@ describe('(app) layout – SSE → toast handlers', () => {
 			render: () => '<div></div>',
 			setup: () => {}
 		}));
+
+		const data = { appVersion: '0.2.0', appUser: null };
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return render(AppLayout, { props: { children } as any });
+		return render(AppLayout, { props: { children, data } as any });
 	}
 
 	it('connects SSE manager on mount', () => {

@@ -250,5 +250,9 @@
 	"install_banner_not_now": "Nicht jetzt",
 
 	"toast_transaction_accepted": "{name} — {amount}",
-	"toast_transaction_declined": "Deine Anfrage wurde abgelehnt"
+	"toast_transaction_declined": "Deine Anfrage wurde abgelehnt",
+	"whats_new_title": "Was ist neu",
+	"whats_new_dismiss": "Verstanden",
+	"whats_new_version_label": "Version {version}",
+	"whats_new_v0_2_0": "E-Mail und Telefonnummer in den Einstellungen verwalten\nSpanische Sprachunterstützung\nVerbesserte Navigation mit Zurück-Schaltfläche und Abbruchbestätigung"
 }

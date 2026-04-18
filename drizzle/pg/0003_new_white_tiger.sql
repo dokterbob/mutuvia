@@ -1,0 +1,1 @@
+ALTER TABLE "app_users" ADD COLUMN "last_seen_version" text DEFAULT '0.1.0';

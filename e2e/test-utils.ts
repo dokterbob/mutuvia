@@ -5,6 +5,7 @@ import type { TestHelpers } from 'better-auth/plugins';
 import * as jose from 'jose';
 import { auth, sqlite } from './auth.js';
 import { E2E_BASE_URL, E2E_QR_JWT_SECRET } from './config.js';
+import pkg from '../package.json' with { type: 'json' };
 
 export { expect } from '@playwright/test';
 
@@ -129,10 +130,10 @@ export async function createTestUser(email: string, displayName: string): Promis
 	const now = Math.floor(Date.now() / 1000);
 	sqlite
 		.prepare(
-			`INSERT INTO app_users (id, better_auth_user_id, display_name, created_at)
-			 VALUES (?, ?, ?, ?)`
+			`INSERT INTO app_users (id, better_auth_user_id, display_name, created_at, last_seen_version)
+			 VALUES (?, ?, ?, ?, ?)`
 		)
-		.run(id, user.id, displayName, now);
+		.run(id, user.id, displayName, now, pkg.version);
 
 	return user.id;
 }

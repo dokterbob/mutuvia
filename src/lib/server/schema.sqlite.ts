@@ -67,7 +67,8 @@ export const appUsers = sqliteTable('app_users', {
 		.references(() => user.id),
 	displayName: text('display_name').notNull(),
 	sendConsentAt: integer('send_consent_at', { mode: 'timestamp' }),
-	createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+	lastSeenVersion: text('last_seen_version')
 });
 
 export const transactions = sqliteTable('transactions', {

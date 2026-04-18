@@ -8,6 +8,8 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import type { ViteDevServer } from 'vite';
 
+const pkg = JSON.parse(readFileSync('package.json', 'utf-8')) as { version: string };
+
 function hashFile(path: string): string {
 	return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -30,6 +32,9 @@ const devUrlPlugin = {
 };
 
 export default defineConfig({
+	define: {
+		__APP_VERSION__: JSON.stringify(pkg.version)
+	},
 	plugins: [
 		devUrlPlugin,
 		paraglideVitePlugin({

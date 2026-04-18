@@ -17,6 +17,7 @@ declare global {
 				displayName: string;
 				sendConsentAt: Date | null;
 				createdAt: Date;
+				lastSeenVersion: string | null;
 			} | null;
 		}
 		// interface PageData {}
@@ -31,6 +32,8 @@ declare global {
 	interface WindowEventMap {
 		beforeinstallprompt: BeforeInstallPromptEvent;
 	}
+
+	declare const __APP_VERSION__: string;
 }
 
 export {};
