@@ -83,8 +83,10 @@ describe('(app) layout – SSE → toast handlers', () => {
 			render: () => '<div></div>',
 			setup: () => {}
 		}));
+
+		const data = { appVersion: '0.2.0', appUser: null };
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return render(AppLayout, { props: { children } as any });
+		return render(AppLayout, { props: { children, data } as any });
 	}
 
 	it('connects SSE manager on mount', () => {

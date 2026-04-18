@@ -19,9 +19,12 @@ export interface WhatsNewEntry {
 export const changelog: WhatsNewEntry[] = [{ version: '0.2.0', content: m.whats_new_v0_2_0 }];
 
 /** Returns changelog entries the user has not yet seen. */
-export function getUnseenEntries(lastSeenVersion: string | null): WhatsNewEntry[] {
-	if (lastSeenVersion === null) return changelog;
-	const idx = changelog.findIndex((e) => e.version === lastSeenVersion);
-	if (idx === -1) return changelog;
-	return changelog.slice(0, idx);
+export function getUnseenEntries(
+	lastSeenVersion: string | null,
+	entries: WhatsNewEntry[] = changelog
+): WhatsNewEntry[] {
+	if (lastSeenVersion === null) return entries;
+	const idx = entries.findIndex((e) => e.version === lastSeenVersion);
+	if (idx === -1) return entries;
+	return entries.slice(0, idx);
 }

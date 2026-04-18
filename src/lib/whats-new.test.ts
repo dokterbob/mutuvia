@@ -34,4 +34,23 @@ describe('getUnseenEntries', () => {
 			expect(result).toEqual(changelog);
 		});
 	});
+
+	describe('when there are multiple changelog entries', () => {
+		const v1 = { version: '0.3.0', content: () => 'C' };
+		const v2 = { version: '0.2.0', content: () => 'B' };
+		const v3 = { version: '0.1.0', content: () => 'A' };
+		const entries = [v1, v2, v3];
+
+		test('returns only entries newer than lastSeenVersion', () => {
+			expect(getUnseenEntries('0.2.0', entries)).toEqual([v1]);
+		});
+
+		test('returns all entries when version predates the changelog', () => {
+			expect(getUnseenEntries('0.0.1', entries)).toEqual(entries);
+		});
+
+		test('returns no entries when already on the latest version', () => {
+			expect(getUnseenEntries('0.3.0', entries)).toHaveLength(0);
+		});
+	});
 });
