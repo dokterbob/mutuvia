@@ -64,7 +64,6 @@
 	function handleInput(e: Event) {
 		const input = e.target as HTMLInputElement;
 		otpCode = input.value.replace(/\D/g, '').slice(0, 6);
-		input.value = otpCode;
 		if (otpCode.length === 6) {
 			void verify();
 		}
@@ -84,7 +83,7 @@
 		autocomplete="one-time-code"
 		maxlength="6"
 		pattern="[0-9]*"
-		value={otpCode}
+		bind:value={otpCode}
 		aria-label="One-time code"
 		oninput={handleInput}
 		onkeydown={handleKeydown}

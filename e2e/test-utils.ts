@@ -48,10 +48,15 @@ export function getAppUserId(betterAuthUserId: string): string {
 /**
  * Insert a pending QR row and sign a JWT for it. Returns { token, qrId }.
  * Uses the same JWT format as src/lib/server/qr.ts (HS256, issuer=appUrl).
+ *
+ * Pass an optional options object to override the defaults:
+ *   - `direction` (default: `'send'`)
+ *   - `amount` in cents (default: `500`)
  */
 export async function createPendingQr(
 	initiatingAppUserId: string,
-	senderName: string
+	senderName: string,
+	{ direction = 'send', amount = 500 }: { direction?: 'send' | 'receive'; amount?: number } = {}
 ): Promise<{ token: string; qrId: string }> {
 	const qrId = crypto.randomUUID();
 	const now = Math.floor(Date.now() / 1000);
@@ -59,12 +64,12 @@ export async function createPendingQr(
 	sqlite
 		.prepare(
 			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, status, created_at, expires_at)
-			 VALUES (?, ?, 'send', 500, 'pending', ?, ?)`
+			 VALUES (?, ?, ?, ?, 'pending', ?, ?)`
 		)
-		.run(qrId, initiatingAppUserId, now, now + 600);
+		.run(qrId, initiatingAppUserId, direction, amount, now, now + 600);
 
 	const secret = new TextEncoder().encode(E2E_QR_JWT_SECRET);
-	const token = await new jose.SignJWT({ amt: 500, dir: 'send', dn: senderName })
+	const token = await new jose.SignJWT({ amt: amount, dir: direction, dn: senderName })
 		.setProtectedHeader({ alg: 'HS256' })
 		.setJti(qrId)
 		.setIssuer(E2E_BASE_URL)
@@ -235,28 +240,120 @@ export async function onboardUserViaEmail(
 	await page.waitForURL(/\/home/, { timeout: 10_000 });
 }
 
+// ── Fixture types ────────────────────────────────────────────────────────────
+
+export type WithAuthResult = {
+	context: BrowserContext;
+	email: string;
+	userId: string;
+	appUserId: string;
+};
+
+export type WithAuthOptions = {
+	displayName?: string;
+} & Omit<NonNullable<Parameters<import('@playwright/test').Browser['newContext']>[0]>, 'baseURL'>;
+
+export type TestUserResult = {
+	email: string;
+	userId: string;
+	appUserId: string;
+};
+
+export type TestUserOptions = {
+	displayName?: string;
+};
+
 // ── Playwright fixtures ───────────────────────────────────────────────────────
 
-/**
- * Custom test fixture that provides a fresh unauthenticated browser context
- * as `secondContext`. The context is automatically closed after each test,
- * eliminating the need for try/finally blocks.
- *
- * Also provides an `email` fixture that derives unique email addresses from the
- * test filename, preventing parallel test collisions.
- */
 export const test = base.extend<{
 	email: (role: string) => string;
-	secondContext: import('@playwright/test').BrowserContext;
+	phone: (slot: number) => string;
+	secondContext: BrowserContext;
+	withAuth: (options?: WithAuthOptions) => Promise<WithAuthResult>;
+	testUser: (options?: TestUserOptions) => Promise<TestUserResult>;
 }>({
 	// eslint-disable-next-line no-empty-pattern
 	email: async ({}: object, use, testInfo) => {
 		const prefix = basename(testInfo.file).replace(/\.test\.ts$/, '');
-		await use((role: string) => `e2e-${prefix}-${role}@test.example`);
+		const workerSuffix = testInfo.workerIndex > 0 ? `-w${testInfo.workerIndex}` : '';
+		await use((role: string) => `e2e-${prefix}-${role}${workerSuffix}@test.example`);
+	},
+
+	/**
+	 * Generates unique E164 phone numbers per worker, preventing parallel-worker
+	 * collisions on shared verification records. Each slot maps to a distinct
+	 * number: phone(1), phone(2), … are stable within one worker and distinct
+	 * across workers. Portuguese mobile (+351 91x) format.
+	 *
+	 * Usage: const phone = phone(1) → '+351910000001' on worker 0,
+	 *                                  '+351910000011' on worker 1, etc.
+	 */
+	// eslint-disable-next-line no-empty-pattern
+	phone: async ({}: object, use, testInfo) => {
+		const w = testInfo.workerIndex;
+		await use((slot: number) => `+35191${String(w * 1000 + slot).padStart(7, '0')}`);
 	},
 	secondContext: async ({ browser }, use, testInfo) => {
 		const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL! });
 		await use(ctx);
 		await ctx.close();
+	},
+
+	/**
+	 * Factory fixture: each call creates a unique user + authenticated BrowserContext.
+	 * All resources are cleaned up automatically after the test.
+	 */
+	withAuth: async ({ browser }, use, testInfo) => {
+		const teardowns: (() => Promise<void>)[] = [];
+
+		await use(async ({ displayName = 'Test User', ...contextOptions }: WithAuthOptions = {}) => {
+			const uniqueEmail = `e2e-${crypto.randomUUID()}@test.example`;
+			// Register user teardown immediately — deleteTestUser is a no-op if the user
+			// doesn't exist yet, so early registration ensures cleanup even if setup throws.
+			teardowns.push(async () => {
+				await deleteTestUser(uniqueEmail);
+			});
+			const ctx = await browser.newContext({
+				...contextOptions,
+				baseURL: testInfo.project.use.baseURL!
+			});
+			// Register context teardown immediately so it's always closed, even if setup below throws
+			teardowns.push(async () => {
+				await ctx.close().catch(() => {});
+			});
+			const userId = await setupAuthenticatedUser(ctx, uniqueEmail, displayName);
+			const appUserId = getAppUserId(userId);
+
+			return { context: ctx, email: uniqueEmail, userId, appUserId };
+		});
+
+		for (const td of teardowns.reverse()) {
+			await td();
+		}
+	},
+
+	/**
+	 * Factory fixture: each call creates a unique user in the DB (no browser context).
+	 * Useful for tests that only need a user ID for DB operations.
+	 */
+	// eslint-disable-next-line no-empty-pattern
+	testUser: async ({}: object, use) => {
+		const teardowns: (() => Promise<void>)[] = [];
+
+		await use(async ({ displayName = 'Test User' }: TestUserOptions = {}) => {
+			const uniqueEmail = `e2e-${crypto.randomUUID()}@test.example`;
+			const userId = await createTestUser(uniqueEmail, displayName);
+			const appUserId = getAppUserId(userId);
+
+			teardowns.push(async () => {
+				await deleteTestUser(uniqueEmail);
+			});
+
+			return { email: uniqueEmail, userId, appUserId };
+		});
+
+		for (const td of teardowns.reverse()) {
+			await td();
+		}
 	}
 });

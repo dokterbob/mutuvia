@@ -1,65 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import * as jose from 'jose';
-import {
-	test,
-	expect,
-	goto,
-	setupAuthenticatedUser,
-	createPendingQr,
-	getAppUserId
-} from './test-utils.js';
-import { sqlite } from './auth.js';
-import { E2E_QR_JWT_SECRET, E2E_BASE_URL, E2E_APP_NAME } from './config.js';
+import { test, expect, goto, createPendingQr } from './test-utils.js';
+import { E2E_APP_NAME } from './config.js';
 
 const INITIATOR_NAME = 'OG Initiator';
 
-/**
- * Insert a pending QR row with direction='receive' and sign a JWT for it.
- * Mirrors createPendingQr from test-utils but allows configuring direction and amount.
- */
-async function createReceiveQr(
-	initiatingAppUserId: string,
-	initiatorName: string,
-	amountCents: number
-): Promise<{ token: string; qrId: string }> {
-	const qrId = crypto.randomUUID();
-	const now = Math.floor(Date.now() / 1000);
-
-	sqlite
-		.prepare(
-			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, status, created_at, expires_at)
-			 VALUES (?, ?, 'receive', ?, 'pending', ?, ?)`
-		)
-		.run(qrId, initiatingAppUserId, amountCents, now, now + 600);
-
-	const secret = new TextEncoder().encode(E2E_QR_JWT_SECRET);
-	const token = await new jose.SignJWT({ amt: amountCents, dir: 'receive', dn: initiatorName })
-		.setProtectedHeader({ alg: 'HS256' })
-		.setJti(qrId)
-		.setIssuer(E2E_BASE_URL)
-		.setIssuedAt()
-		.setExpirationTime('600s')
-		.sign(secret);
-
-	return { token, qrId };
-}
-
 test.describe('OG meta tags on /accept/[token]', () => {
-	let initiatorAppUserId: string;
-
-	test.beforeAll(async ({ browser, email }, testInfo) => {
-		const baseURL = testInfo.project.use.baseURL!;
-		const ctx = await browser.newContext({ baseURL });
-		const initiatorBaUserId = await setupAuthenticatedUser(ctx, email('initiator'), INITIATOR_NAME);
-		initiatorAppUserId = getAppUserId(initiatorBaUserId);
-		await ctx.close();
-	});
-
 	test('send direction: OG tags contain payment amount and correct metadata', async ({
+		testUser,
 		secondContext
 	}) => {
-		const { token } = await createPendingQr(initiatorAppUserId, INITIATOR_NAME);
+		const { appUserId } = await testUser({ displayName: INITIATOR_NAME });
+		const { token } = await createPendingQr(appUserId, INITIATOR_NAME);
 		const page = await secondContext.newPage();
 
 		await goto(page, `/accept/${token}`);
@@ -108,8 +60,12 @@ test.describe('OG meta tags on /accept/[token]', () => {
 		expect(ogDescriptionContent).not.toContain(INITIATOR_NAME);
 	});
 
-	test('receive direction: OG tags contain request amount', async ({ secondContext }) => {
-		const { token } = await createReceiveQr(initiatorAppUserId, INITIATOR_NAME, 750);
+	test('receive direction: OG tags contain request amount', async ({ testUser, secondContext }) => {
+		const { appUserId } = await testUser({ displayName: INITIATOR_NAME });
+		const { token } = await createPendingQr(appUserId, INITIATOR_NAME, {
+			direction: 'receive',
+			amount: 750
+		});
 		const page = await secondContext.newPage();
 
 		await goto(page, `/accept/${token}`);
@@ -138,4 +94,3 @@ test.describe('OG meta tags on /accept/[token]', () => {
 		await expect(ogDescription).toHaveAttribute('content', 'Mutual credit for your community');
 	});
 });
-// Initiator user is intentionally not cleaned up — global setup deletes test.db on the next run.

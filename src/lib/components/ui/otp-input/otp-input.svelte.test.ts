@@ -11,7 +11,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 }));
 
 describe('OtpInput', () => {
-	describe('Test A — clears input when error prop becomes non-empty', () => {
+	describe('clears input when error prop becomes non-empty', () => {
 		test('Given a typed OTP, when error is set, then the input is cleared', async () => {
 			const onSubmit = vi.fn().mockResolvedValue(undefined);
 			const onResend = vi.fn().mockResolvedValue(undefined);
@@ -37,7 +37,35 @@ describe('OtpInput', () => {
 		});
 	});
 
-	describe('Test B — resend: when onResend throws, console.error is called and state is not reset', () => {
+	describe('sequential character input triggers auto-submit', () => {
+		test('Given digits typed one-by-one, when 6th digit is entered, then onSubmit is called with the full code', async () => {
+			const onSubmit = vi.fn().mockResolvedValue(undefined);
+			const onResend = vi.fn().mockResolvedValue(undefined);
+
+			const { container } = render(OtpInput, {
+				props: { onSubmit, onResend, error: '' }
+			});
+
+			const input = container.querySelector('input[inputmode="numeric"]') as HTMLInputElement;
+			expect(input).not.toBeNull();
+
+			// Simulate pressSequentially: each input event appends one character
+			const code = '482913';
+			for (let i = 1; i <= code.length; i++) {
+				await fireEvent.input(input, { target: { value: code.slice(0, i) } });
+			}
+
+			// All 6 digits should be present
+			expect(input.value).toBe(code);
+
+			// Auto-submit should have fired with the full code
+			await waitFor(() => {
+				expect(onSubmit).toHaveBeenCalledWith(code);
+			});
+		});
+	});
+
+	describe('resend: when onResend throws, console.error is called and state is not reset', () => {
 		beforeEach(() => {
 			vi.useFakeTimers();
 		});
