@@ -14,7 +14,6 @@ import { makePlaceholderEmail } from '$lib/placeholder-email';
 const prelude = config.preludeApiToken ? new Prelude({ apiToken: config.preludeApiToken }) : null;
 
 export const auth = betterAuth({
-	baseURL: config.appUrl,
 	database: drizzleAdapter(db, {
 		provider: config.dbProvider
 	}),
