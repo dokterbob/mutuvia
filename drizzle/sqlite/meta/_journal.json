@@ -47,22 +47,8 @@
     {
       "idx": 6,
       "version": "6",
-      "when": 1748390400000,
-      "tag": "0006_payment_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1779993016914,
-      "tag": "0007_boring_caretaker",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1748476800000,
-      "tag": "0008_fix_transactions_column",
+      "when": 1780000468596,
+      "tag": "0006_flimsy_gravity",
       "breakpoints": true
     }
   ]
