@@ -2,7 +2,7 @@
 
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { config } from '$lib/config';
-import * as schema from './schema';
+import * as schema from './schema.pg';
 
 export const db = drizzle({ connection: { url: config.databaseUrl }, schema });
 export const sqlite = null;

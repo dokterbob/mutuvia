@@ -1,1 +1,1 @@
-ALTER TABLE `pending_qr` ADD `initiator_name` text NOT NULL;
+ALTER TABLE `pending_qr` ADD `initiator_name` text NOT NULL DEFAULT '';
