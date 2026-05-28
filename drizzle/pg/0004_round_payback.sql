@@ -1,0 +1,1 @@
+ALTER TABLE "pending_qr" ADD COLUMN "initiator_name" text NOT NULL;

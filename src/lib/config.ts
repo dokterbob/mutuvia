@@ -31,13 +31,6 @@ export const config = {
 	get communityDocUrl() {
 		return publicEnv.PUBLIC_COMMUNITY_DOC_URL || '';
 	},
-	get qrJwtSecret() {
-		const secret = env.QR_JWT_SECRET;
-		if (!secret || secret.length < 32) {
-			throw new Error('QR_JWT_SECRET must be at least 32 characters');
-		}
-		return secret;
-	},
 	get preludeApiToken() {
 		return env.PRELUDE_API_TOKEN || '';
 	},
