@@ -62,12 +62,38 @@ export async function createPendingQr(
 
 	sqlite
 		.prepare(
-			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, initiator_name, status, created_at, expires_at)
-			 VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`
+			`INSERT INTO payment_requests (id, initiating_user_id, direction, amount, initiator_name, status, reusable, created_at, updated_at, expires_at)
+			 VALUES (?, ?, ?, ?, ?, 'active', 0, ?, ?, ?)`
 		)
-		.run(qrId, initiatingAppUserId, direction, amount, senderName, now, now + 600);
+		.run(qrId, initiatingAppUserId, direction, amount, senderName, now, now, now + 600);
 
 	return { token: qrId, qrId };
+}
+
+/**
+ * Insert a reusable payment_requests row and return the UUID. The request is
+ * created with status='active' and reusable=1. Amount and description are
+ * optional (null = open amount / no description).
+ */
+export async function createReusablePaymentRequest(
+	initiatingAppUserId: string,
+	initiatorName: string,
+	{
+		amount = null,
+		description = null
+	}: { amount?: number | null; description?: string | null } = {}
+): Promise<{ id: string }> {
+	const id = crypto.randomUUID();
+	const now = Math.floor(Date.now() / 1000);
+
+	sqlite
+		.prepare(
+			`INSERT INTO payment_requests (id, initiating_user_id, direction, amount, description, initiator_name, status, reusable, created_at, updated_at)
+			 VALUES (?, ?, 'receive', ?, ?, ?, 'active', 1, ?, ?)`
+		)
+		.run(id, initiatingAppUserId, amount, description, initiatorName, now, now);
+
+	return { id };
 }
 
 // ── OTP helpers ───────────────────────────────────────────────────────────────
@@ -151,7 +177,7 @@ export async function deleteTestUser(email: string): Promise<void> {
 		sqlite
 			.prepare(`DELETE FROM connections WHERE user_a_id = ? OR user_b_id = ?`)
 			.run(appUserId, appUserId);
-		sqlite.prepare(`DELETE FROM pending_qr WHERE initiating_user_id = ?`).run(appUserId);
+		sqlite.prepare(`DELETE FROM payment_requests WHERE initiating_user_id = ?`).run(appUserId);
 	}
 
 	sqlite.prepare(`DELETE FROM app_users WHERE better_auth_user_id = ?`).run(userId);

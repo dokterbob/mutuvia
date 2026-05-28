@@ -25,6 +25,9 @@
 			},
 			onQrDeclined: () => {
 				invalidateAll();
+			},
+			onReusablePayment: () => {
+				invalidateAll();
 			}
 		});
 	});
@@ -140,7 +143,34 @@
 		</div>
 		<div class="mb-4 space-y-0">
 			{#each data.pendingItems as item (item.id)}
-				{#if item.isExpired}
+				{#if item.reusable}
+					<a
+						href="/receive?qrId={item.id}"
+						class="flex items-center justify-between border-b py-3 last:border-b-0"
+					>
+						<div>
+							<p class="text-sm font-medium">
+								{item.direction === 'send'
+									? m.home_pending_send({ amount: item.formattedAmount })
+									: m.home_pending_receive({ amount: item.formattedAmount })}
+							</p>
+							{#if item.note}
+								<p class="text-xs text-muted-foreground">{item.note}</p>
+							{/if}
+							<p class="text-xs text-muted-foreground">
+								{item.paymentCount} payment{item.paymentCount === 1 ? '' : 's'}
+							</p>
+						</div>
+						<div class="flex items-center gap-2">
+							<span
+								class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
+							>
+								Reusable
+							</span>
+							<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
+						</div>
+					</a>
+				{:else if item.isExpired}
 					<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
 						<div>
 							<p class="text-sm font-medium">
@@ -172,7 +202,10 @@
 						<div class="flex items-center gap-2">
 							<p class="text-xs text-muted-foreground">
 								{m.qr_expires({
-									time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+									time: formatTimeRemaining(
+										remainingSeconds(item.expiresAt ?? new Date()),
+										getLocale()
+									)
 								})}
 							</p>
 							<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />

@@ -71,6 +71,28 @@ export const appUsers = sqliteTable('app_users', {
 	lastSeenVersion: text('last_seen_version')
 });
 
+export const paymentRequests = sqliteTable('payment_requests', {
+	id: text('id').primaryKey(),
+	initiatingUserId: text('initiating_user_id')
+		.notNull()
+		.references(() => appUsers.id),
+	reusable: integer('reusable', { mode: 'boolean' }).notNull().default(false),
+	direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
+	amount: integer('amount'),
+	description: text('description'),
+	status: text('status', {
+		enum: ['active', 'paused', 'completed', 'declined', 'archived']
+	})
+		.notNull()
+		.default('active'),
+	initiatorName: text('initiator_name').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+	expiresAt: integer('expires_at', { mode: 'timestamp' }),
+	totalReceived: integer('total_received').notNull().default(0),
+	paymentCount: integer('payment_count').notNull().default(0)
+});
+
 export const transactions = sqliteTable('transactions', {
 	id: text('id').primaryKey(),
 	fromUserId: text('from_user_id')
@@ -82,22 +104,8 @@ export const transactions = sqliteTable('transactions', {
 	amount: integer('amount').notNull(),
 	unitCode: text('unit_code').notNull(),
 	note: text('note'),
-	pendingQrId: text('pending_qr_id').references(() => pendingQr.id),
+	paymentRequestId: text('payment_request_id').references(() => paymentRequests.id),
 	createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-});
-
-export const pendingQr = sqliteTable('pending_qr', {
-	id: text('id').primaryKey(),
-	initiatingUserId: text('initiating_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
-	amount: integer('amount').notNull(),
-	note: text('note'),
-	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-	status: text('status', { enum: ['pending', 'completed', 'declined'] }).notNull(),
-	initiatorName: text('initiator_name').notNull()
 });
 
 export const connections = sqliteTable(

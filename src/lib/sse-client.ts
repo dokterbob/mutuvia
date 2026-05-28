@@ -82,6 +82,9 @@ export class SseManager {
 				case 'balance_changed':
 					handlers.onBalanceChanged?.(event);
 					break;
+				case 'reusable_payment':
+					handlers.onReusablePayment?.(event);
+					break;
 			}
 		}
 	}

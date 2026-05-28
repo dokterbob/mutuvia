@@ -113,7 +113,7 @@ vi.mock('$lib/server/db', () => ({
 	db: { select: dbSelectMock, insert: dbInsertMock, update: dbUpdateMock }
 }));
 vi.mock('$lib/server/schema', () => ({
-	pendingQr: 'pendingQr',
+	paymentRequests: 'paymentRequests',
 	transactions: 'transactions',
 	appUsers: 'appUsers'
 }));
@@ -132,14 +132,14 @@ const INITIATOR_ID = 'user-initiator';
 const ACCEPTOR_ID = 'user-acceptor';
 const QR_ID = 'qr-test-id';
 
-const pendingQrRecord = {
+const paymentRequestRecord = {
 	id: QR_ID,
-	status: 'pending' as const,
+	status: 'active' as const,
 	expiresAt: new Date(Date.now() + 300_000),
 	initiatingUserId: INITIATOR_ID,
 	direction: 'send' as const,
 	amount: 1000,
-	note: null,
+	description: null,
 	initiatorName: 'Alice'
 };
 
@@ -210,7 +210,7 @@ describe('settlement → notification fanout', () => {
 	describe('accept — happy path', () => {
 		beforeEach(() => {
 			selectLimitFn
-				.mockResolvedValueOnce([pendingQrRecord])
+				.mockResolvedValueOnce([paymentRequestRecord])
 				.mockResolvedValueOnce([{ displayName: 'Alice' }]);
 		});
 
@@ -267,7 +267,7 @@ describe('settlement → notification fanout', () => {
 
 		it('[resilience] emits SSE event to initiator even if display name lookup fails', async () => {
 			selectLimitFn
-				.mockResolvedValueOnce([pendingQrRecord])
+				.mockResolvedValueOnce([paymentRequestRecord])
 				.mockRejectedValueOnce(new Error('DB connection lost'));
 
 			await runAction(() => actions.accept(makeAcceptEvent()));
@@ -283,7 +283,7 @@ describe('settlement → notification fanout', () => {
 	describe('settlement integrity', () => {
 		it('settlement remains committed if sendPushToUser throws', async () => {
 			selectLimitFn
-				.mockResolvedValueOnce([pendingQrRecord])
+				.mockResolvedValueOnce([paymentRequestRecord])
 				.mockResolvedValueOnce([{ displayName: 'Alice' }]);
 			sendPushMock.mockRejectedValue(new Error('Push service unavailable'));
 

@@ -36,6 +36,13 @@
 			"when": 1779973556271,
 			"tag": "0004_round_payback",
 			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1748390400000,
+			"tag": "0005_payment_requests",
+			"breakpoints": true
 		}
 	]
 }

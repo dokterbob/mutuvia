@@ -85,7 +85,10 @@
 							<div class="flex items-center gap-2">
 								<p class="text-xs text-muted-foreground">
 									{m.qr_expires({
-										time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+										time: formatTimeRemaining(
+											remainingSeconds(item.expiresAt ?? new Date()),
+											getLocale()
+										)
 									})}
 								</p>
 								<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />

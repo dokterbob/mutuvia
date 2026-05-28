@@ -79,6 +79,28 @@ export const appUsers = pgTable('app_users', {
 	lastSeenVersion: text('last_seen_version')
 });
 
+export const paymentRequests = pgTable('payment_requests', {
+	id: text('id').primaryKey(),
+	initiatingUserId: text('initiating_user_id')
+		.notNull()
+		.references(() => appUsers.id),
+	reusable: boolean('reusable').notNull().default(false),
+	direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
+	amount: integer('amount'),
+	description: text('description'),
+	status: text('status', {
+		enum: ['active', 'paused', 'completed', 'declined', 'archived']
+	})
+		.notNull()
+		.default('active'),
+	initiatorName: text('initiator_name').notNull(),
+	createdAt: timestamp('created_at').notNull(),
+	updatedAt: timestamp('updated_at').notNull(),
+	expiresAt: timestamp('expires_at'),
+	totalReceived: integer('total_received').notNull().default(0),
+	paymentCount: integer('payment_count').notNull().default(0)
+});
+
 export const transactions = pgTable('transactions', {
 	id: text('id').primaryKey(),
 	fromUserId: text('from_user_id')
@@ -90,22 +112,8 @@ export const transactions = pgTable('transactions', {
 	amount: integer('amount').notNull(),
 	unitCode: text('unit_code').notNull(),
 	note: text('note'),
-	pendingQrId: text('pending_qr_id').references(() => pendingQr.id),
+	paymentRequestId: text('payment_request_id').references(() => paymentRequests.id),
 	createdAt: timestamp('created_at').notNull()
-});
-
-export const pendingQr = pgTable('pending_qr', {
-	id: text('id').primaryKey(),
-	initiatingUserId: text('initiating_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
-	amount: integer('amount').notNull(),
-	note: text('note'),
-	createdAt: timestamp('created_at').notNull(),
-	expiresAt: timestamp('expires_at').notNull(),
-	status: text('status', { enum: ['pending', 'completed', 'declined'] }).notNull(),
-	initiatorName: text('initiator_name').notNull()
 });
 
 export const connections = pgTable(

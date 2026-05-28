@@ -24,6 +24,12 @@
 				const path = page.url.pathname;
 				if (path.includes('/send') || path.includes('/receive')) return;
 				toast.error(m.toast_transaction_declined());
+			},
+			onReusablePayment: (e) => {
+				// /send/[id] is outside (app) layout so this handler only fires on other app pages
+				const path = page.url.pathname;
+				if (path.startsWith('/send/')) return;
+				toast.success(`${e.senderName} sent ${e.formattedAmount}`);
 			}
 		});
 		return () => {
