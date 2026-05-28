@@ -125,7 +125,7 @@ export default defineConfig({
 		})
 	],
 	ssr: {
-		external: ['bun:sqlite', 'bun:sql', '@sentry/sveltekit']
+		external: ['bun:sqlite', 'bun:sql', '@sentry/sveltekit', '@sentry/bun']
 	},
 	test: {
 		expect: { requireAssertions: true },

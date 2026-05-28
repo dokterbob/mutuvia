@@ -96,6 +96,7 @@
 		"commit-msg": "true"
 	},
 	"dependencies": {
+		"@sentry/bun": "^10.46.0",
 		"@sentry/sveltekit": "^10.46.0",
 		"drizzle-orm": "^0.45.1",
 		"nodemailer": "^8.0.4",
