@@ -10,6 +10,7 @@ import { currencyFractionDigits } from '$lib/server/currency';
 import {
 	getPendingItemById,
 	pausePaymentRequest,
+	resumePaymentRequest,
 	archivePaymentRequest
 } from '$lib/server/payment-requests';
 import { shareText } from '$lib/server/share-text';
@@ -117,13 +118,15 @@ export const actions: Actions = {
 				status: 'active'
 			});
 
+			const shareDesc = amount === null ? note || null : shareText(amount, note);
+
 			return {
 				qrUrl: buildReusableUrl(qrId),
 				qrId,
 				expiresAt: null,
 				isReusable: true,
 				paymentCount: 0,
-				shareDescription: shareText(amount ?? 0, note)
+				shareDescription: shareDesc
 			};
 		} else {
 			const ttl = config.qrTtlSeconds;
@@ -168,6 +171,13 @@ export const actions: Actions = {
 		const qrId = data.get('qrId') as string;
 		if (qrId) await pausePaymentRequest(qrId, locals.appUser!.id);
 		redirect(307, '/home');
+	},
+
+	resume: async ({ request, locals }) => {
+		const data = await request.formData();
+		const qrId = data.get('qrId') as string;
+		if (qrId) await resumePaymentRequest(qrId, locals.appUser!.id);
+		redirect(307, `/receive?qrId=${qrId}`);
 	},
 
 	archive: async ({ request, locals }) => {

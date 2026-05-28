@@ -24,6 +24,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
+	if (qr.reusable) {
+		redirect(307, `/send/${qr.id}`);
+	}
+
 	if (!locals.session || !locals.appUser) {
 		return {
 			expired: false,
@@ -98,6 +102,10 @@ export const actions: Actions = {
 			.limit(1);
 		if (!qr || qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
 			return fail(400, { error: 'This QR code has expired or already been used.' });
+		}
+
+		if (qr.reusable) {
+			redirect(307, `/send/${qr.id}`);
 		}
 
 		if (locals.appUser.id === qr.initiatingUserId) {
@@ -185,10 +193,17 @@ export const actions: Actions = {
 		}
 
 		const [qr] = await db
-			.select({ initiatingUserId: paymentRequests.initiatingUserId })
+			.select({
+				initiatingUserId: paymentRequests.initiatingUserId,
+				reusable: paymentRequests.reusable
+			})
 			.from(paymentRequests)
 			.where(eq(paymentRequests.id, qrId))
 			.limit(1);
+
+		if (qr?.reusable) {
+			redirect(307, `/send/${qrId}`);
+		}
 
 		await db
 			.update(paymentRequests)

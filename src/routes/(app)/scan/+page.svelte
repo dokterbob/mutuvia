@@ -10,9 +10,8 @@
 	function handleScan(data: string): boolean {
 		try {
 			const url = new URL(data);
-			const match = url.pathname.match(/^\/accept\/(.+)$/);
-			if (match) {
-				goto(`/accept/${match[1]}`);
+			if (url.pathname.match(/^\/(accept|send)\/.+$/)) {
+				goto(url.pathname);
 				return true;
 			}
 		} catch {

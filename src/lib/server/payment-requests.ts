@@ -17,6 +17,7 @@ export async function getPendingItems(userId: string, limit?: number) {
 			amount: paymentRequests.amount,
 			description: paymentRequests.description,
 			reusable: paymentRequests.reusable,
+			status: paymentRequests.status,
 			paymentCount: paymentRequests.paymentCount,
 			totalReceived: paymentRequests.totalReceived,
 			createdAt: paymentRequests.createdAt,
@@ -26,7 +27,10 @@ export async function getPendingItems(userId: string, limit?: number) {
 		.where(
 			and(
 				eq(paymentRequests.initiatingUserId, userId),
-				eq(paymentRequests.status, 'active'),
+				or(
+					eq(paymentRequests.status, 'active'),
+					and(eq(paymentRequests.status, 'paused'), eq(paymentRequests.reusable, true))
+				),
 				or(isNull(paymentRequests.expiresAt), gt(paymentRequests.expiresAt, retentionCutoff))
 			)
 		)
@@ -40,6 +44,8 @@ export async function getPendingItems(userId: string, limit?: number) {
 		formattedAmount: formatAmount(qr.amount ?? 0),
 		note: qr.description,
 		reusable: qr.reusable,
+		status: qr.status,
+		isPaused: qr.status === 'paused',
 		paymentCount: qr.paymentCount,
 		totalReceived: qr.totalReceived,
 		createdAt: qr.createdAt,

@@ -72,11 +72,13 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 function setSendReturnCookies(
 	cookies: import('@sveltejs/kit').Cookies,
 	id: string,
-	amount: number | null
+	amount: number | null,
+	skipIntros: boolean
 ) {
 	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: config.qrTtlSeconds };
 	cookies.set('qr_return_to', `/send/${id}`, opts);
 	if (amount !== null) cookies.set('qr_amount', String(amount), opts);
+	if (skipIntros) cookies.set('qr_skip_intros', '1', opts);
 }
 
 export const actions: Actions = {
@@ -86,7 +88,7 @@ export const actions: Actions = {
 		const amount = amountStr ? parseFloat(amountStr) : null;
 		const dp = currencyFractionDigits();
 		const amountInt = amount && amount > 0 ? Math.round(amount * Math.pow(10, dp)) : null;
-		setSendReturnCookies(cookies, params.id, amountInt);
+		setSendReturnCookies(cookies, params.id, amountInt, true);
 		redirect(307, '/onboarding/phone');
 	},
 
@@ -96,7 +98,7 @@ export const actions: Actions = {
 		const amount = amountStr ? parseFloat(amountStr) : null;
 		const dp = currencyFractionDigits();
 		const amountInt = amount && amount > 0 ? Math.round(amount * Math.pow(10, dp)) : null;
-		setSendReturnCookies(cookies, params.id, amountInt);
+		setSendReturnCookies(cookies, params.id, amountInt, false);
 		redirect(307, '/onboarding');
 	},
 
@@ -110,6 +112,13 @@ export const actions: Actions = {
 
 		if (isNaN(floatAmount) || floatAmount <= 0) {
 			return fail(400, { error: 'Enter a valid amount.' });
+		}
+
+		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
+		if (submittedDecimals > dp) {
+			return fail(400, {
+				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
+			});
 		}
 
 		const amount = Math.round(floatAmount * Math.pow(10, dp));
