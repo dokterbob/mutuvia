@@ -29,7 +29,7 @@
 				// /send/[id] is outside (app) layout so this handler only fires on other app pages
 				const path = page.url.pathname;
 				if (path.startsWith('/send/')) return;
-				toast.success(`${e.senderName} sent ${e.formattedAmount}`);
+				toast.success(m.toast_reusable_payment({ name: e.senderName, amount: e.formattedAmount }));
 			}
 		});
 		return () => {

@@ -158,14 +158,16 @@
 								<p class="text-xs text-muted-foreground">{item.note}</p>
 							{/if}
 							<p class="text-xs text-muted-foreground">
-								{item.paymentCount} payment{item.paymentCount === 1 ? '' : 's'}
+								{item.paymentCount === 1
+									? m.home_reusable_payment_count_singular({ count: String(item.paymentCount) })
+									: m.home_reusable_payment_count_plural({ count: String(item.paymentCount) })}
 							</p>
 						</div>
 						<div class="flex items-center gap-2">
 							<span
 								class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
 							>
-								Reusable
+								{m.home_reusable_badge()}
 							</span>
 							<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
 						</div>

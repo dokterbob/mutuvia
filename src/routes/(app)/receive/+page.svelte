@@ -165,7 +165,7 @@
 			}}
 		>
 			<Label class="mb-2 text-sm text-muted-foreground">
-				{m.send_amount_label()}{reusable ? ' (optional)' : ''}
+				{m.send_amount_label()}{reusable ? ` ${m.receive_amount_optional()}` : ''}
 			</Label>
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-2xl font-medium text-muted-foreground">{currencySymbol}</span>
@@ -194,7 +194,7 @@
 			<!-- Advanced options -->
 			<details class="mb-6" bind:open={showAdvanced}>
 				<summary class="cursor-pointer text-sm text-muted-foreground select-none">
-					Advanced options
+					{m.receive_advanced_options()}
 				</summary>
 				<div class="mt-3 rounded-lg border bg-muted/40 p-4">
 					<label class="flex items-start gap-3">
@@ -205,10 +205,9 @@
 							class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2D4A32] accent-[#2D4A32]"
 						/>
 						<div>
-							<p class="text-sm font-medium">Reusable QR code</p>
+							<p class="text-sm font-medium">{m.receive_reusable_label()}</p>
 							<p class="text-xs text-muted-foreground">
-								Anyone can scan this QR code to pay you. It never expires and can be used multiple
-								times.
+								{m.receive_reusable_description()}
 							</p>
 						</div>
 					</label>
@@ -255,11 +254,11 @@
 				</Button>
 			{:else}
 				{#if isReusable}
-					<p class="mb-2 text-sm text-muted-foreground">Share this to receive payments anytime.</p>
+					<p class="mb-2 text-sm text-muted-foreground">{m.receive_reusable_caption()}</p>
 					<span
 						class="mb-4 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
 					>
-						Reusable
+						{m.receive_reusable_badge()}
 					</span>
 				{:else}
 					<p class="mb-4 text-sm text-muted-foreground">{m.receive_qr_caption()}</p>
@@ -283,7 +282,9 @@
 				{/if}
 				{#if isReusable}
 					<p class="mb-6 text-sm text-muted-foreground">
-						Received {paymentCount} payment{paymentCount === 1 ? '' : 's'}
+						{paymentCount === 1
+							? m.receive_reusable_payment_count_singular({ count: String(paymentCount) })
+							: m.receive_reusable_payment_count_plural({ count: String(paymentCount) })}
 					</p>
 					<div class="flex flex-col items-center gap-2">
 						<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
@@ -315,7 +316,7 @@
 								variant="ghost"
 								class="text-sm text-muted-foreground"
 							>
-								Pause
+								{m.receive_reusable_pause()}
 							</Button>
 						</form>
 					</div>
