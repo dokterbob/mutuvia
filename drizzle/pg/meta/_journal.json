@@ -40,15 +40,8 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1748390400000,
+      "when": 1748476800000,
       "tag": "0005_payment_requests",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1779993129882,
-      "tag": "0006_flat_hellfire_club",
       "breakpoints": true
     }
   ]
