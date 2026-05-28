@@ -473,9 +473,7 @@ describe('decline action — reusable QR guard', () => {
 
 	describe('Given a reusable payment request', () => {
 		beforeEach(() => {
-			selectLimitFn.mockResolvedValueOnce([
-				{ initiatingUserId: INITIATOR_ID, reusable: true }
-			]);
+			selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID, reusable: true }]);
 		});
 
 		it('When the decline action is called → returns a redirect to /send/{id}', async () => {

@@ -454,7 +454,11 @@ describe('getPendingItems', () => {
 			test('→ does NOT return paused single-use items (filtered by DB WHERE clause)', async () => {
 				// The DB WHERE clause excludes paused non-reusable rows.
 				// We simulate that by returning only the rows the DB would return.
-				_selectLimitFn.mockResolvedValue([activeSingleUsePr, activeReusablePrRow, pausedReusablePrRow]);
+				_selectLimitFn.mockResolvedValue([
+					activeSingleUsePr,
+					activeReusablePrRow,
+					pausedReusablePrRow
+				]);
 
 				const result = await getPendingItems(INITIATOR_ID, 10);
 
