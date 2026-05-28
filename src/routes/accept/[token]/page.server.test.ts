@@ -122,7 +122,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 // Import AFTER mocks are registered
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -140,7 +140,14 @@ const paymentRequestRecord = {
 	direction: 'send' as const,
 	amount: 1000,
 	description: null,
-	initiatorName: 'Alice'
+	initiatorName: 'Alice',
+	reusable: false
+};
+
+const reusablePaymentRequestRecord = {
+	...paymentRequestRecord,
+	id: 'reusable-qr-id',
+	reusable: true
 };
 
 function makeAcceptEvent(overrides: Record<string, unknown> = {}) {
@@ -307,6 +314,188 @@ describe('settlement → notification fanout', () => {
 				INITIATOR_ID,
 				expect.objectContaining({ type: 'qr_declined', qrId: QR_ID })
 			);
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Helpers for load / action tests with reusable QR
+// ---------------------------------------------------------------------------
+
+function makeLoadEvent(
+	token: string,
+	overrides: Record<string, unknown> = {}
+): Parameters<typeof load>[0] {
+	return {
+		params: { token },
+		locals: {
+			session: null,
+			appUser: null
+		},
+		request: new Request(`http://localhost/accept/${token}`),
+		cookies: { set: vi.fn(), get: vi.fn(), delete: vi.fn() },
+		url: new URL(`http://localhost/accept/${token}`),
+		route: { id: '/accept/[token]' },
+		...overrides
+	} as unknown as Parameters<typeof load>[0];
+}
+
+function makeReusableAcceptEvent() {
+	const formData = new FormData();
+	formData.set('qrId', reusablePaymentRequestRecord.id);
+	const request = new Request(`http://localhost/accept/${reusablePaymentRequestRecord.id}`, {
+		method: 'POST',
+		body: formData
+	});
+	return {
+		request,
+		locals: {
+			session: { id: 'session-1' },
+			appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+		},
+		params: { token: reusablePaymentRequestRecord.id },
+		url: new URL(`http://localhost/accept/${reusablePaymentRequestRecord.id}`),
+		cookies: { set: vi.fn(), get: vi.fn(), delete: vi.fn() }
+	} as unknown as Parameters<(typeof actions)['accept']>[0];
+}
+
+function makeReusableDeclineEvent() {
+	const formData = new FormData();
+	formData.set('qrId', reusablePaymentRequestRecord.id);
+	const request = new Request(`http://localhost/accept/${reusablePaymentRequestRecord.id}`, {
+		method: 'POST',
+		body: formData
+	});
+	return {
+		request,
+		params: { token: reusablePaymentRequestRecord.id },
+		locals: {},
+		url: new URL(`http://localhost/accept/${reusablePaymentRequestRecord.id}`)
+	} as unknown as Parameters<(typeof actions)['decline']>[0];
+}
+
+// ---------------------------------------------------------------------------
+// load — reusable QR redirect
+// ---------------------------------------------------------------------------
+
+describe('load — reusable QR redirect', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+	});
+
+	describe('Given a reusable payment request', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([reusablePaymentRequestRecord]);
+		});
+
+		it('When load is called with its token → returns a redirect to /send/{id} (status 307)', async () => {
+			let caught: MockRedirect | undefined;
+			try {
+				await load(makeLoadEvent(reusablePaymentRequestRecord.id));
+			} catch (e) {
+				if (e instanceof MockRedirect) caught = e;
+				else throw e;
+			}
+
+			expect(caught).toBeDefined();
+			expect(caught?.status).toBe(307);
+			expect(caught?.location).toBe(`/send/${reusablePaymentRequestRecord.id}`);
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// accept action — reusable QR guard
+// ---------------------------------------------------------------------------
+
+describe('accept action — reusable QR guard', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+		insertValuesFn.mockResolvedValue(undefined);
+		updateWhereFn.mockResolvedValue(undefined);
+	});
+
+	describe('Given a reusable payment request', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([reusablePaymentRequestRecord]);
+		});
+
+		it('When the accept action is called → returns a redirect to /send/{id}', async () => {
+			let caught: MockRedirect | undefined;
+			try {
+				await actions.accept(makeReusableAcceptEvent());
+			} catch (e) {
+				if (e instanceof MockRedirect) caught = e;
+				else throw e;
+			}
+
+			expect(caught).toBeDefined();
+			expect(caught?.status).toBe(307);
+			expect(caught?.location).toBe(`/send/${reusablePaymentRequestRecord.id}`);
+		});
+
+		it('When the accept action is called → does NOT call db.insert (no settlement)', async () => {
+			// Suppress redirect
+			await runAction(() => actions.accept(makeReusableAcceptEvent()));
+
+			expect(dbInsertMock).not.toHaveBeenCalled();
+		});
+
+		it('When the accept action is called → does NOT call db.update', async () => {
+			await runAction(() => actions.accept(makeReusableAcceptEvent()));
+
+			expect(dbUpdateMock).not.toHaveBeenCalled();
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// decline action — reusable QR guard
+// ---------------------------------------------------------------------------
+
+describe('decline action — reusable QR guard', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+		updateWhereFn.mockResolvedValue(undefined);
+	});
+
+	describe('Given a reusable payment request', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([
+				{ initiatingUserId: INITIATOR_ID, reusable: true }
+			]);
+		});
+
+		it('When the decline action is called → returns a redirect to /send/{id}', async () => {
+			let caught: MockRedirect | undefined;
+			try {
+				await actions.decline(makeReusableDeclineEvent());
+			} catch (e) {
+				if (e instanceof MockRedirect) caught = e;
+				else throw e;
+			}
+
+			expect(caught).toBeDefined();
+			expect(caught?.status).toBe(307);
+			expect(caught?.location).toBe(`/send/${reusablePaymentRequestRecord.id}`);
+		});
+
+		it('When the decline action is called → does NOT call db.update', async () => {
+			await runAction(() => actions.decline(makeReusableDeclineEvent()));
+
+			expect(dbUpdateMock).not.toHaveBeenCalled();
 		});
 	});
 });
