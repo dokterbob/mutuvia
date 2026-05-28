@@ -1,48 +1,55 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1774708922620,
-			"tag": "0000_narrow_roulette",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1775126246959,
-			"tag": "0001_last_green_goblin",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1776164754185,
-			"tag": "0002_fix_null_placeholder_emails",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1776351616340,
-			"tag": "0003_new_white_tiger",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1779973556271,
-			"tag": "0004_round_payback",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1748390400000,
-			"tag": "0005_payment_requests",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1774708922620,
+      "tag": "0000_narrow_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1775126246959,
+      "tag": "0001_last_green_goblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776164754185,
+      "tag": "0002_fix_null_placeholder_emails",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776351616340,
+      "tag": "0003_new_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779973556271,
+      "tag": "0004_round_payback",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1748390400000,
+      "tag": "0005_payment_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779993129882,
+      "tag": "0006_flat_hellfire_club",
+      "breakpoints": true
+    }
+  ]
 }
