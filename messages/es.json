@@ -295,10 +295,13 @@
 	"receive_reusable_payment_count_singular": "Recibido {count} pago",
 	"receive_reusable_payment_count_plural": "Recibidos {count} pagos",
 	"receive_reusable_pause": "Pausar",
+	"receive_reusable_archive": "Archivar",
 	"receive_reusable_badge": "Reutilizable",
 	"home_reusable_badge": "Reutilizable",
 	"home_reusable_payment_count_singular": "{count} pago",
 	"home_reusable_payment_count_plural": "{count} pagos",
+	"home_paused_badge": "Pausado",
+	"home_resume_action": "Reanudar",
 
 	"whats_new_title": "Novedades",
 	"whats_new_dismiss": "Entendido",

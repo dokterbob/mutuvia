@@ -3,7 +3,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { appUsers, paymentRequests } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { buildPaymentRequestUrl } from '$lib/server/qr';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
@@ -109,14 +109,19 @@ export const actions: Actions = {
 		};
 	},
 
-	cancel: async ({ request }) => {
+	cancel: async ({ request, locals }) => {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
 			await db
 				.update(paymentRequests)
 				.set({ status: 'declined' })
-				.where(eq(paymentRequests.id, qrId));
+				.where(
+					and(
+						eq(paymentRequests.id, qrId),
+						eq(paymentRequests.initiatingUserId, locals.appUser!.id)
+					)
+				);
 		}
 		redirect(307, '/home');
 	}

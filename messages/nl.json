@@ -295,10 +295,13 @@
 	"receive_reusable_payment_count_singular": "Ontvangen {count} betaling",
 	"receive_reusable_payment_count_plural": "Ontvangen {count} betalingen",
 	"receive_reusable_pause": "Pauzeren",
+	"receive_reusable_archive": "Archiveren",
 	"receive_reusable_badge": "Herbruikbaar",
 	"home_reusable_badge": "Herbruikbaar",
 	"home_reusable_payment_count_singular": "{count} betaling",
 	"home_reusable_payment_count_plural": "{count} betalingen",
+	"home_paused_badge": "Gepauzeerd",
+	"home_resume_action": "Hervatten",
 
 	"whats_new_title": "Wat is er nieuw",
 	"whats_new_dismiss": "Begrepen",

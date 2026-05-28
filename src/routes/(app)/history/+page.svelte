@@ -58,8 +58,8 @@
 							<div>
 								<p class="text-sm font-medium">
 									{item.direction === 'send'
-										? m.home_pending_send({ amount: item.formattedAmount })
-										: m.home_pending_receive({ amount: item.formattedAmount })}
+										? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+										: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 								</p>
 								{#if item.note}
 									<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>
@@ -75,8 +75,8 @@
 							<div>
 								<p class="text-sm font-medium">
 									{item.direction === 'send'
-										? m.home_pending_send({ amount: item.formattedAmount })
-										: m.home_pending_receive({ amount: item.formattedAmount })}
+										? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+										: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 								</p>
 								{#if item.note}
 									<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>

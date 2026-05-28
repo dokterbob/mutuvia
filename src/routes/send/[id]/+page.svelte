@@ -18,7 +18,10 @@
 	let fullOnboardingLoading = $state(false);
 
 	let currencyFormatter = $derived(
-		new Intl.NumberFormat(getLocale(), { style: 'currency', currency: 'EUR' })
+		new Intl.NumberFormat(getLocale(), {
+			style: 'currency',
+			currency: (data.unitCode as string) ?? 'EUR'
+		})
 	);
 	let fractionDigits = $derived(currencyFormatter.resolvedOptions().maximumFractionDigits ?? 2);
 

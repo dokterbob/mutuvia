@@ -42,6 +42,7 @@
 	let createQrLoading = $state(false);
 	let cancelLoading = $state(false);
 	let pauseLoading = $state(false);
+	let archiveLoading = $state(false);
 	let cancelDialogOpen = $state(false);
 	let canShare = $derived(browser && typeof navigator.share === 'function');
 	let currencyFormatter = $derived(
@@ -317,6 +318,34 @@
 								class="text-sm text-muted-foreground"
 							>
 								{m.receive_reusable_pause()}
+							</Button>
+						</form>
+						<form
+							method="POST"
+							action="?/archive"
+							use:enhance={() => {
+								flushSync(() => {
+									archiveLoading = true;
+								});
+								return async ({ update }) => {
+									try {
+										await update();
+									} finally {
+										flushSync(() => {
+											archiveLoading = false;
+										});
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="qrId" value={qrId} />
+							<Button
+								type="submit"
+								loading={archiveLoading}
+								variant="ghost"
+								class="text-sm text-muted-foreground"
+							>
+								{m.receive_reusable_archive()}
 							</Button>
 						</form>
 					</div>

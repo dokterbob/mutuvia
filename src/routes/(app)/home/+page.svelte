@@ -149,8 +149,8 @@
 							<div>
 								<p class="text-sm font-medium">
 									{item.direction === 'send'
-										? m.home_pending_send({ amount: item.formattedAmount })
-										: m.home_pending_receive({ amount: item.formattedAmount })}
+										? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+										: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 								</p>
 								{#if item.note}
 									<p class="text-xs text-muted-foreground">{item.note}</p>
@@ -165,11 +165,13 @@
 								<span
 									class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
 								>
-									Paused
+									{m.home_paused_badge()}
 								</span>
 								<form method="POST" action="/receive?/resume">
 									<input type="hidden" name="qrId" value={item.id} />
-									<button type="submit" class="text-xs font-medium text-[#2D4A32]">Resume</button>
+									<button type="submit" class="text-xs font-medium text-[#2D4A32]"
+										>{m.home_resume_action()}</button
+									>
 								</form>
 							</div>
 						</div>
@@ -181,8 +183,8 @@
 							<div>
 								<p class="text-sm font-medium">
 									{item.direction === 'send'
-										? m.home_pending_send({ amount: item.formattedAmount })
-										: m.home_pending_receive({ amount: item.formattedAmount })}
+										? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+										: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 								</p>
 								{#if item.note}
 									<p class="text-xs text-muted-foreground">{item.note}</p>
@@ -208,8 +210,8 @@
 						<div>
 							<p class="text-sm font-medium">
 								{item.direction === 'send'
-									? m.home_pending_send({ amount: item.formattedAmount })
-									: m.home_pending_receive({ amount: item.formattedAmount })}
+									? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+									: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 							</p>
 							{#if item.note}
 								<p class="text-xs text-muted-foreground">{item.note}</p>
@@ -225,8 +227,8 @@
 						<div>
 							<p class="text-sm font-medium">
 								{item.direction === 'send'
-									? m.home_pending_send({ amount: item.formattedAmount })
-									: m.home_pending_receive({ amount: item.formattedAmount })}
+									? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+									: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 							</p>
 							{#if item.note}
 								<p class="text-xs text-muted-foreground">{item.note}</p>

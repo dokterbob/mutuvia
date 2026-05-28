@@ -41,7 +41,7 @@ export async function getPendingItems(userId: string, limit?: number) {
 	return rows.map((qr) => ({
 		id: qr.id,
 		direction: qr.direction,
-		formattedAmount: formatAmount(qr.amount ?? 0),
+		formattedAmount: qr.amount !== null ? formatAmount(qr.amount) : null,
 		note: qr.description,
 		reusable: qr.reusable,
 		status: qr.status,
@@ -67,7 +67,7 @@ export async function getPendingItemById(id: string, userId: string) {
 		id: qr.id,
 		direction: qr.direction,
 		amount: qr.amount,
-		formattedAmount: formatAmount(qr.amount ?? 0),
+		formattedAmount: qr.amount !== null ? formatAmount(qr.amount) : null,
 		description: qr.description,
 		note: qr.description,
 		reusable: qr.reusable,
