@@ -105,7 +105,7 @@ export const actions: Actions = {
 		}
 
 		if (qr.reusable) {
-			redirect(307, `/send/${qr.id}`);
+			redirect(303, `/send/${qr.id}`);
 		}
 
 		if (locals.appUser.id === qr.initiatingUserId) {
@@ -202,7 +202,7 @@ export const actions: Actions = {
 			.limit(1);
 
 		if (qr?.reusable) {
-			redirect(307, `/send/${qrId}`);
+			redirect(303, `/send/${qrId}`);
 		}
 
 		await db

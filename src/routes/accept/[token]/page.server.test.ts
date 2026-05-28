@@ -438,7 +438,7 @@ describe('accept action — reusable QR guard', () => {
 			}
 
 			expect(caught).toBeDefined();
-			expect(caught?.status).toBe(307);
+			expect(caught?.status).toBe(303);
 			expect(caught?.location).toBe(`/send/${reusablePaymentRequestRecord.id}`);
 		});
 
@@ -486,7 +486,7 @@ describe('decline action — reusable QR guard', () => {
 			}
 
 			expect(caught).toBeDefined();
-			expect(caught?.status).toBe(307);
+			expect(caught?.status).toBe(303);
 			expect(caught?.location).toBe(`/send/${reusablePaymentRequestRecord.id}`);
 		});
 

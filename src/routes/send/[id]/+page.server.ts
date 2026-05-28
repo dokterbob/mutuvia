@@ -35,6 +35,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		return { expired: true, error: 'This QR has expired.' };
 	}
 
+	if (!qr.reusable) error(404, 'Not found');
+
 	if (!locals.session || !locals.appUser) {
 		const cookieAmount = cookies.get('qr_amount');
 		const prefilledAmount = cookieAmount ? parseInt(cookieAmount, 10) : null;
@@ -45,7 +47,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 			description: qr.description,
 			amount: qr.amount,
 			formattedAmount: qr.amount ? formatAmount(qr.amount) : null,
-			prefilledAmount
+			prefilledAmount,
+			unitCode: config.unitCode
 		};
 	}
 
@@ -65,7 +68,8 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		needsAuth: false,
 		selfSend: false,
 		paused: false,
-		expired: false
+		expired: false,
+		unitCode: config.unitCode
 	};
 };
 
