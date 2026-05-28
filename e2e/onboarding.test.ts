@@ -84,6 +84,6 @@ test.describe.serial('Onboarding flow', () => {
 
 		// Now re-visit onboarding — should redirect straight to /home
 		await page.goto('/onboarding');
-		await expect(page).toHaveURL(/\/home/);
+		await page.waitForURL(/\/home/, { timeout: 10_000 });
 	});
 });
