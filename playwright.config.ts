@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { E2E_DB_FILE, E2E_AUTH_SECRET, E2E_BASE_URL, E2E_QR_JWT_SECRET } from './e2e/config.js';
+import { E2E_DB_FILE, E2E_AUTH_SECRET, E2E_BASE_URL } from './e2e/config.js';
 
 export default defineConfig({
 	testDir: './e2e',
@@ -22,8 +22,7 @@ export default defineConfig({
 			ORIGIN: E2E_BASE_URL,
 			APP_URL: E2E_BASE_URL,
 			BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
-			DB_FILE_NAME: E2E_DB_FILE,
-			QR_JWT_SECRET: E2E_QR_JWT_SECRET
+			DB_FILE_NAME: E2E_DB_FILE
 		},
 		stdout: 'pipe',
 		stderr: 'pipe',
