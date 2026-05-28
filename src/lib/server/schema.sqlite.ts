@@ -96,7 +96,8 @@ export const pendingQr = sqliteTable('pending_qr', {
 	note: text('note'),
 	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-	status: text('status', { enum: ['pending', 'completed', 'declined'] }).notNull()
+	status: text('status', { enum: ['pending', 'completed', 'declined'] }).notNull(),
+	initiatorName: text('initiator_name').notNull()
 });
 
 export const connections = sqliteTable(

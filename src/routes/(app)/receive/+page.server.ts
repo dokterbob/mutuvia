@@ -4,8 +4,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { pendingQr } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { signQrToken, buildQrUrl } from '$lib/server/qr';
-import { randomUUID } from 'node:crypto';
+import { buildQrUrl } from '$lib/server/qr';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
 import { getPendingItemById } from '$lib/server/pending-qr';
@@ -35,13 +34,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 					isExpired: true
 				};
 			} else {
-				const remainingTtl = Math.floor((item.expiresAt.getTime() - Date.now()) / 1000);
-				const token = await signQrToken(
-					{ jti: item.id, amt: item.amount, dir: 'receive', dn: appUser.displayName },
-					remainingTtl
-				);
 				resumeQr = {
-					qrUrl: buildQrUrl(token),
+					qrUrl: buildQrUrl(item.id),
 					qrId: item.id,
 					expiresAt: item.expiresAt.toISOString(),
 					isExpired: false,
@@ -84,7 +78,7 @@ export const actions: Actions = {
 		const amount = Math.round(floatAmount * Math.pow(10, dp));
 		const ttl = config.qrTtlSeconds;
 		const now = new Date();
-		const qrId = randomUUID();
+		const qrId = crypto.randomUUID();
 
 		await db.insert(pendingQr).values({
 			id: qrId,
@@ -92,18 +86,14 @@ export const actions: Actions = {
 			direction: 'receive',
 			amount,
 			note,
+			initiatorName: displayName,
 			createdAt: now,
 			expiresAt: new Date(now.getTime() + ttl * 1000),
 			status: 'pending'
 		});
 
-		const token = await signQrToken(
-			{ jti: qrId, amt: amount, dir: 'receive', dn: displayName },
-			ttl
-		);
-
 		return {
-			qrUrl: buildQrUrl(token),
+			qrUrl: buildQrUrl(qrId),
 			qrId,
 			expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
 			shareDescription: shareText(amount, note)

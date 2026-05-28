@@ -2,9 +2,7 @@ import type { Page, BrowserContext } from '@playwright/test';
 import { test as base } from '@playwright/test';
 import { basename } from 'path';
 import type { TestHelpers } from 'better-auth/plugins';
-import * as jose from 'jose';
 import { auth, sqlite } from './auth.js';
-import { E2E_BASE_URL, E2E_QR_JWT_SECRET } from './config.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export { expect } from '@playwright/test';
@@ -47,8 +45,8 @@ export function getAppUserId(betterAuthUserId: string): string {
 }
 
 /**
- * Insert a pending QR row and sign a JWT for it. Returns { token, qrId }.
- * Uses the same JWT format as src/lib/server/qr.ts (HS256, issuer=appUrl).
+ * Insert a pending QR row and return the UUID as the token. Returns { token, qrId }
+ * where token === qrId (the UUID used directly in the /accept/[token] URL).
  *
  * Pass an optional options object to override the defaults:
  *   - `direction` (default: `'send'`)
@@ -64,21 +62,12 @@ export async function createPendingQr(
 
 	sqlite
 		.prepare(
-			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, status, created_at, expires_at)
-			 VALUES (?, ?, ?, ?, 'pending', ?, ?)`
+			`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, initiator_name, status, created_at, expires_at)
+			 VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`
 		)
-		.run(qrId, initiatingAppUserId, direction, amount, now, now + 600);
+		.run(qrId, initiatingAppUserId, direction, amount, senderName, now, now + 600);
 
-	const secret = new TextEncoder().encode(E2E_QR_JWT_SECRET);
-	const token = await new jose.SignJWT({ amt: amount, dir: direction, dn: senderName })
-		.setProtectedHeader({ alg: 'HS256' })
-		.setJti(qrId)
-		.setIssuer(E2E_BASE_URL)
-		.setIssuedAt()
-		.setExpirationTime('600s')
-		.sign(secret);
-
-	return { token, qrId };
+	return { token: qrId, qrId };
 }
 
 // ── OTP helpers ───────────────────────────────────────────────────────────────

@@ -2,31 +2,17 @@
 
 import { redirect, fail, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { pendingQr, transactions, appUsers } from '$lib/server/schema';
+import { pendingQr, transactions } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { verifyQrToken } from '$lib/server/qr';
 import { getBalance, upsertConnection } from '$lib/server/balance';
 import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
-import { randomUUID } from 'node:crypto';
 import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	// Client-side pre-check hint: try to decode JWT claims without verification
-	let tokenData;
-	try {
-		tokenData = await verifyQrToken(params.token);
-	} catch {
-		return {
-			expired: true,
-			error: 'This link has expired or is invalid.'
-		};
-	}
-
-	// Look up the pending QR
-	const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, tokenData.jti)).limit(1);
+	const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, params.token)).limit(1);
 	if (!qr || qr.status !== 'pending' || qr.expiresAt < new Date()) {
 		return {
 			expired: true,
@@ -34,21 +20,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
-	// Get initiator info (needed for both authenticated and unauthenticated views)
-	const [initiator] = await db
-		.select()
-		.from(appUsers)
-		.where(eq(appUsers.id, qr.initiatingUserId))
-		.limit(1);
-
-	if (!initiator) {
-		return { expired: true, error: 'Initiator not found.' };
-	}
-
 	if (!locals.session || !locals.appUser) {
-		// Return enough info to show the transaction preview. qrId is included only for the
-		// Decline action; the Accept action enforces auth server-side and is not rendered here.
-		// The startFastTrack / startFullOnboarding actions handle the auth redirect.
 		return {
 			expired: false,
 			needsAuth: true,
@@ -57,7 +29,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			amount: qr.amount,
 			formattedAmount: formatAmount(qr.amount),
 			note: qr.note,
-			initiatorName: initiator.displayName,
+			initiatorName: qr.initiatorName,
 			token: params.token
 		};
 	}
@@ -80,7 +52,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		amount: qr.amount,
 		formattedAmount: formatAmount(qr.amount),
 		note: qr.note,
-		initiatorName: initiator.displayName,
+		initiatorName: qr.initiatorName,
 		initiatorBalance: formatAmount(initiatorBalance),
 		token: params.token
 	};
@@ -139,7 +111,7 @@ export const actions: Actions = {
 		}
 
 		// Atomic settlement: insert transaction + update QR status + upsert connection
-		const txId = randomUUID();
+		const txId = crypto.randomUUID();
 
 		await db.insert(transactions).values({
 			id: txId,
@@ -163,20 +135,9 @@ export const actions: Actions = {
 		// formatAmount never throws — it falls back to a locale-independent string
 		// when Paraglide's AsyncLocalStorage context is unavailable.
 		const formattedAmt = formatAmount(qr.amount);
+		const initiatorName = qr.initiatorName;
 
-		let initiatorName = 'Someone';
-		try {
-			const [initiatingUser] = await db
-				.select({ displayName: appUsers.displayName })
-				.from(appUsers)
-				.where(eq(appUsers.id, qr.initiatingUserId))
-				.limit(1);
-			initiatorName = initiatingUser?.displayName ?? 'Someone';
-		} catch (err) {
-			console.error('Failed to look up initiating user for notification:', err);
-		}
-
-		const eventId = randomUUID();
+		const eventId = crypto.randomUUID();
 		const completedForInitiator = {
 			type: 'qr_completed' as const,
 			id: eventId,
@@ -186,7 +147,7 @@ export const actions: Actions = {
 		};
 		const completedForAcceptor = {
 			type: 'qr_completed' as const,
-			id: randomUUID(),
+			id: crypto.randomUUID(),
 			qrId: qr.id,
 			otherName: initiatorName,
 			formattedAmount: formattedAmt
@@ -208,15 +169,8 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 
-		// Verify the token to ensure the decline is bound to the correct QR code.
-		let tokenData;
-		try {
-			tokenData = await verifyQrToken(params.token);
-		} catch {
-			return fail(400, { error: 'Invalid or expired token.' });
-		}
-		if (!qrId || qrId !== tokenData.jti) {
-			return fail(400, { error: 'QR ID does not match token.' });
+		if (!qrId || qrId !== params.token) {
+			return fail(400, { error: 'Invalid QR ID.' });
 		}
 
 		const [qr] = await db
@@ -228,7 +182,7 @@ export const actions: Actions = {
 		await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
 
 		if (qr) {
-			const declinedEvent = { type: 'qr_declined' as const, id: randomUUID(), qrId };
+			const declinedEvent = { type: 'qr_declined' as const, id: crypto.randomUUID(), qrId };
 			emit(qr.initiatingUserId, declinedEvent);
 			sendPushToUser(qr.initiatingUserId, declinedEvent).catch((err) => {
 				console.error('Push notification failed for QR decline:', err);

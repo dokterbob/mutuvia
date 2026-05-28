@@ -55,8 +55,8 @@ test.describe.serial('Pending item navigation', () => {
 		const now = Math.floor(Date.now() / 1000);
 		sqlite
 			.prepare(
-				`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, status, created_at, expires_at)
-				 VALUES (?, ?, 'receive', 750, 'pending', ?, ?)`
+				`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, initiator_name, status, created_at, expires_at)
+				 VALUES (?, ?, 'receive', 750, 'Test User', 'pending', ?, ?)`
 			)
 			.run(qrId, appUserId, now, now + 600);
 

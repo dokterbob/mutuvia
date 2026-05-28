@@ -35,7 +35,6 @@ const {
 	sendPushMock,
 	formatAmountMock,
 	upsertConnectionMock,
-	verifyQrTokenMock,
 	redirectMock,
 	dbSelectMock,
 	dbInsertMock,
@@ -75,7 +74,6 @@ const {
 		sendPushMock: vi.fn().mockResolvedValue(undefined),
 		formatAmountMock: vi.fn().mockReturnValue('€10.00'),
 		upsertConnectionMock: vi.fn().mockResolvedValue(undefined),
-		verifyQrTokenMock: vi.fn(),
 		redirectMock,
 		dbSelectMock,
 		dbInsertMock,
@@ -100,7 +98,7 @@ vi.mock('$lib/server/balance', () => ({
 	getBalance: vi.fn().mockResolvedValue(0),
 	upsertConnection: upsertConnectionMock
 }));
-vi.mock('$lib/server/qr', () => ({ verifyQrToken: verifyQrTokenMock }));
+vi.mock('$lib/server/qr', () => ({}));
 vi.mock('$lib/config', () => ({
 	config: { unitCode: 'EUR', qrTtlSeconds: 300 }
 }));
@@ -110,9 +108,6 @@ vi.mock('@sveltejs/kit', () => ({
 	error: vi.fn((_status: number, msg: unknown) => {
 		throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
 	})
-}));
-vi.mock('node:crypto', () => ({
-	randomUUID: vi.fn(() => 'mock-uuid')
 }));
 vi.mock('$lib/server/db', () => ({
 	db: { select: dbSelectMock, insert: dbInsertMock, update: dbUpdateMock }
@@ -144,7 +139,8 @@ const pendingQrRecord = {
 	initiatingUserId: INITIATOR_ID,
 	direction: 'send' as const,
 	amount: 1000,
-	note: null
+	note: null,
+	initiatorName: 'Alice'
 };
 
 function makeAcceptEvent(overrides: Record<string, unknown> = {}) {
@@ -170,15 +166,15 @@ function makeAcceptEvent(overrides: Record<string, unknown> = {}) {
 function makeDeclineEvent() {
 	const formData = new FormData();
 	formData.set('qrId', QR_ID);
-	const request = new Request('http://localhost/accept/test-token', {
+	const request = new Request(`http://localhost/accept/${QR_ID}`, {
 		method: 'POST',
 		body: formData
 	});
 	return {
 		request,
-		params: { token: 'test-token' },
+		params: { token: QR_ID },
 		locals: {},
-		url: new URL('http://localhost/accept/test-token')
+		url: new URL(`http://localhost/accept/${QR_ID}`)
 	} as unknown as Parameters<(typeof actions)['decline']>[0];
 }
 
@@ -303,7 +299,6 @@ describe('settlement → notification fanout', () => {
 
 	describe('decline', () => {
 		it('emits qr_declined to initiator when the decline action is called', async () => {
-			verifyQrTokenMock.mockResolvedValue({ jti: QR_ID });
 			selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID }]);
 
 			await runAction(() => actions.decline(makeDeclineEvent()));

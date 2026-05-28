@@ -3,7 +3,7 @@
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
 import { config } from '$lib/config';
-import * as schema from './schema';
+import * as schema from './schema.sqlite';
 
 export const sqlite = new Database(config.dbFileName);
 sqlite.exec('PRAGMA journal_mode = WAL;');

@@ -104,7 +104,8 @@ export const pendingQr = pgTable('pending_qr', {
 	note: text('note'),
 	createdAt: timestamp('created_at').notNull(),
 	expiresAt: timestamp('expires_at').notNull(),
-	status: text('status', { enum: ['pending', 'completed', 'declined'] }).notNull()
+	status: text('status', { enum: ['pending', 'completed', 'declined'] }).notNull(),
+	initiatorName: text('initiator_name').notNull()
 });
 
 export const connections = pgTable(
