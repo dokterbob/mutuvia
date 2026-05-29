@@ -307,5 +307,6 @@
 	"whats_new_title": "O que há de novo",
 	"whats_new_dismiss": "Entendi",
 	"whats_new_version_label": "Versão {version}",
-	"whats_new_v0_2_0": "Gerencie seu e-mail e número de telefone nas configurações\nSuporte ao idioma espanhol\nNavegação melhorada com botão de voltar e confirmação de cancelamento"
+	"whats_new_v0_2_0": "Gerencie seu e-mail e número de telefone nas configurações\nSuporte ao idioma espanhol\nNavegação melhorada com botão de voltar e confirmação de cancelamento",
+	"whats_new_v0_3_0": "QR codes de pagamento reutilizáveis — crie um código permanente para clientes escanearem várias vezes\nQR codes mais fáceis de escanear (URLs mais curtas e simples)"
 }

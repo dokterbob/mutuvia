@@ -16,7 +16,10 @@ export interface WhatsNewEntry {
  * 2. Add an entry here at the top of the array
  * 3. Bump version in package.json
  */
-export const changelog: WhatsNewEntry[] = [{ version: '0.2.0', content: m.whats_new_v0_2_0 }];
+export const changelog: WhatsNewEntry[] = [
+	{ version: '0.3.0', content: m.whats_new_v0_3_0 },
+	{ version: '0.2.0', content: m.whats_new_v0_2_0 }
+];
 
 /** Returns changelog entries the user has not yet seen. */
 export function getUnseenEntries(

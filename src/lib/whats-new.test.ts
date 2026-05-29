@@ -3,6 +3,7 @@
 import { describe, test, expect, vi } from 'vitest';
 
 vi.mock('$lib/paraglide/messages.js', () => ({
+	whats_new_v0_3_0: () => 'New Feature A\nNew Feature B',
 	whats_new_v0_2_0: () => 'Feature A\nFeature B'
 }));
 
@@ -18,7 +19,7 @@ describe('getUnseenEntries', () => {
 
 	describe('when lastSeenVersion matches the current version', () => {
 		test('returns no entries', () => {
-			const result = getUnseenEntries('0.2.0');
+			const result = getUnseenEntries('0.3.0');
 			expect(result).toHaveLength(0);
 		});
 	});
