@@ -100,4 +100,33 @@ describe('extractAcceptUrl', () => {
 			expect(extractAcceptUrl(p)).toBeNull();
 		});
 	});
+
+	describe('given a /send/{id} url param', () => {
+		const SEND_ID = '00000000-0000-0000-0000-000000000001';
+
+		test('extracts /send/{id} from url param', () => {
+			const p = new URLSearchParams({ url: `${BASE}/send/${SEND_ID}` });
+			expect(extractAcceptUrl(p)).toBe(`/send/${SEND_ID}`);
+		});
+
+		test('strips origin — path only (prevents open redirect)', () => {
+			const p = new URLSearchParams({ url: `https://evil.com/send/${SEND_ID}` });
+			expect(extractAcceptUrl(p)).toBe(`/send/${SEND_ID}`);
+		});
+
+		test('extracts /send/{id} from text param containing embedded URL', () => {
+			const p = new URLSearchParams({ text: `Pay me via Mutuvia: ${BASE}/send/${SEND_ID}` });
+			expect(extractAcceptUrl(p)).toBe(`/send/${SEND_ID}`);
+		});
+
+		test('falls through to title param for /send/{id}', () => {
+			const p = new URLSearchParams({ title: `${BASE}/send/${SEND_ID}` });
+			expect(extractAcceptUrl(p)).toBe(`/send/${SEND_ID}`);
+		});
+
+		test('returns null for /send/ path with invalid (empty) id segment', () => {
+			const p = new URLSearchParams({ url: `${BASE}/send/` });
+			expect(extractAcceptUrl(p)).toBeNull();
+		});
+	});
 });

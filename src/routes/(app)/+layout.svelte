@@ -28,7 +28,7 @@
 			onReusablePayment: (e) => {
 				// /send/[id] is outside (app) layout so this handler only fires on other app pages
 				const path = page.url.pathname;
-				if (path.startsWith('/send/')) return;
+				if (path.startsWith('/send/') || path.startsWith('/receive')) return;
 				toast.success(m.toast_reusable_payment({ name: e.senderName, amount: e.formattedAmount }));
 			}
 		});

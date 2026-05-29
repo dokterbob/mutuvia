@@ -167,7 +167,8 @@ export const actions: Actions = {
 					and(
 						eq(paymentRequests.id, qrId),
 						eq(paymentRequests.initiatingUserId, locals.appUser!.id),
-						eq(paymentRequests.reusable, false)
+						eq(paymentRequests.reusable, false),
+						eq(paymentRequests.status, 'active')
 					)
 				);
 		}

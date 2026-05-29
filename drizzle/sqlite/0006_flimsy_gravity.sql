@@ -21,7 +21,7 @@ CREATE TABLE `__new_payment_requests` (
 	FOREIGN KEY (`initiating_user_id`) REFERENCES `app_users`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_payment_requests`("id", "initiating_user_id", "reusable", "direction", "amount", "description", "status", "initiator_name", "created_at", "updated_at", "expires_at", "total_received", "payment_count") SELECT "id", "initiating_user_id", false, "direction", "amount", "description", "status", "initiator_name", "created_at", "created_at", "expires_at", 0, 0 FROM `payment_requests`;--> statement-breakpoint
+INSERT INTO `__new_payment_requests`("id", "initiating_user_id", "reusable", "direction", "amount", "description", "status", "initiator_name", "created_at", "updated_at", "expires_at", "total_received", "payment_count") SELECT "id", "initiating_user_id", false, "direction", "amount", "description", CASE WHEN "status" = 'pending' THEN 'active' ELSE "status" END, "initiator_name", "created_at", "created_at", "expires_at", 0, 0 FROM `payment_requests`;--> statement-breakpoint
 DROP TABLE `payment_requests`;--> statement-breakpoint
 ALTER TABLE `__new_payment_requests` RENAME TO `payment_requests`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint

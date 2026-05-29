@@ -1,6 +1,6 @@
 {
 	"id": "pg-0005-payment-requests",
-	"prevId": "pg-0005-payment-requests",
+	"prevId": "424ce631-731f-48aa-bc0f-e5f6580abf36",
 	"version": "7",
 	"dialect": "postgresql",
 	"tables": {
@@ -690,7 +690,7 @@
 			"foreignKeys": {
 				"payment_requests_initiating_user_id_app_users_id_fk": {
 					"name": "payment_requests_initiating_user_id_app_users_id_fk",
-					"tableFrom": "pending_qr",
+					"tableFrom": "payment_requests",
 					"tableTo": "app_users",
 					"columnsFrom": ["initiating_user_id"],
 					"columnsTo": ["id"],

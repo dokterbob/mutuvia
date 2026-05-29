@@ -102,7 +102,9 @@ export async function settleReusable(
 		return { ok: false, status: 400, error: 'Amount must be greater than zero' };
 	}
 
-	return await db.transaction(async (tx) => {
+	let initiatingUserId: string | undefined;
+
+	const result = (await db.transaction(async (tx) => {
 		const [pr] = await tx
 			.select()
 			.from(paymentRequests)
@@ -133,6 +135,8 @@ export async function settleReusable(
 			return { ok: false, status: 410, error: 'Payment request has expired' };
 		}
 
+		initiatingUserId = pr.initiatingUserId;
+
 		const txId = crypto.randomUUID();
 		const now = new Date();
 
@@ -156,10 +160,14 @@ export async function settleReusable(
 			})
 			.where(eq(paymentRequests.id, paymentRequestId));
 
-		await upsertConnection(scannerId, pr.initiatingUserId);
+		return { ok: true as const, txId };
+	})) as { ok: true; txId: string } | { ok: false; status: number; error: string };
 
-		return { ok: true, txId };
-	});
+	if (result.ok && initiatingUserId) {
+		await upsertConnection(scannerId, initiatingUserId);
+	}
+
+	return result;
 }
 
 export async function pausePaymentRequest(id: string, userId: string): Promise<void> {

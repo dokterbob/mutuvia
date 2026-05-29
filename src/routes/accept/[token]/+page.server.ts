@@ -3,7 +3,7 @@
 import { redirect, fail, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { paymentRequests, transactions } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getBalance, upsertConnection } from '$lib/server/balance';
 import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
@@ -208,14 +208,27 @@ export const actions: Actions = {
 		await db
 			.update(paymentRequests)
 			.set({ status: 'declined' })
-			.where(eq(paymentRequests.id, qrId));
+			.where(
+				and(
+					eq(paymentRequests.id, qrId),
+					eq(paymentRequests.status, 'active'),
+					eq(paymentRequests.reusable, false)
+				)
+			);
 
 		if (qr) {
-			const declinedEvent = { type: 'qr_declined' as const, id: crypto.randomUUID(), qrId };
-			emit(qr.initiatingUserId, declinedEvent);
-			sendPushToUser(qr.initiatingUserId, declinedEvent).catch((err) => {
-				console.error('Push notification failed for QR decline:', err);
-			});
+			const [updated] = await db
+				.select({ status: paymentRequests.status })
+				.from(paymentRequests)
+				.where(eq(paymentRequests.id, qrId))
+				.limit(1);
+			if (updated?.status === 'declined') {
+				const declinedEvent = { type: 'qr_declined' as const, id: crypto.randomUUID(), qrId };
+				emit(qr.initiatingUserId, declinedEvent);
+				sendPushToUser(qr.initiatingUserId, declinedEvent).catch((err) => {
+					console.error('Push notification failed for QR decline:', err);
+				});
+			}
 		}
 
 		redirect(307, '/home');

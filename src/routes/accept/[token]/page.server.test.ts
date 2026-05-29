@@ -118,7 +118,8 @@ vi.mock('$lib/server/schema', () => ({
 	appUsers: 'appUsers'
 }));
 vi.mock('drizzle-orm', () => ({
-	eq: vi.fn((a: unknown, b: unknown) => `${String(a)}=${String(b)}`)
+	eq: vi.fn((a: unknown, b: unknown) => `${String(a)}=${String(b)}`),
+	and: vi.fn((...args: unknown[]) => args.join('&'))
 }));
 
 // Import AFTER mocks are registered
@@ -306,7 +307,9 @@ describe('settlement → notification fanout', () => {
 
 	describe('decline', () => {
 		it('emits qr_declined to initiator when the decline action is called', async () => {
-			selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID }]);
+			selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID, reusable: false }]);
+			// Second select is the re-read to confirm the update succeeded
+			selectLimitFn.mockResolvedValueOnce([{ status: 'declined' }]);
 
 			await runAction(() => actions.decline(makeDeclineEvent()));
 
