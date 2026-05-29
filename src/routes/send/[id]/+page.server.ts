@@ -122,11 +122,13 @@ export const actions: Actions = {
 		const floatAmount = parseFloat(amountStr);
 
 		if (isNaN(floatAmount) || floatAmount <= 0) {
+			cookies.delete('qr_amount', { path: '/' });
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
 		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
 		if (submittedDecimals > dp) {
+			cookies.delete('qr_amount', { path: '/' });
 			return fail(400, {
 				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
 			});

@@ -3,19 +3,16 @@
 	import { goto } from '$app/navigation';
 	import QrScanner from '$lib/components/qr-scanner.svelte';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
+	import { parsePaymentUrl } from './url-validator';
 
 	let invalidMessage: string | undefined = $state();
 	let invalidTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	function handleScan(data: string): boolean {
-		try {
-			const url = new URL(data);
-			if (url.pathname.match(/^\/(accept|send)\/.+$/)) {
-				goto(url.pathname);
-				return true;
-			}
-		} catch {
-			// Not a URL
+		const path = parsePaymentUrl(data);
+		if (path) {
+			goto(path);
+			return true;
 		}
 
 		invalidMessage = m.scan_invalid_qr();

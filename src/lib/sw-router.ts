@@ -60,7 +60,7 @@ function buildNotificationOptions(event: NotificationEvent): {
 				options: {
 					body: `${event.senderName} sent ${event.formattedAmount}${event.description ? ` · ${event.description}` : ''}`,
 					icon: '/icon-192x192.png',
-					tag: `reusable-${event.paymentRequestId}`,
+					tag: `reusable-payment-${event.id}`,
 					data: event
 				}
 			};

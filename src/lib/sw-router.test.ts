@@ -178,7 +178,7 @@ describe('routeNotificationEvent — notification content', () => {
 			'Payment received',
 			expect.objectContaining({
 				body: expect.stringContaining('Bob'),
-				tag: `reusable-${reusablePayment.paymentRequestId}`
+				tag: `reusable-payment-${reusablePayment.id}`
 			})
 		);
 		const [, opts] = (ctx.registration.showNotification as ReturnType<typeof vi.fn>).mock
