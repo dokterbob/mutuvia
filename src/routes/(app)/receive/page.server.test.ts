@@ -134,9 +134,7 @@ function makeResumeEvent(qrId = QR_ID): Parameters<(typeof actions)['resume']>[0
 }
 
 function makeLoadEvent(qrId?: string): Parameters<typeof load>[0] {
-	const urlStr = qrId
-		? `http://localhost/receive?qrId=${qrId}`
-		: 'http://localhost/receive';
+	const urlStr = qrId ? `http://localhost/receive?qrId=${qrId}` : 'http://localhost/receive';
 	return {
 		locals: {
 			session: { id: 'session-1' },
@@ -223,6 +221,7 @@ describe('load — receive page with reusable QR via ?qrId= (regression: resume 
 		it('When load is called with ?qrId=<id> → returns resumeQr with isReusable=true', async () => {
 			const result = await load(makeLoadEvent(QR_ID));
 
+			if (!result) throw new Error('load returned void unexpectedly');
 			expect(result.resumeQr).not.toBeNull();
 			expect(result.resumeQr?.isReusable).toBe(true);
 		});
@@ -230,18 +229,21 @@ describe('load — receive page with reusable QR via ?qrId= (regression: resume 
 		it('When load is called with ?qrId=<id> → resumeQr.qrUrl uses buildReusableUrl', async () => {
 			const result = await load(makeLoadEvent(QR_ID));
 
+			if (!result) throw new Error('load returned void unexpectedly');
 			expect(result.resumeQr?.qrUrl).toBe(`http://localhost/send/${QR_ID}`);
 		});
 
 		it('When load is called with ?qrId=<id> → resumeQr.paymentCount matches DB value', async () => {
 			const result = await load(makeLoadEvent(QR_ID));
 
+			if (!result) throw new Error('load returned void unexpectedly');
 			expect(result.resumeQr?.paymentCount).toBe(3);
 		});
 
 		it('When load is called with ?qrId=<id> → resumeQr.expiresAt is null (reusable QRs never expire)', async () => {
 			const result = await load(makeLoadEvent(QR_ID));
 
+			if (!result) throw new Error('load returned void unexpectedly');
 			expect(result.resumeQr?.expiresAt).toBeNull();
 		});
 	});
@@ -250,6 +252,7 @@ describe('load — receive page with reusable QR via ?qrId= (regression: resume 
 		it('When load is called without ?qrId= → returns resumeQr as null', async () => {
 			const result = await load(makeLoadEvent());
 
+			if (!result) throw new Error('load returned void unexpectedly');
 			expect(result.resumeQr).toBeNull();
 			expect(getPendingItemByIdMock).not.toHaveBeenCalled();
 		});

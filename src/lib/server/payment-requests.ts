@@ -141,6 +141,7 @@ export async function settleReusable(
 			fromUserId: scannerId,
 			toUserId: pr.initiatingUserId,
 			amount,
+			note: pr.description,
 			unitCode: config.unitCode,
 			paymentRequestId,
 			createdAt: now
@@ -169,7 +170,8 @@ export async function pausePaymentRequest(id: string, userId: string): Promise<v
 			and(
 				eq(paymentRequests.id, id),
 				eq(paymentRequests.initiatingUserId, userId),
-				eq(paymentRequests.status, 'active')
+				eq(paymentRequests.status, 'active'),
+				eq(paymentRequests.reusable, true)
 			)
 		);
 }
@@ -182,7 +184,8 @@ export async function resumePaymentRequest(id: string, userId: string): Promise<
 			and(
 				eq(paymentRequests.id, id),
 				eq(paymentRequests.initiatingUserId, userId),
-				eq(paymentRequests.status, 'paused')
+				eq(paymentRequests.status, 'paused'),
+				eq(paymentRequests.reusable, true)
 			)
 		);
 }
@@ -195,7 +198,8 @@ export async function archivePaymentRequest(id: string, userId: string): Promise
 			and(
 				eq(paymentRequests.id, id),
 				eq(paymentRequests.initiatingUserId, userId),
-				inArray(paymentRequests.status, ['active', 'paused'])
+				inArray(paymentRequests.status, ['active', 'paused']),
+				eq(paymentRequests.reusable, true)
 			)
 		);
 }

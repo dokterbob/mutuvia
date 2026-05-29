@@ -119,7 +119,8 @@ export const actions: Actions = {
 				.where(
 					and(
 						eq(paymentRequests.id, qrId),
-						eq(paymentRequests.initiatingUserId, locals.appUser!.id)
+						eq(paymentRequests.initiatingUserId, locals.appUser!.id),
+						eq(paymentRequests.reusable, false)
 					)
 				);
 		}

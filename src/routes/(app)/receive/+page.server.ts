@@ -40,7 +40,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 					expiresAt: null,
 					isExpired: false,
 					isReusable: true,
-					paymentCount: item.paymentCount ?? 0
+					paymentCount: item.paymentCount ?? 0,
+					shareDescription:
+						item.amount === null ? item.note || undefined : shareText(item.amount, item.note)
 				};
 			} else if (item.isExpired) {
 				resumeQr = {
@@ -164,7 +166,8 @@ export const actions: Actions = {
 				.where(
 					and(
 						eq(paymentRequests.id, qrId),
-						eq(paymentRequests.initiatingUserId, locals.appUser!.id)
+						eq(paymentRequests.initiatingUserId, locals.appUser!.id),
+						eq(paymentRequests.reusable, false)
 					)
 				);
 		}

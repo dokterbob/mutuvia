@@ -112,8 +112,8 @@ vi.mock('$lib/server/db', () => ({
 }));
 
 vi.mock('$lib/server/schema', () => ({
-	paymentRequests: 'paymentRequests',
-	transactions: 'transactions',
+	paymentRequests: new Proxy({}, { get: (_t, prop: string) => `paymentRequests.${prop}` }),
+	transactions: new Proxy({}, { get: (_t, prop: string) => `transactions.${prop}` }),
 	appUsers: 'appUsers'
 }));
 
@@ -221,6 +221,13 @@ describe('settleReusable', () => {
 			);
 		});
 
+		test('When settled → inserts transaction with note = null (pr.description is null)', async () => {
+			// activeReusablePr has description: null
+			await settleReusable(PR_ID, SCANNER_ID, 1000);
+
+			expect(txInsertValuesFn).toHaveBeenCalledWith(expect.objectContaining({ note: null }));
+		});
+
 		test('When settled → increments totalReceived and paymentCount', async () => {
 			await settleReusable(PR_ID, SCANNER_ID, 1000);
 
@@ -242,6 +249,18 @@ describe('settleReusable', () => {
 				expect(typeof result.txId).toBe('string');
 				expect(result.txId.length).toBeGreaterThan(0);
 			}
+		});
+	});
+
+	describe('Given a payment request with a description', () => {
+		beforeEach(() => {
+			txSelectLimitFn.mockResolvedValue([{ ...activeReusablePr, description: 'Coffee' }]);
+		});
+
+		test('When settled → inserts transaction with note = pr.description', async () => {
+			await settleReusable(PR_ID, SCANNER_ID, 1000);
+
+			expect(txInsertValuesFn).toHaveBeenCalledWith(expect.objectContaining({ note: 'Coffee' }));
 		});
 	});
 
@@ -297,6 +316,16 @@ describe('pausePaymentRequest', () => {
 		const setCall = dbUpdateMock.mock.results[0].value.set;
 		expect(setCall).toHaveBeenCalledWith(expect.objectContaining({ status: 'paused' }));
 	});
+
+	test('WHERE clause includes reusable = true guard', async () => {
+		await pausePaymentRequest(PR_ID, INITIATOR_ID);
+
+		// Schema is mocked via Proxy so paymentRequests.reusable → "paymentRequests.reusable";
+		// eq(paymentRequests.reusable, true) serialises as "paymentRequests.reusable=true".
+		expect(updateWhereFn).toHaveBeenCalledWith(
+			expect.stringContaining('paymentRequests.reusable=true')
+		);
+	});
 });
 
 describe('resumePaymentRequest', () => {
@@ -312,6 +341,16 @@ describe('resumePaymentRequest', () => {
 		const setCall = dbUpdateMock.mock.results[0].value.set;
 		expect(setCall).toHaveBeenCalledWith(expect.objectContaining({ status: 'active' }));
 	});
+
+	test('WHERE clause includes reusable = true guard', async () => {
+		await resumePaymentRequest(PR_ID, INITIATOR_ID);
+
+		// Schema is mocked via Proxy so paymentRequests.reusable → "paymentRequests.reusable";
+		// eq(paymentRequests.reusable, true) serialises as "paymentRequests.reusable=true".
+		expect(updateWhereFn).toHaveBeenCalledWith(
+			expect.stringContaining('paymentRequests.reusable=true')
+		);
+	});
 });
 
 describe('archivePaymentRequest', () => {
@@ -326,6 +365,14 @@ describe('archivePaymentRequest', () => {
 		expect(dbUpdateMock).toHaveBeenCalled();
 		const setCall = dbUpdateMock.mock.results[0].value.set;
 		expect(setCall).toHaveBeenCalledWith(expect.objectContaining({ status: 'archived' }));
+	});
+
+	test('WHERE clause includes reusable = true guard', async () => {
+		await archivePaymentRequest(PR_ID, INITIATOR_ID);
+
+		expect(updateWhereFn).toHaveBeenCalledWith(
+			expect.stringContaining('paymentRequests.reusable=true')
+		);
 	});
 });
 
