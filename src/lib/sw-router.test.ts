@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { routeNotificationEvent, type SwContext, type WindowClient } from './sw-router';
-import type { QrCompletedEvent, QrDeclinedEvent, BalanceChangedEvent } from './notifications';
+import type {
+	QrCompletedEvent,
+	QrDeclinedEvent,
+	BalanceChangedEvent,
+	ReusablePaymentEvent
+} from './notifications';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -37,6 +42,15 @@ const balanceChanged: BalanceChangedEvent = {
 	id: 'evt-3',
 	newBalance: 500,
 	formattedBalance: '€5.00'
+};
+
+const reusablePayment: ReusablePaymentEvent = {
+	type: 'reusable_payment',
+	id: 'evt-4',
+	paymentRequestId: 'pr-xyz',
+	senderName: 'Bob',
+	formattedAmount: '€7.50',
+	description: null
 };
 
 // ---------------------------------------------------------------------------
@@ -155,5 +169,20 @@ describe('routeNotificationEvent — notification content', () => {
 			'Balance updated',
 			expect.objectContaining({ body: '€5.00', tag: 'balance' })
 		);
+	});
+
+	it('reusable_payment: title is "Payment received" and body includes senderName and formattedAmount', async () => {
+		await routeNotificationEvent(ctx, reusablePayment);
+
+		expect(ctx.registration.showNotification).toHaveBeenCalledWith(
+			'Payment received',
+			expect.objectContaining({
+				body: expect.stringContaining('Bob'),
+				tag: `reusable-payment-${reusablePayment.id}`
+			})
+		);
+		const [, opts] = (ctx.registration.showNotification as ReturnType<typeof vi.fn>).mock
+			.calls[0] as [string, NotificationOptions];
+		expect(opts.body).toContain('€7.50');
 	});
 });

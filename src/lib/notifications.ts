@@ -24,7 +24,20 @@ export type BalanceChangedEvent = {
 	formattedBalance: string;
 };
 
-export type NotificationEvent = QrCompletedEvent | QrDeclinedEvent | BalanceChangedEvent;
+export type ReusablePaymentEvent = {
+	type: 'reusable_payment';
+	id: string; // dedup UUID
+	paymentRequestId: string;
+	senderName: string;
+	formattedAmount: string;
+	description: string | null;
+};
+
+export type NotificationEvent =
+	| QrCompletedEvent
+	| QrDeclinedEvent
+	| BalanceChangedEvent
+	| ReusablePaymentEvent;
 
 // Type guards
 export function isQrEvent(e: NotificationEvent): e is QrCompletedEvent | QrDeclinedEvent {
@@ -36,6 +49,7 @@ export type NotificationHandlers = {
 	onQrCompleted?: (e: QrCompletedEvent) => void;
 	onQrDeclined?: (e: QrDeclinedEvent) => void;
 	onBalanceChanged?: (e: BalanceChangedEvent) => void;
+	onReusablePayment?: (e: ReusablePaymentEvent) => void;
 };
 
 // Bounded FIFO set for dedup — evicts oldest entries beyond cap.
@@ -82,6 +96,9 @@ export function handleNotificationEvent(
 			break;
 		case 'balance_changed':
 			handlers.onBalanceChanged?.(event);
+			break;
+		case 'reusable_payment':
+			handlers.onReusablePayment?.(event);
 			break;
 	}
 	return true;

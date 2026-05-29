@@ -2,8 +2,8 @@
 
 import { redirect, fail, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { pendingQr, transactions } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
+import { paymentRequests, transactions } from '$lib/server/schema';
+import { eq, and } from 'drizzle-orm';
 import { getBalance, upsertConnection } from '$lib/server/balance';
 import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
@@ -12,8 +12,23 @@ import { sendPushToUser } from '$lib/server/push-sender';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
-	const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, params.token)).limit(1);
-	if (!qr || qr.status !== 'pending' || qr.expiresAt < new Date()) {
+	const [qr] = await db
+		.select()
+		.from(paymentRequests)
+		.where(eq(paymentRequests.id, params.token))
+		.limit(1);
+	if (!qr) {
+		return {
+			expired: true,
+			error: 'This link has expired or is invalid.'
+		};
+	}
+
+	if (qr.reusable) {
+		redirect(307, `/send/${qr.id}`);
+	}
+
+	if (qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
 		return {
 			expired: true,
 			error: 'This link has expired or is invalid.'
@@ -27,8 +42,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			qrId: qr.id,
 			direction: qr.direction,
 			amount: qr.amount,
-			formattedAmount: formatAmount(qr.amount),
-			note: qr.note,
+			formattedAmount: formatAmount(qr.amount ?? 0),
+			note: qr.description,
 			initiatorName: qr.initiatorName,
 			token: params.token
 		};
@@ -50,8 +65,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		qrId: qr.id,
 		direction: qr.direction,
 		amount: qr.amount,
-		formattedAmount: formatAmount(qr.amount),
-		note: qr.note,
+		formattedAmount: formatAmount(qr.amount ?? 0),
+		note: qr.description,
 		initiatorName: qr.initiatorName,
 		initiatorBalance: formatAmount(initiatorBalance),
 		token: params.token
@@ -87,8 +102,20 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 
-		const [qr] = await db.select().from(pendingQr).where(eq(pendingQr.id, qrId)).limit(1);
-		if (!qr || qr.status !== 'pending' || qr.expiresAt < new Date()) {
+		const [qr] = await db
+			.select()
+			.from(paymentRequests)
+			.where(eq(paymentRequests.id, qrId))
+			.limit(1);
+		if (!qr) {
+			return fail(400, { error: 'This QR code has expired or already been used.' });
+		}
+
+		if (qr.reusable) {
+			redirect(303, `/send/${qr.id}`);
+		}
+
+		if (qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
 			return fail(400, { error: 'This QR code has expired or already been used.' });
 		}
 
@@ -117,14 +144,17 @@ export const actions: Actions = {
 			id: txId,
 			fromUserId,
 			toUserId,
-			amount: qr.amount,
+			amount: qr.amount ?? 0,
 			unitCode: config.unitCode,
-			note: qr.note,
-			pendingQrId: qr.id,
+			note: qr.description,
+			paymentRequestId: qr.id,
 			createdAt: new Date()
 		});
 
-		await db.update(pendingQr).set({ status: 'completed' }).where(eq(pendingQr.id, qr.id));
+		await db
+			.update(paymentRequests)
+			.set({ status: 'completed' })
+			.where(eq(paymentRequests.id, qr.id));
 
 		await upsertConnection(fromUserId, toUserId);
 
@@ -134,7 +164,7 @@ export const actions: Actions = {
 
 		// formatAmount never throws — it falls back to a locale-independent string
 		// when Paraglide's AsyncLocalStorage context is unavailable.
-		const formattedAmt = formatAmount(qr.amount);
+		const formattedAmt = formatAmount(qr.amount ?? 0);
 		const initiatorName = qr.initiatorName;
 
 		const eventId = crypto.randomUUID();
@@ -174,19 +204,42 @@ export const actions: Actions = {
 		}
 
 		const [qr] = await db
-			.select({ initiatingUserId: pendingQr.initiatingUserId })
-			.from(pendingQr)
-			.where(eq(pendingQr.id, qrId))
+			.select({
+				initiatingUserId: paymentRequests.initiatingUserId,
+				reusable: paymentRequests.reusable
+			})
+			.from(paymentRequests)
+			.where(eq(paymentRequests.id, qrId))
 			.limit(1);
 
-		await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
+		if (qr?.reusable) {
+			redirect(303, `/send/${qrId}`);
+		}
+
+		await db
+			.update(paymentRequests)
+			.set({ status: 'declined' })
+			.where(
+				and(
+					eq(paymentRequests.id, qrId),
+					eq(paymentRequests.status, 'active'),
+					eq(paymentRequests.reusable, false)
+				)
+			);
 
 		if (qr) {
-			const declinedEvent = { type: 'qr_declined' as const, id: crypto.randomUUID(), qrId };
-			emit(qr.initiatingUserId, declinedEvent);
-			sendPushToUser(qr.initiatingUserId, declinedEvent).catch((err) => {
-				console.error('Push notification failed for QR decline:', err);
-			});
+			const [updated] = await db
+				.select({ status: paymentRequests.status })
+				.from(paymentRequests)
+				.where(eq(paymentRequests.id, qrId))
+				.limit(1);
+			if (updated?.status === 'declined') {
+				const declinedEvent = { type: 'qr_declined' as const, id: crypto.randomUUID(), qrId };
+				emit(qr.initiatingUserId, declinedEvent);
+				sendPushToUser(qr.initiatingUserId, declinedEvent).catch((err) => {
+					console.error('Push notification failed for QR decline:', err);
+				});
+			}
 		}
 
 		redirect(307, '/home');

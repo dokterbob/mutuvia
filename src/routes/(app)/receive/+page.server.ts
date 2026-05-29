@@ -2,12 +2,17 @@
 
 import { redirect, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { pendingQr } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import { buildQrUrl } from '$lib/server/qr';
+import { paymentRequests } from '$lib/server/schema';
+import { eq, and } from 'drizzle-orm';
+import { buildPaymentRequestUrl, buildReusableUrl } from '$lib/server/qr';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
-import { getPendingItemById } from '$lib/server/pending-qr';
+import {
+	getPendingItemById,
+	pausePaymentRequest,
+	resumePaymentRequest,
+	archivePaymentRequest
+} from '$lib/server/payment-requests';
 import { shareText } from '$lib/server/share-text';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -18,28 +23,43 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	let resumeQr: {
 		qrUrl: string;
 		qrId: string;
-		expiresAt: string;
+		expiresAt: string | null;
 		isExpired: boolean;
+		isReusable: boolean;
+		paymentCount?: number;
 		shareDescription?: string;
 	} | null = null;
 
 	if (resumeQrId) {
 		const item = await getPendingItemById(resumeQrId, appUser.id);
-		if (item && item.direction === 'receive' && item.status === 'pending') {
-			if (item.isExpired) {
+		if (item && item.direction === 'receive' && item.status === 'active') {
+			if (item.reusable) {
+				resumeQr = {
+					qrUrl: buildReusableUrl(item.id),
+					qrId: item.id,
+					expiresAt: null,
+					isExpired: false,
+					isReusable: true,
+					paymentCount: item.paymentCount ?? 0,
+					shareDescription:
+						item.amount === null ? item.note || undefined : shareText(item.amount, item.note)
+				};
+			} else if (item.isExpired) {
 				resumeQr = {
 					qrUrl: '',
 					qrId: item.id,
-					expiresAt: item.expiresAt.toISOString(),
-					isExpired: true
+					expiresAt: item.expiresAt?.toISOString() ?? '',
+					isExpired: true,
+					isReusable: false
 				};
 			} else {
 				resumeQr = {
-					qrUrl: buildQrUrl(item.id),
+					qrUrl: buildPaymentRequestUrl(item.id),
 					qrId: item.id,
-					expiresAt: item.expiresAt.toISOString(),
+					expiresAt: item.expiresAt?.toISOString() ?? '',
 					isExpired: false,
-					shareDescription: shareText(item.amount, item.note)
+					isReusable: false,
+					shareDescription: shareText(item.amount ?? 0, item.note)
 				};
 			}
 		}
@@ -61,51 +81,118 @@ export const actions: Actions = {
 
 		const amountStr = data.get('amount') as string;
 		const note = (data.get('note') as string)?.trim().slice(0, 120) || null;
+		const reusable = data.get('reusable') === 'on';
 		const dp = currencyFractionDigits();
 
-		const floatAmount = parseFloat(amountStr);
-		if (isNaN(floatAmount) || floatAmount <= 0) {
+		let amount: number | null = null;
+
+		if (amountStr && amountStr.trim() !== '') {
+			const floatAmount = parseFloat(amountStr);
+			if (isNaN(floatAmount) || floatAmount <= 0) {
+				return fail(400, { error: 'Enter a valid amount.' });
+			}
+			const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
+			if (submittedDecimals > dp) {
+				return fail(400, {
+					error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
+				});
+			}
+			amount = Math.round(floatAmount * Math.pow(10, dp));
+		} else if (!reusable) {
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
-		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
-		if (submittedDecimals > dp) {
-			return fail(400, {
-				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
-			});
-		}
-
-		const amount = Math.round(floatAmount * Math.pow(10, dp));
-		const ttl = config.qrTtlSeconds;
 		const now = new Date();
 		const qrId = crypto.randomUUID();
 
-		await db.insert(pendingQr).values({
-			id: qrId,
-			initiatingUserId: userId,
-			direction: 'receive',
-			amount,
-			note,
-			initiatorName: displayName,
-			createdAt: now,
-			expiresAt: new Date(now.getTime() + ttl * 1000),
-			status: 'pending'
-		});
+		if (reusable) {
+			await db.insert(paymentRequests).values({
+				id: qrId,
+				initiatingUserId: userId,
+				direction: 'receive',
+				amount,
+				description: note,
+				initiatorName: displayName,
+				reusable: true,
+				createdAt: now,
+				updatedAt: now,
+				expiresAt: null,
+				status: 'active'
+			});
 
-		return {
-			qrUrl: buildQrUrl(qrId),
-			qrId,
-			expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
-			shareDescription: shareText(amount, note)
-		};
+			const shareDesc = amount === null ? note || null : shareText(amount, note);
+
+			return {
+				qrUrl: buildReusableUrl(qrId),
+				qrId,
+				expiresAt: null,
+				isReusable: true,
+				paymentCount: 0,
+				shareDescription: shareDesc
+			};
+		} else {
+			const ttl = config.qrTtlSeconds;
+			await db.insert(paymentRequests).values({
+				id: qrId,
+				initiatingUserId: userId,
+				direction: 'receive',
+				amount,
+				description: note,
+				initiatorName: displayName,
+				reusable: false,
+				createdAt: now,
+				updatedAt: now,
+				expiresAt: new Date(now.getTime() + ttl * 1000),
+				status: 'active'
+			});
+
+			return {
+				qrUrl: buildPaymentRequestUrl(qrId),
+				qrId,
+				expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
+				isReusable: false,
+				shareDescription: shareText(amount ?? 0, note)
+			};
+		}
 	},
 
-	cancel: async ({ request }) => {
+	cancel: async ({ request, locals }) => {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
-			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
+			await db
+				.update(paymentRequests)
+				.set({ status: 'declined' })
+				.where(
+					and(
+						eq(paymentRequests.id, qrId),
+						eq(paymentRequests.initiatingUserId, locals.appUser!.id),
+						eq(paymentRequests.reusable, false),
+						eq(paymentRequests.status, 'active')
+					)
+				);
 		}
+		redirect(307, '/home');
+	},
+
+	pause: async ({ request, locals }) => {
+		const data = await request.formData();
+		const qrId = data.get('qrId') as string;
+		if (qrId) await pausePaymentRequest(qrId, locals.appUser!.id);
+		redirect(307, '/home');
+	},
+
+	resume: async ({ request, locals }) => {
+		const data = await request.formData();
+		const qrId = data.get('qrId') as string;
+		if (qrId) await resumePaymentRequest(qrId, locals.appUser!.id);
+		redirect(303, `/receive?qrId=${qrId}`);
+	},
+
+	archive: async ({ request, locals }) => {
+		const data = await request.formData();
+		const qrId = data.get('qrId') as string;
+		if (qrId) await archivePaymentRequest(qrId, locals.appUser!.id);
 		redirect(307, '/home');
 	}
 };

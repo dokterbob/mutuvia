@@ -6,6 +6,7 @@ import {
 	type QrCompletedEvent,
 	type QrDeclinedEvent,
 	type BalanceChangedEvent,
+	type ReusablePaymentEvent,
 	type NotificationHandlers
 } from './notifications';
 
@@ -28,6 +29,15 @@ const balanceChanged: BalanceChangedEvent = {
 	id: 'evt-3',
 	newBalance: 500,
 	formattedBalance: '€5.00'
+};
+
+const reusablePayment: ReusablePaymentEvent = {
+	type: 'reusable_payment',
+	id: 'evt-4',
+	paymentRequestId: 'pr-xyz',
+	senderName: 'Bob',
+	formattedAmount: '€7.50',
+	description: null
 };
 
 describe('handleNotificationEvent', () => {
@@ -59,6 +69,13 @@ describe('handleNotificationEvent', () => {
 			expect(handlers.onBalanceChanged).toHaveBeenCalledWith(balanceChanged);
 		});
 
+		it('dispatches reusable_payment to onReusablePayment handler', () => {
+			const handlers: NotificationHandlers = { onReusablePayment: vi.fn() };
+			handleNotificationEvent(reusablePayment, handlers, seen);
+			expect(handlers.onReusablePayment).toHaveBeenCalledOnce();
+			expect(handlers.onReusablePayment).toHaveBeenCalledWith(reusablePayment);
+		});
+
 		it('returns true on the first call for a given event id', () => {
 			const result = handleNotificationEvent(qrCompleted, {}, seen);
 			expect(result).toBe(true);
@@ -68,6 +85,7 @@ describe('handleNotificationEvent', () => {
 			expect(() => handleNotificationEvent(qrCompleted, {}, seen)).not.toThrow();
 			expect(() => handleNotificationEvent(qrDeclined, {}, seen)).not.toThrow();
 			expect(() => handleNotificationEvent(balanceChanged, {}, seen)).not.toThrow();
+			expect(() => handleNotificationEvent(reusablePayment, {}, seen)).not.toThrow();
 		});
 
 		it('treats events with different ids as distinct even if same type', () => {

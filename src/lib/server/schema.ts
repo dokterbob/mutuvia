@@ -13,8 +13,8 @@ export const {
 	account,
 	verification,
 	appUsers,
+	paymentRequests,
 	transactions,
-	pendingQr,
 	connections,
 	pushSubscriptions
 } = mod as unknown as SqliteSchema;

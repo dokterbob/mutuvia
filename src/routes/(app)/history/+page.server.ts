@@ -5,7 +5,7 @@ import { formatAmount } from '$lib/server/currency';
 import { db } from '$lib/server/db';
 import { transactions, appUsers } from '$lib/server/schema';
 import { eq, or, desc } from 'drizzle-orm';
-import { getPendingItems } from '$lib/server/pending-qr';
+import { getPendingItems } from '$lib/server/payment-requests';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const userId = locals.appUser!.id;

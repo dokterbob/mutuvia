@@ -39,7 +39,7 @@ test.describe.serial('Pending item navigation', () => {
 			await expect(page.getByText(/Expires/)).toBeVisible({ timeout: 10_000 });
 		} finally {
 			// Clean up the pending QR so it doesn't leak into other tests
-			sqlite.prepare(`DELETE FROM pending_qr WHERE id = ?`).run(qrId);
+			sqlite.prepare(`DELETE FROM payment_requests WHERE id = ?`).run(qrId);
 			await ctx.close();
 		}
 	});
@@ -55,10 +55,10 @@ test.describe.serial('Pending item navigation', () => {
 		const now = Math.floor(Date.now() / 1000);
 		sqlite
 			.prepare(
-				`INSERT INTO pending_qr (id, initiating_user_id, direction, amount, initiator_name, status, created_at, expires_at)
-				 VALUES (?, ?, 'receive', 750, 'Test User', 'pending', ?, ?)`
+				`INSERT INTO payment_requests (id, initiating_user_id, direction, amount, initiator_name, status, reusable, created_at, updated_at, expires_at)
+				 VALUES (?, ?, 'receive', 750, 'Test User', 'active', 0, ?, ?, ?)`
 			)
-			.run(qrId, appUserId, now, now + 600);
+			.run(qrId, appUserId, now, now, now + 600);
 
 		const ctx = await browser.newContext({ storageState: userStorage, baseURL });
 		const page = await ctx.newPage();
@@ -81,7 +81,7 @@ test.describe.serial('Pending item navigation', () => {
 			await expect(page.getByText(/Expires/)).toBeVisible({ timeout: 10_000 });
 		} finally {
 			// Clean up the pending QR so it doesn't leak into other tests
-			sqlite.prepare(`DELETE FROM pending_qr WHERE id = ?`).run(qrId);
+			sqlite.prepare(`DELETE FROM payment_requests WHERE id = ?`).run(qrId);
 			await ctx.close();
 		}
 	});

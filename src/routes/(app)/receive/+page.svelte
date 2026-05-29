@@ -27,16 +27,22 @@
 
 	let amount = $state('');
 	let note = $state('');
+	let reusable = $state(false);
+	let showAdvanced = $state(false);
 	let qrDataUrl = $state('');
 	let qrId = $state('');
 	let secondsLeft = $state(0);
 	let isExpired = $state(false);
-	let expiresAt = $state('');
+	let expiresAt = $state<string | null>(null);
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
+	let isReusable = $state(false);
+	let paymentCount = $state(0);
 	let createQrLoading = $state(false);
 	let cancelLoading = $state(false);
+	let pauseLoading = $state(false);
+	let archiveLoading = $state(false);
 	let cancelDialogOpen = $state(false);
 	let canShare = $derived(browser && typeof navigator.share === 'function');
 	let currencyFormatter = $derived(
@@ -54,7 +60,9 @@
 	$effect(() => {
 		if (form?.qrUrl) {
 			shareDescription = form.shareDescription ?? '';
-			generateQr(form.qrUrl, form.qrId, form.expiresAt);
+			isReusable = form.isReusable ?? false;
+			paymentCount = form.paymentCount ?? 0;
+			generateQr(form.qrUrl, form.qrId, form.expiresAt ?? null);
 		}
 	});
 
@@ -62,14 +70,17 @@
 		if (!data.resumeQr) return;
 		if (data.resumeQr.isExpired) {
 			isExpired = true;
+			isReusable = data.resumeQr.isReusable ?? false;
 			step = 'qr';
 		} else {
 			shareDescription = data.resumeQr.shareDescription ?? '';
+			isReusable = data.resumeQr.isReusable ?? false;
+			paymentCount = data.resumeQr.paymentCount ?? 0;
 			generateQr(data.resumeQr.qrUrl, data.resumeQr.qrId, data.resumeQr.expiresAt);
 		}
 	});
 
-	async function generateQr(url: string, id: string, expires: string) {
+	async function generateQr(url: string, id: string, expires: string | null) {
 		qrUrl = url;
 		qrDataUrl = await QRCode.toDataURL(url, { width: 280, margin: 2, color: { dark: '#2D4A32' } });
 		qrId = id;
@@ -90,8 +101,9 @@
 	}
 
 	// Countdown: auto-cleans when step leaves 'qr' or component unmounts
+	// Only runs for non-reusable QRs with an expiry
 	$effect(() => {
-		if (step !== 'qr' || !expiresAt) return;
+		if (step !== 'qr' || !expiresAt || isReusable) return;
 		const expTime = new Date(expiresAt).getTime();
 		const update = () => {
 			const left = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
@@ -120,6 +132,10 @@
 			onQrDeclined: (e) => {
 				if (e.qrId !== id) return;
 				step = 'declined';
+			},
+			onReusablePayment: (e) => {
+				if (e.paymentRequestId !== id) return;
+				paymentCount += 1;
 			}
 		});
 	});
@@ -149,7 +165,9 @@
 				};
 			}}
 		>
-			<Label class="mb-2 text-sm text-muted-foreground">{m.send_amount_label()}</Label>
+			<Label class="mb-2 text-sm text-muted-foreground">
+				{m.send_amount_label()}{reusable ? ` ${m.receive_amount_optional()}` : ''}
+			</Label>
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-2xl font-medium text-muted-foreground">{currencySymbol}</span>
 				<Input
@@ -172,7 +190,30 @@
 				class="mb-1 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:border-[#2D4A32]"
 				rows="2"
 			></textarea>
-			<p class="mb-6 text-right text-xs text-muted-foreground">{note.length}/120</p>
+			<p class="mb-4 text-right text-xs text-muted-foreground">{note.length}/120</p>
+
+			<!-- Advanced options -->
+			<details class="mb-6" bind:open={showAdvanced}>
+				<summary class="cursor-pointer text-sm text-muted-foreground select-none">
+					{m.receive_advanced_options()}
+				</summary>
+				<div class="mt-3 rounded-lg border bg-muted/40 p-4">
+					<label class="flex items-start gap-3">
+						<input
+							type="checkbox"
+							name="reusable"
+							bind:checked={reusable}
+							class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2D4A32] accent-[#2D4A32]"
+						/>
+						<div>
+							<p class="text-sm font-medium">{m.receive_reusable_label()}</p>
+							<p class="text-xs text-muted-foreground">
+								{m.receive_reusable_description()}
+							</p>
+						</div>
+					</label>
+				</div>
+			</details>
 
 			{#if form?.error}
 				<p class="mb-3 text-sm text-red-600">{form.error}</p>
@@ -183,7 +224,7 @@
 				type="submit"
 				loading={createQrLoading}
 				class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145] disabled:opacity-40"
-				disabled={!amount || parseFloat(amount) <= 0}
+				disabled={!reusable && (!amount || parseFloat(amount) <= 0)}
 			>
 				<QrCodeIcon class="mr-2 h-5 w-5" />
 				{m.receive_cta()}
@@ -213,7 +254,16 @@
 					{m.receive_back_home()}
 				</Button>
 			{:else}
-				<p class="mb-4 text-sm text-muted-foreground">{m.receive_qr_caption()}</p>
+				{#if isReusable}
+					<p class="mb-2 text-sm text-muted-foreground">{m.receive_reusable_caption()}</p>
+					<span
+						class="mb-4 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
+					>
+						{m.receive_reusable_badge()}
+					</span>
+				{:else}
+					<p class="mb-4 text-sm text-muted-foreground">{m.receive_qr_caption()}</p>
+				{/if}
 				{#if qrDataUrl}
 					<img src={qrDataUrl} alt="QR Code" class="mb-4 rounded-2xl" width="280" height="280" />
 				{/if}
@@ -231,61 +281,131 @@
 						{/if}
 					</div>
 				{/if}
-				<p class="mb-6 text-sm text-muted-foreground">
-					{m.qr_expires({ time: formatTimeRemaining(secondsLeft, getLocale()) })}
-				</p>
-				<div class="flex flex-col items-center gap-2">
-					<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
-						<XIcon class="mr-2 h-4 w-4" />
-						{m.qr_close()}
-					</Button>
-					<Button
-						type="button"
-						variant="ghost"
-						class="text-sm text-muted-foreground"
-						onclick={() => (cancelDialogOpen = true)}
-					>
-						{m.send_cancel()}
-					</Button>
-					<Dialog.Dialog bind:open={cancelDialogOpen}>
-						<Dialog.DialogContent showCloseButton={false}>
-							<Dialog.DialogHeader>
-								<Dialog.DialogTitle>{m.cancel_confirm_title()}</Dialog.DialogTitle>
-								<Dialog.DialogDescription>{m.cancel_confirm_body()}</Dialog.DialogDescription>
-							</Dialog.DialogHeader>
-							<Dialog.DialogFooter>
-								<Dialog.DialogClose>
-									{#snippet child({ props })}
-										<Button variant="outline" {...props}>{m.cancel_confirm_dismiss()}</Button>
-									{/snippet}
-								</Dialog.DialogClose>
-								<form
-									method="POST"
-									action="?/cancel"
-									use:enhance={() => {
+				{#if isReusable}
+					<p class="mb-6 text-sm text-muted-foreground">
+						{paymentCount === 1
+							? m.receive_reusable_payment_count_singular({ count: String(paymentCount) })
+							: m.receive_reusable_payment_count_plural({ count: String(paymentCount) })}
+					</p>
+					<div class="flex flex-col items-center gap-2">
+						<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
+							<XIcon class="mr-2 h-4 w-4" />
+							{m.qr_close()}
+						</Button>
+						<form
+							method="POST"
+							action="?/pause"
+							use:enhance={() => {
+								flushSync(() => {
+									pauseLoading = true;
+								});
+								return async ({ update }) => {
+									try {
+										await update();
+									} finally {
 										flushSync(() => {
-											cancelLoading = true;
+											pauseLoading = false;
 										});
-										return async ({ update }) => {
-											try {
-												await update();
-											} finally {
-												flushSync(() => {
-													cancelLoading = false;
-												});
-											}
-										};
-									}}
-								>
-									<input type="hidden" name="qrId" value={qrId} />
-									<Button type="submit" loading={cancelLoading} variant="destructive">
-										{m.cancel_confirm_yes()}
-									</Button>
-								</form>
-							</Dialog.DialogFooter>
-						</Dialog.DialogContent>
-					</Dialog.Dialog>
-				</div>
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="qrId" value={qrId} />
+							<Button
+								type="submit"
+								loading={pauseLoading}
+								variant="ghost"
+								class="text-sm text-muted-foreground"
+							>
+								{m.receive_reusable_pause()}
+							</Button>
+						</form>
+						<form
+							method="POST"
+							action="?/archive"
+							use:enhance={() => {
+								flushSync(() => {
+									archiveLoading = true;
+								});
+								return async ({ update }) => {
+									try {
+										await update();
+									} finally {
+										flushSync(() => {
+											archiveLoading = false;
+										});
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="qrId" value={qrId} />
+							<Button
+								type="submit"
+								loading={archiveLoading}
+								variant="ghost"
+								class="text-sm text-muted-foreground"
+							>
+								{m.receive_reusable_archive()}
+							</Button>
+						</form>
+					</div>
+				{:else}
+					<p class="mb-6 text-sm text-muted-foreground">
+						{m.qr_expires({ time: formatTimeRemaining(secondsLeft, getLocale()) })}
+					</p>
+					<div class="flex flex-col items-center gap-2">
+						<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
+							<XIcon class="mr-2 h-4 w-4" />
+							{m.qr_close()}
+						</Button>
+						<Button
+							type="button"
+							variant="ghost"
+							class="text-sm text-muted-foreground"
+							onclick={() => (cancelDialogOpen = true)}
+						>
+							{m.send_cancel()}
+						</Button>
+						<Dialog.Dialog bind:open={cancelDialogOpen}>
+							<Dialog.DialogContent showCloseButton={false}>
+								<Dialog.DialogHeader>
+									<Dialog.DialogTitle>{m.cancel_confirm_title()}</Dialog.DialogTitle>
+									<Dialog.DialogDescription>{m.cancel_confirm_body()}</Dialog.DialogDescription>
+								</Dialog.DialogHeader>
+								<Dialog.DialogFooter>
+									<Dialog.DialogClose>
+										{#snippet child({ props })}
+											<Button variant="outline" {...props}>{m.cancel_confirm_dismiss()}</Button>
+										{/snippet}
+									</Dialog.DialogClose>
+									<form
+										method="POST"
+										action="?/cancel"
+										use:enhance={() => {
+											flushSync(() => {
+												cancelLoading = true;
+											});
+											return async ({ update }) => {
+												try {
+													await update();
+												} finally {
+													flushSync(() => {
+														cancelLoading = false;
+													});
+												}
+											};
+										}}
+									>
+										<input type="hidden" name="qrId" value={qrId} />
+										<Button type="submit" loading={cancelLoading} variant="destructive">
+											{m.cancel_confirm_yes()}
+										</Button>
+									</form>
+								</Dialog.DialogFooter>
+							</Dialog.DialogContent>
+						</Dialog.Dialog>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	{/if}

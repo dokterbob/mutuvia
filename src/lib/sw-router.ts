@@ -54,6 +54,16 @@ function buildNotificationOptions(event: NotificationEvent): {
 					data: event
 				}
 			};
+		case 'reusable_payment':
+			return {
+				title: `Payment received`,
+				options: {
+					body: `${event.senderName} sent ${event.formattedAmount}${event.description ? ` · ${event.description}` : ''}`,
+					icon: '/icon-192x192.png',
+					tag: `reusable-payment-${event.id}`,
+					data: event
+				}
+			};
 	}
 }
 

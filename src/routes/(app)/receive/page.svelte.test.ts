@@ -40,7 +40,22 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	send_cancel: () => 'Cancel',
 	receive_back_home: () => 'Back home',
 	receive_declined: () => 'Declined',
-	receive_done: () => 'Done'
+	receive_done: () => 'Done',
+	receive_advanced_options: () => 'Advanced options',
+	receive_reusable_label: () => 'Reusable QR code',
+	receive_reusable_description: () => 'Anyone can scan this QR code to pay you.',
+	receive_amount_optional: () => '(optional)',
+	receive_reusable_caption: () => 'Share this to receive payments anytime.',
+	receive_reusable_payment_count_singular: ({ count }: { count: string }) =>
+		`Received ${count} payment`,
+	receive_reusable_payment_count_plural: ({ count }: { count: string }) =>
+		`Received ${count} payments`,
+	receive_reusable_pause: () => 'Pause',
+	receive_reusable_badge: () => 'Reusable',
+	cancel_confirm_title: () => 'Cancel?',
+	cancel_confirm_body: () => 'The QR code will be invalidated.',
+	cancel_confirm_dismiss: () => 'Keep waiting',
+	cancel_confirm_yes: () => 'Yes, cancel'
 }));
 
 const mockData = {

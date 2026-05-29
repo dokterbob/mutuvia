@@ -2,12 +2,12 @@
 
 import { redirect, fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { appUsers, pendingQr } from '$lib/server/schema';
-import { eq } from 'drizzle-orm';
-import { buildQrUrl } from '$lib/server/qr';
+import { appUsers, paymentRequests } from '$lib/server/schema';
+import { eq, and } from 'drizzle-orm';
+import { buildPaymentRequestUrl } from '$lib/server/qr';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
-import { getPendingItemById } from '$lib/server/pending-qr';
+import { getPendingItemById } from '$lib/server/payment-requests';
 import { shareText } from '$lib/server/share-text';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -26,21 +26,21 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	if (resumeQrId) {
 		const item = await getPendingItemById(resumeQrId, appUser.id);
-		if (item && item.direction === 'send' && item.status === 'pending') {
+		if (item && item.direction === 'send' && item.status === 'active') {
 			if (item.isExpired) {
 				resumeQr = {
 					qrUrl: '',
 					qrId: item.id,
-					expiresAt: item.expiresAt.toISOString(),
+					expiresAt: item.expiresAt?.toISOString() ?? '',
 					isExpired: true
 				};
 			} else {
 				resumeQr = {
-					qrUrl: buildQrUrl(item.id),
+					qrUrl: buildPaymentRequestUrl(item.id),
 					qrId: item.id,
-					expiresAt: item.expiresAt.toISOString(),
+					expiresAt: item.expiresAt?.toISOString() ?? '',
 					isExpired: false,
-					shareDescription: shareText(item.amount, item.note)
+					shareDescription: shareText(item.amount ?? 0, item.note)
 				};
 			}
 		}
@@ -88,31 +88,42 @@ export const actions: Actions = {
 		const now = new Date();
 		const qrId = crypto.randomUUID();
 
-		await db.insert(pendingQr).values({
+		await db.insert(paymentRequests).values({
 			id: qrId,
 			initiatingUserId: userId,
 			direction: 'send',
 			amount,
-			note,
+			description: note,
 			initiatorName: displayName,
 			createdAt: now,
+			updatedAt: now,
 			expiresAt: new Date(now.getTime() + ttl * 1000),
-			status: 'pending'
+			status: 'active'
 		});
 
 		return {
-			qrUrl: buildQrUrl(qrId),
+			qrUrl: buildPaymentRequestUrl(qrId),
 			qrId,
 			expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
 			shareDescription: shareText(amount, note)
 		};
 	},
 
-	cancel: async ({ request }) => {
+	cancel: async ({ request, locals }) => {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) {
-			await db.update(pendingQr).set({ status: 'declined' }).where(eq(pendingQr.id, qrId));
+			await db
+				.update(paymentRequests)
+				.set({ status: 'declined' })
+				.where(
+					and(
+						eq(paymentRequests.id, qrId),
+						eq(paymentRequests.initiatingUserId, locals.appUser!.id),
+						eq(paymentRequests.reusable, false),
+						eq(paymentRequests.status, 'active')
+					)
+				);
 		}
 		redirect(307, '/home');
 	}

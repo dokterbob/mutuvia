@@ -25,6 +25,9 @@
 			},
 			onQrDeclined: () => {
 				invalidateAll();
+			},
+			onReusablePayment: () => {
+				invalidateAll();
 			}
 		});
 	});
@@ -140,13 +143,79 @@
 		</div>
 		<div class="mb-4 space-y-0">
 			{#each data.pendingItems as item (item.id)}
-				{#if item.isExpired}
+				{#if item.reusable}
+					{#if item.isPaused}
+						<div class="flex items-center justify-between border-b py-3 last:border-b-0">
+							<div>
+								<p class="text-sm font-medium">
+									{item.direction === 'send'
+										? m.home_pending_send({ amount: item.formattedAmount ?? m.home_open_amount() })
+										: m.home_pending_receive({
+												amount: item.formattedAmount ?? m.home_open_amount()
+											})}
+								</p>
+								{#if item.note}
+									<p class="text-xs text-muted-foreground">{item.note}</p>
+								{/if}
+								<p class="text-xs text-muted-foreground">
+									{item.paymentCount === 1
+										? m.home_reusable_payment_count_singular({ count: String(item.paymentCount) })
+										: m.home_reusable_payment_count_plural({ count: String(item.paymentCount) })}
+								</p>
+							</div>
+							<div class="flex items-center gap-2">
+								<span
+									class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800"
+								>
+									{m.home_paused_badge()}
+								</span>
+								<form method="POST" action="/receive?/resume">
+									<input type="hidden" name="qrId" value={item.id} />
+									<button type="submit" class="text-xs font-medium text-[#2D4A32]"
+										>{m.home_resume_action()}</button
+									>
+								</form>
+							</div>
+						</div>
+					{:else}
+						<a
+							href="/receive?qrId={item.id}"
+							class="flex items-center justify-between border-b py-3 last:border-b-0"
+						>
+							<div>
+								<p class="text-sm font-medium">
+									{item.direction === 'send'
+										? m.home_pending_send({ amount: item.formattedAmount ?? m.home_open_amount() })
+										: m.home_pending_receive({
+												amount: item.formattedAmount ?? m.home_open_amount()
+											})}
+								</p>
+								{#if item.note}
+									<p class="text-xs text-muted-foreground">{item.note}</p>
+								{/if}
+								<p class="text-xs text-muted-foreground">
+									{item.paymentCount === 1
+										? m.home_reusable_payment_count_singular({ count: String(item.paymentCount) })
+										: m.home_reusable_payment_count_plural({ count: String(item.paymentCount) })}
+								</p>
+							</div>
+							<div class="flex items-center gap-2">
+								<span
+									class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
+								>
+									{m.home_reusable_badge()}
+								</span>
+								<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
+							</div>
+						</a>
+					{/if}
+				{:else if item.isExpired}
 					<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
 						<div>
 							<p class="text-sm font-medium">
 								{item.direction === 'send'
-									? m.home_pending_send({ amount: item.formattedAmount })
-									: m.home_pending_receive({ amount: item.formattedAmount })}
+									? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+									: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 							</p>
 							{#if item.note}
 								<p class="text-xs text-muted-foreground">{item.note}</p>
@@ -162,19 +231,21 @@
 						<div>
 							<p class="text-sm font-medium">
 								{item.direction === 'send'
-									? m.home_pending_send({ amount: item.formattedAmount })
-									: m.home_pending_receive({ amount: item.formattedAmount })}
+									? m.home_pending_send({ amount: item.formattedAmount ?? '' })
+									: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
 							</p>
 							{#if item.note}
 								<p class="text-xs text-muted-foreground">{item.note}</p>
 							{/if}
 						</div>
 						<div class="flex items-center gap-2">
-							<p class="text-xs text-muted-foreground">
-								{m.qr_expires({
-									time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
-								})}
-							</p>
+							{#if item.expiresAt}
+								<p class="text-xs text-muted-foreground">
+									{m.qr_expires({
+										time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+									})}
+								</p>
+							{/if}
 							<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
 						</div>
 					</a>
