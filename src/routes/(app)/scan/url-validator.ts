@@ -9,7 +9,12 @@
 export function parsePaymentUrl(data: string): string | null {
 	try {
 		const url = new URL(data);
-		if (url.pathname.match(/^\/(accept|send)\/.+$/)) {
+		const acceptMatch = url.pathname.match(/^\/accept\/([^/]+)$/);
+		if (acceptMatch && /^[A-Za-z0-9\-_.]+$/.test(acceptMatch[1])) {
+			return url.pathname;
+		}
+		const sendMatch = url.pathname.match(/^\/send\/([^/]+)$/);
+		if (sendMatch && /^[A-Za-z0-9-]+$/.test(sendMatch[1])) {
 			return url.pathname;
 		}
 	} catch {

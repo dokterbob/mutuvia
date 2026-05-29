@@ -95,7 +95,7 @@ export const paymentRequests = pgTable('payment_requests', {
 		.default('active'),
 	initiatorName: text('initiator_name').notNull(),
 	createdAt: timestamp('created_at').notNull(),
-	updatedAt: timestamp('updated_at').notNull(),
+	updatedAt: timestamp('updated_at').defaultNow().notNull(),
 	expiresAt: timestamp('expires_at'),
 	totalReceived: integer('total_received').notNull().default(0),
 	paymentCount: integer('payment_count').notNull().default(0)

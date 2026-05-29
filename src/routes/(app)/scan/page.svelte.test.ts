@@ -43,5 +43,13 @@ describe('parsePaymentUrl', () => {
 		test('→ returns null for /send/ with trailing slash only', () => {
 			expect(parsePaymentUrl('https://app.example.com/send/')).toBeNull();
 		});
+
+		test('→ returns null for /send/ with nested path segments', () => {
+			expect(parsePaymentUrl('https://app.example.com/send/foo/bar')).toBeNull();
+		});
+
+		test('→ returns null for /accept/ with nested path segments', () => {
+			expect(parsePaymentUrl('https://app.example.com/accept/foo/bar')).toBeNull();
+		});
 	});
 });
