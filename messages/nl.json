@@ -307,5 +307,6 @@
 	"whats_new_title": "Wat is er nieuw",
 	"whats_new_dismiss": "Begrepen",
 	"whats_new_version_label": "Versie {version}",
-	"whats_new_v0_2_0": "Beheer uw e-mail en telefoonnummer in instellingen\nSpaanse taalondersteuning\nVerbeterde navigatie met terugknop en annuleringsbevestiging"
+	"whats_new_v0_2_0": "Beheer uw e-mail en telefoonnummer in instellingen\nSpaanse taalondersteuning\nVerbeterde navigatie met terugknop en annuleringsbevestiging",
+	"whats_new_v0_3_0": "Herbruikbare betaal-QR-codes — maak een permanente code die klanten meerdere keren kunnen scannen\nMakkelijker te scannen QR-codes (kortere, eenvoudigere URL's)"
 }

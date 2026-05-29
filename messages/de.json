@@ -295,5 +295,6 @@
 	"whats_new_title": "Was ist neu",
 	"whats_new_dismiss": "Verstanden",
 	"whats_new_version_label": "Version {version}",
-	"whats_new_v0_2_0": "E-Mail und Telefonnummer in den Einstellungen verwalten\nSpanische Sprachunterstützung\nVerbesserte Navigation mit Zurück-Schaltfläche und Abbruchbestätigung"
+	"whats_new_v0_2_0": "E-Mail und Telefonnummer in den Einstellungen verwalten\nSpanische Sprachunterstützung\nVerbesserte Navigation mit Zurück-Schaltfläche und Abbruchbestätigung",
+	"whats_new_v0_3_0": "Wiederverwendbare Zahlungs-QR-Codes — erstelle einen permanenten Code für mehrfaches Scannen\nEinfacher zu scannende QR-Codes (kürzere, einfachere URLs)"
 }
