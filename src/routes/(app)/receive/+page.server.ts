@@ -182,7 +182,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 		if (qrId) await resumePaymentRequest(qrId, locals.appUser!.id);
-		redirect(307, `/receive?qrId=${qrId}`);
+		redirect(303, `/receive?qrId=${qrId}`);
 	},
 
 	archive: async ({ request, locals }) => {
