@@ -59,6 +59,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	const scannerBalance = await getBalance(locals.appUser.id);
 	const cookieAmount = cookies.get('qr_amount');
 	const prefilledAmount = cookieAmount ? parseInt(cookieAmount, 10) : null;
+	if (cookieAmount) cookies.delete('qr_amount', { path: '/' });
 	return {
 		qrId: qr.id,
 		initiatorName: qr.initiatorName,

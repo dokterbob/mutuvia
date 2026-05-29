@@ -17,7 +17,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.from(paymentRequests)
 		.where(eq(paymentRequests.id, params.token))
 		.limit(1);
-	if (!qr || qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
+	if (!qr) {
 		return {
 			expired: true,
 			error: 'This link has expired or is invalid.'
@@ -26,6 +26,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	if (qr.reusable) {
 		redirect(307, `/send/${qr.id}`);
+	}
+
+	if (qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
+		return {
+			expired: true,
+			error: 'This link has expired or is invalid.'
+		};
 	}
 
 	if (!locals.session || !locals.appUser) {
@@ -100,12 +107,16 @@ export const actions: Actions = {
 			.from(paymentRequests)
 			.where(eq(paymentRequests.id, qrId))
 			.limit(1);
-		if (!qr || qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
+		if (!qr) {
 			return fail(400, { error: 'This QR code has expired or already been used.' });
 		}
 
 		if (qr.reusable) {
 			redirect(303, `/send/${qr.id}`);
+		}
+
+		if (qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
+			return fail(400, { error: 'This QR code has expired or already been used.' });
 		}
 
 		if (locals.appUser.id === qr.initiatingUserId) {
