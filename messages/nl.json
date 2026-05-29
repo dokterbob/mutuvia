@@ -302,6 +302,7 @@
 	"home_reusable_payment_count_plural": "{count} betalingen",
 	"home_paused_badge": "Gepauzeerd",
 	"home_resume_action": "Hervatten",
+	"home_open_amount": "Vrij bedrag",
 
 	"whats_new_title": "Wat is er nieuw",
 	"whats_new_dismiss": "Begrepen",

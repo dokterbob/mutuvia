@@ -290,6 +290,7 @@
 	"home_reusable_payment_count_plural": "{count} Zahlungen",
 	"home_paused_badge": "Pausiert",
 	"home_resume_action": "Fortsetzen",
+	"home_open_amount": "Freier Betrag",
 
 	"whats_new_title": "Was ist neu",
 	"whats_new_dismiss": "Verstanden",

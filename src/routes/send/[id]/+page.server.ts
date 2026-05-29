@@ -57,12 +57,15 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	}
 
 	const scannerBalance = await getBalance(locals.appUser.id);
+	const cookieAmount = cookies.get('qr_amount');
+	const prefilledAmount = cookieAmount ? parseInt(cookieAmount, 10) : null;
 	return {
 		qrId: qr.id,
 		initiatorName: qr.initiatorName,
 		description: qr.description,
 		amount: qr.amount,
 		formattedAmount: qr.amount ? formatAmount(qr.amount) : null,
+		prefilledAmount,
 		scannerBalance,
 		formattedScannerBalance: formatAmount(scannerBalance),
 		needsAuth: false,
@@ -81,7 +84,11 @@ function setSendReturnCookies(
 ) {
 	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: config.qrTtlSeconds };
 	cookies.set('qr_return_to', `/send/${id}`, opts);
-	if (amount !== null) cookies.set('qr_amount', String(amount), opts);
+	if (amount !== null) {
+		cookies.set('qr_amount', String(amount), opts);
+	} else {
+		cookies.delete('qr_amount', { path: '/' });
+	}
 	if (skipIntros) cookies.set('qr_skip_intros', '1', opts);
 }
 

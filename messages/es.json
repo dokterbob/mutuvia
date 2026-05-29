@@ -302,6 +302,7 @@
 	"home_reusable_payment_count_plural": "{count} pagos",
 	"home_paused_badge": "Pausado",
 	"home_resume_action": "Reanudar",
+	"home_open_amount": "Importe libre",
 
 	"whats_new_title": "Novedades",
 	"whats_new_dismiss": "Entendido",

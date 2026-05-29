@@ -58,8 +58,10 @@
 							<div>
 								<p class="text-sm font-medium">
 									{item.direction === 'send'
-										? m.home_pending_send({ amount: item.formattedAmount ?? '' })
-										: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
+										? m.home_pending_send({ amount: item.formattedAmount ?? m.home_open_amount() })
+										: m.home_pending_receive({
+												amount: item.formattedAmount ?? m.home_open_amount()
+											})}
 								</p>
 								{#if item.note}
 									<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>
@@ -75,22 +77,23 @@
 							<div>
 								<p class="text-sm font-medium">
 									{item.direction === 'send'
-										? m.home_pending_send({ amount: item.formattedAmount ?? '' })
-										: m.home_pending_receive({ amount: item.formattedAmount ?? '' })}
+										? m.home_pending_send({ amount: item.formattedAmount ?? m.home_open_amount() })
+										: m.home_pending_receive({
+												amount: item.formattedAmount ?? m.home_open_amount()
+											})}
 								</p>
 								{#if item.note}
 									<p class="max-w-[200px] truncate text-xs text-muted-foreground">{item.note}</p>
 								{/if}
 							</div>
 							<div class="flex items-center gap-2">
-								<p class="text-xs text-muted-foreground">
-									{m.qr_expires({
-										time: formatTimeRemaining(
-											remainingSeconds(item.expiresAt ?? new Date()),
-											getLocale()
-										)
-									})}
-								</p>
+								{#if item.expiresAt}
+									<p class="text-xs text-muted-foreground">
+										{m.qr_expires({
+											time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+										})}
+									</p>
+								{/if}
 								<ChevronRightIcon class="h-4 w-4 text-muted-foreground" />
 							</div>
 						</a>
