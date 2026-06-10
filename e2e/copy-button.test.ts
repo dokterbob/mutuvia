@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { expect, type BrowserContext } from '@playwright/test';
+import { test, goto, setupAuthenticatedUser } from './test-utils.js';
 
 // These tests are skipped due to a Vite dev-server warm-up race: copy-button.test.ts
 // sorts first alphabetically, so it runs before Vite finishes its initial
@@ -36,5 +37,69 @@ test.describe.skip('CopyButton', () => {
 		await page.locator('input[name="amount"]').fill('5');
 		await page.getByRole('button', { name: 'Generate QR' }).click();
 		await expect(page.getByRole('button', { name: /copy link/i })).toBeVisible();
+	});
+});
+
+test.describe.serial('CopyButton clipboard content', () => {
+	let storage: Awaited<ReturnType<BrowserContext['storageState']>>;
+
+	test.beforeAll(async ({ browser, email }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({ baseURL });
+		await setupAuthenticatedUser(ctx, email('user'), 'Copy Test User');
+		storage = await ctx.storageState();
+		await ctx.close();
+	});
+
+	test('Copy link on /receive copies only the QR URL', async ({ browser }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({
+			storageState: storage,
+			baseURL,
+			permissions: ['clipboard-read', 'clipboard-write']
+		});
+		const page = await ctx.newPage();
+		try {
+			await goto(page, '/receive');
+			await page.locator('input[name="amount"]').fill('5');
+			await page.getByRole('button', { name: 'Generate QR' }).click();
+
+			const urlText = page.getByText(/\/accept\//);
+			await expect(urlText).toBeVisible({ timeout: 10_000 });
+			const acceptUrl = (await urlText.textContent())!.trim();
+
+			await page.getByRole('button', { name: /copy link/i }).click();
+			const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+
+			expect(clipboard).toBe(acceptUrl);
+		} finally {
+			await ctx.close();
+		}
+	});
+
+	test('Copy link on /send copies only the QR URL', async ({ browser }, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const ctx = await browser.newContext({
+			storageState: storage,
+			baseURL,
+			permissions: ['clipboard-read', 'clipboard-write']
+		});
+		const page = await ctx.newPage();
+		try {
+			await goto(page, '/send');
+			await page.locator('input[name="amount"]').fill('10');
+			await page.getByRole('button', { name: 'Generate QR' }).click();
+
+			const urlText = page.getByText(/\/accept\//);
+			await expect(urlText).toBeVisible({ timeout: 10_000 });
+			const acceptUrl = (await urlText.textContent())!.trim();
+
+			await page.getByRole('button', { name: /copy link/i }).click();
+			const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+
+			expect(clipboard).toBe(acceptUrl);
+		} finally {
+			await ctx.close();
+		}
 	});
 });
