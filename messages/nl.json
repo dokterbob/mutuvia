@@ -188,12 +188,28 @@
 
 	"locale_name": "Nederlands",
 
+	"menu_contacts": "Contacten",
 	"menu_settings": "Instellingen",
 	"menu_faq": "Veelgestelde vragen",
 	"menu_how_it_works": "Hoe het werkt",
 	"menu_about": "Info",
 	"menu_open_source": "Open Source",
 	"menu_sign_out": "Uitloggen",
+
+	"contacts_title": "Contacten",
+	"contacts_search_placeholder": "Zoek op naam",
+	"contacts_filter_all": "Alles",
+	"contacts_filter_positive": "Jou verschuldigd",
+	"contacts_filter_negative": "Jij verschuldigd",
+	"contacts_sort_name": "Naam",
+	"contacts_sort_amount": "Bedrag",
+	"contacts_empty": "Je hebt nog niet met iemand getransacteerd.",
+	"contacts_no_results": "Geen contacten gevonden.",
+	"contacts_detail_owed_to_you": "Jou verschuldigd",
+	"contacts_detail_you_owe": "Jij verschuldigd",
+	"contacts_detail_settled": "Vereffend",
+	"contacts_detail_transactions": "Gedeelde transacties",
+	"contacts_detail_no_transactions": "Nog geen gedeelde transacties.",
 
 	"about_title": "Info",
 	"about_description": "{appName} is een wederzijds kredietregister voor gemeenschappen. Er beweegt geen echt geld — krediet registreert onderlinge verplichtingen tussen leden.",

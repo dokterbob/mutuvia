@@ -12,6 +12,7 @@
 	import GitForkIcon from '@lucide/svelte/icons/git-fork';
 	import LogOutIcon from '@lucide/svelte/icons/log-out';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
+	import UsersIcon from '@lucide/svelte/icons/users';
 
 	let signingOut = $state(false);
 
@@ -34,6 +35,10 @@
 		<MenuIcon class="h-4 w-4 text-muted-foreground" />
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end">
+		<DropdownMenu.Item onclick={() => goto('/contacts')}>
+			<UsersIcon class="h-4 w-4" />
+			{m.menu_contacts()}
+		</DropdownMenu.Item>
 		<DropdownMenu.Item onclick={() => goto('/settings')}>
 			<SettingsIcon class="h-4 w-4" />
 			{m.menu_settings()}

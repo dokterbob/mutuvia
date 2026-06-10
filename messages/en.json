@@ -189,12 +189,28 @@
 
 	"locale_name": "English",
 
+	"menu_contacts": "Contacts",
 	"menu_settings": "Settings",
 	"menu_faq": "FAQ",
 	"menu_how_it_works": "How it works",
 	"menu_about": "About",
 	"menu_open_source": "Open Source",
 	"menu_sign_out": "Sign out",
+
+	"contacts_title": "Contacts",
+	"contacts_search_placeholder": "Search by name",
+	"contacts_filter_all": "All",
+	"contacts_filter_positive": "Owed to you",
+	"contacts_filter_negative": "You owe",
+	"contacts_sort_name": "Name",
+	"contacts_sort_amount": "Amount",
+	"contacts_empty": "You haven't transacted with anyone yet.",
+	"contacts_no_results": "No contacts match your search.",
+	"contacts_detail_owed_to_you": "Owed to you",
+	"contacts_detail_you_owe": "You owe",
+	"contacts_detail_settled": "Settled up",
+	"contacts_detail_transactions": "Shared transactions",
+	"contacts_detail_no_transactions": "No shared transactions yet.",
 
 	"about_title": "About",
 	"about_description": "{appName} is a mutual credit ledger for communities. No real money moves — credit records mutual obligations between members.",
