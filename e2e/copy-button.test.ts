@@ -1,10 +1,10 @@
 import { expect, type BrowserContext } from '@playwright/test';
 import { test, goto, setupAuthenticatedUser } from './test-utils.js';
 
-// These tests are skipped due to a Vite dev-server warm-up race: copy-button.test.ts
-// sorts first alphabetically, so it runs before Vite finishes its initial
-// dependency-optimisation reload. By that point better-sqlite3 (used by the
-// test-side auth helper) hasn't finished setting up the schema, causing
+// The UI-state suite below is skipped due to a Vite dev-server warm-up race:
+// copy-button.test.ts sorts first alphabetically, so it runs before Vite finishes
+// its initial dependency-optimisation reload. By that point better-sqlite3 (used
+// by the test-side auth helper) hasn't finished setting up the schema, causing
 // "no such table: user" errors. Later test files (send-receive, share-button)
 // run after the server has stabilised and pass fine.
 //
@@ -87,6 +87,10 @@ test.describe.serial('CopyButton clipboard content', () => {
 		const page = await ctx.newPage();
 		try {
 			await goto(page, '/send');
+			// Fresh user on first /send visit sees a consent step before the amount form
+			await expect(page.getByRole('button', { name: "I understand, let's go" })).toBeVisible();
+			await page.getByRole('button', { name: "I understand, let's go" }).click();
+			await expect(page.getByRole('heading', { name: 'Send' })).toBeVisible();
 			await page.locator('input[name="amount"]').fill('10');
 			await page.getByRole('button', { name: 'Generate QR' }).click();
 
