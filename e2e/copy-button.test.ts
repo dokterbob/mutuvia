@@ -1,5 +1,5 @@
 import { expect, type BrowserContext } from '@playwright/test';
-import { test, goto, setupAuthenticatedUser } from './test-utils.js';
+import { test, goto, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
 
 // The UI-state suite below is skipped due to a Vite dev-server warm-up race:
 // copy-button.test.ts sorts first alphabetically, so it runs before Vite finishes
@@ -105,5 +105,9 @@ test.describe.serial('CopyButton clipboard content', () => {
 		} finally {
 			await ctx.close();
 		}
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('user'));
 	});
 });
