@@ -1,5 +1,5 @@
 import { expect, chromium, type BrowserContext } from '@playwright/test';
-import { test, setupAuthenticatedUser } from './test-utils.js';
+import { test, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
 import QRCode from 'qrcode';
 import { execSync } from 'child_process';
 import { mkdtempSync, unlinkSync, rmSync } from 'fs';
@@ -130,5 +130,10 @@ test.describe.serial('QR scanner E2E', () => {
 				// best-effort cleanup
 			}
 		}
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('sender'));
+		await deleteTestUser(email('scanner'));
 	});
 });

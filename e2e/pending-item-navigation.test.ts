@@ -1,5 +1,12 @@
 import { expect, type BrowserContext } from '@playwright/test';
-import { test, goto, setupAuthenticatedUser, createPendingQr, getAppUserId } from './test-utils.js';
+import {
+	test,
+	goto,
+	setupAuthenticatedUser,
+	createPendingQr,
+	getAppUserId,
+	deleteTestUser
+} from './test-utils.js';
 import { sqlite } from './auth.js';
 
 test.describe.serial('Pending item navigation', () => {
@@ -84,5 +91,9 @@ test.describe.serial('Pending item navigation', () => {
 			sqlite.prepare(`DELETE FROM payment_requests WHERE id = ?`).run(qrId);
 			await ctx.close();
 		}
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('user'));
 	});
 });

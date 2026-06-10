@@ -1,5 +1,5 @@
 import { expect, type BrowserContext } from '@playwright/test';
-import { test, goto, setupAuthenticatedUser } from './test-utils.js';
+import { test, goto, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
 
 const SENDER_NAME = 'Test Sender';
 const RECEIVER_NAME = 'Test Receiver';
@@ -184,5 +184,10 @@ test.describe.serial('Send / Receive flow', () => {
 			await initiatorCtx.close();
 			await payerCtx.close();
 		}
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('sender'));
+		await deleteTestUser(email('receiver'));
 	});
 });

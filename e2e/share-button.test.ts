@@ -1,5 +1,5 @@
 import { expect, type BrowserContext } from '@playwright/test';
-import { test, goto, setupAuthenticatedUser } from './test-utils.js';
+import { test, goto, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
 
 const TEST_NAME = 'Share Tester';
 
@@ -117,5 +117,9 @@ test.describe.serial('Share button', () => {
 		} finally {
 			await ctx.close();
 		}
+	});
+
+	test.afterAll(async ({ email }) => {
+		await deleteTestUser(email('user'));
 	});
 });

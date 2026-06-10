@@ -55,7 +55,6 @@
 	let amountStep = $derived(Math.pow(10, -fractionDigits));
 	let amountPlaceholder = $derived((0).toFixed(fractionDigits));
 	let shareDescription = $state('');
-	let copyText = $derived(`${shareDescription}\n${qrUrl}`);
 
 	$effect(() => {
 		if (form?.qrUrl) {
@@ -270,7 +269,7 @@
 				{#if qrUrl}
 					<p class="mb-2 max-w-[280px] truncate text-xs text-muted-foreground">{qrUrl}</p>
 					<div class="mb-4 flex gap-2">
-						<CopyButton text={copyText} variant="outline" class="flex-1 rounded-xl text-sm">
+						<CopyButton text={qrUrl} variant="outline" class="flex-1 rounded-xl text-sm">
 							{m.qr_copy_link()}
 						</CopyButton>
 						{#if canShare}
