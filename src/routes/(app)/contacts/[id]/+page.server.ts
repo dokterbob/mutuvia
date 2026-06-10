@@ -3,7 +3,6 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { formatAmount } from '$lib/server/currency';
-import { getContactBalance } from '$lib/server/balance';
 import { db } from '$lib/server/db';
 import { appUsers, transactions } from '$lib/server/schema';
 import { eq, or, and, desc } from 'drizzle-orm';
@@ -35,8 +34,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	if (sharedTxs.length === 0) error(404);
 
-	const balance = await getContactBalance(userId, otherId);
-
 	const txList = sharedTxs.map((tx) => {
 		const isSender = tx.fromUserId === userId;
 		const signed = isSender ? -tx.amount : tx.amount;
@@ -48,6 +45,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			createdAt: tx.createdAt
 		};
 	});
+
+	const balance = txList.reduce((s, t) => s + t.amount, 0);
 
 	return {
 		contact: {
