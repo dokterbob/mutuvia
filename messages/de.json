@@ -225,6 +225,8 @@
 	"menu_sign_out": "Abmelden",
 
 	"contacts_title": "Kontakte",
+	"contacts_back_to_home": "Zurück zur Startseite",
+	"contacts_back_to_contacts": "Zurück zu Kontakten",
 	"contacts_search_placeholder": "Nach Name suchen",
 	"contacts_filter_all": "Alle",
 	"contacts_filter_positive": "Schulden dir",

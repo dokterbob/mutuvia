@@ -197,6 +197,8 @@
 	"menu_sign_out": "Uitloggen",
 
 	"contacts_title": "Contacten",
+	"contacts_back_to_home": "Terug naar home",
+	"contacts_back_to_contacts": "Terug naar contacten",
 	"contacts_search_placeholder": "Zoek op naam",
 	"contacts_filter_all": "Alles",
 	"contacts_filter_positive": "Jou verschuldigd",

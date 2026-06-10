@@ -198,6 +198,8 @@
 	"menu_sign_out": "Sign out",
 
 	"contacts_title": "Contacts",
+	"contacts_back_to_home": "Back to home",
+	"contacts_back_to_contacts": "Back to contacts",
 	"contacts_search_placeholder": "Search by name",
 	"contacts_filter_all": "All",
 	"contacts_filter_positive": "Owed to you",

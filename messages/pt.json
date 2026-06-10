@@ -197,6 +197,8 @@
 	"menu_sign_out": "Sair",
 
 	"contacts_title": "Contactos",
+	"contacts_back_to_home": "Voltar ao início",
+	"contacts_back_to_contacts": "Voltar aos contactos",
 	"contacts_search_placeholder": "Pesquisar por nome",
 	"contacts_filter_all": "Todos",
 	"contacts_filter_positive": "Te devem",

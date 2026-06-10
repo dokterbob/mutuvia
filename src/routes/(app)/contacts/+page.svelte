@@ -21,7 +21,11 @@
 
 <div class="flex min-h-dvh flex-col px-6 pt-14 pb-8">
 	<div class="mb-4 flex items-center gap-3">
-		<button onclick={() => goto('/home')} class="text-muted-foreground" aria-label="Back to home">
+		<button
+			onclick={() => goto('/home')}
+			class="text-muted-foreground"
+			aria-label={m.contacts_back_to_home()}
+		>
 			<ArrowLeftIcon class="h-5 w-5" />
 		</button>
 		<h1 class="font-serif text-xl font-semibold">{m.contacts_title()}</h1>

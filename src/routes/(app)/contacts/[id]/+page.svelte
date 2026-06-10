@@ -31,7 +31,7 @@
 		<button
 			onclick={() => goto('/contacts')}
 			class="text-muted-foreground"
-			aria-label="Back to contacts"
+			aria-label={m.contacts_back_to_contacts()}
 		>
 			<ArrowLeftIcon class="h-5 w-5" />
 		</button>
