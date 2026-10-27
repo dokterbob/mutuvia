@@ -123,6 +123,11 @@ const mainSequence = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, au
 // bodies for performance tracing and breaks chunked SSE delivery. Auth is still needed
 // to identify the user, so we route directly to authHandle for streaming endpoints.
 export const handle: Handle = async ({ event, resolve }) => {
+	// Reject protocol-relative-looking paths (`//evil.com`) before routing.
+	// Workaround for GHSA-pfhg-q3qv-9q6r until we can move to SvelteKit 3.
+	if (event.url.pathname.startsWith('//')) {
+		return new Response('Not Found', { status: 404 });
+	}
 	if (isStreamingEndpoint(event.url.pathname)) {
 		return authHandle({ event, resolve });
 	}

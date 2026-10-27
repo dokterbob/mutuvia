@@ -17,6 +17,7 @@ export interface WhatsNewEntry {
  * 3. Bump version in package.json
  */
 export const changelog: WhatsNewEntry[] = [
+	{ version: '0.4.0', content: m.whats_new_v0_4_0 },
 	{ version: '0.3.0', content: m.whats_new_v0_3_0 },
 	{ version: '0.2.0', content: m.whats_new_v0_2_0 }
 ];

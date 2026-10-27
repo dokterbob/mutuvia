@@ -41,6 +41,7 @@ These items improve what's already built before adding new features.
 - [ ] **Error handling** — Graceful error pages, network failure states in QR polling, form validation feedback.
 - [ ] **Accessibility** — Keyboard navigation, focus management on step transitions, screen reader labels.
 - [ ] **Responsive fine-tuning** — Test on small screens (320px), large phones, tablets.
+- [ ] **SvelteKit 3 migration** — Resolves GHSA-pfhg-q3qv-9q6r and GHSA-27mw-82g8-phjj (Dependabot alerts #10, #11). Blocked on `svelte-adapter-bun` and `@vite-pwa/sveltekit` supporting Kit 3; also requires Vite 8, TypeScript 6 and `@sveltejs/vite-plugin-svelte` 7. Once done, remove the `//` path guard in `src/hooks.server.ts`.
 
 ---
 

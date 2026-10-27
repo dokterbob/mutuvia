@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-27
+
+### Added
+
+- **Contacts** — a Contacts screen lists your balance with each person you've traded with; a detail page shows your shared transaction history. ([#123](https://github.com/dokterbob/mutuvia/pull/123))
+
+### Fixed
+
+- "Copy link" on payment requests now copies only the URL, not the full share message. ([#121](https://github.com/dokterbob/mutuvia/pull/121))
+
+### Security
+
+- Upgraded `nodemailer` 8.0.4 → 10.2.1, fixing 12 advisories (incl. 3 high: addressparser DoS and a file-access bypass).
+- Requests whose path starts with `//` are now rejected with 404, mitigating the SvelteKit open-redirect advisory GHSA-pfhg-q3qv-9q6r until the SvelteKit 3 migration.
+
 ## [0.3.0] - 2026-05-29
 
 ### Added

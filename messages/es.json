@@ -326,5 +326,6 @@
 	"whats_new_dismiss": "Entendido",
 	"whats_new_version_label": "Versión {version}",
 	"whats_new_v0_2_0": "Gestiona tu correo electrónico y número de teléfono en la configuración\nSoporte para el idioma español\nNavegación mejorada con botón de retroceso y confirmación de cancelación",
-	"whats_new_v0_3_0": "Códigos QR de pago reutilizables — crea un código permanente para que los clientes escaneen varias veces\nCódigos QR más fáciles de escanear (URLs más cortas y simples)"
+	"whats_new_v0_3_0": "Códigos QR de pago reutilizables — crea un código permanente para que los clientes escaneen varias veces\nCódigos QR más fáciles de escanear (URLs más cortas y simples)",
+	"whats_new_v0_4_0": "Contactos — consulta tu saldo con cada persona con la que has intercambiado y vuestro historial compartido\nActualizaciones de seguridad en los correos de inicio de sesión y el manejo de solicitudes"
 }
