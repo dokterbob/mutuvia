@@ -66,7 +66,7 @@ vi.mock('$app/environment', () => ({
 	building: false
 }));
 
-import { authHandle } from './hooks.server';
+import { authHandle, handle } from './hooks.server';
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -152,5 +152,50 @@ describe('authHandle', () => {
 		expect(getSessionMock).not.toHaveBeenCalled();
 		expect(resolve).toHaveBeenCalledOnce();
 		expect(svelteKitHandlerMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('handle — protocol-relative path guard (GHSA-pfhg-q3qv-9q6r)', () => {
+	// Drop queued *Once implementations left unconsumed by earlier tests.
+	beforeEach(() => getSessionMock.mockReset());
+
+	function makeEvent(url: string) {
+		const resolve = vi.fn(async () => new Response('ok'));
+		const input = {
+			event: {
+				url: new URL(url),
+				request: new Request(url),
+				route: { id: null },
+				locals: {}
+			},
+			resolve
+		} as unknown as Parameters<typeof handle>[0];
+		return { input, resolve };
+	}
+
+	describe('given a path starting with //', () => {
+		test('returns 404 without resolving the request', async () => {
+			const { input, resolve } = makeEvent('https://example.test//evil.com/foo');
+
+			const result = await handle(input);
+
+			expect(result.status).toBe(404);
+			expect(resolve).not.toHaveBeenCalled();
+			expect(getSessionMock).not.toHaveBeenCalled();
+		});
+	});
+
+	// Uses the streaming endpoint because it skips sequence(), which needs
+	// SvelteKit's internal request store and can't run in a unit test.
+	describe('given a normal path', () => {
+		test('flows through to resolve', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			const { input, resolve } = makeEvent('https://example.test/api/events');
+
+			const result = await handle(input);
+
+			expect(result.status).toBe(200);
+			expect(resolve).toHaveBeenCalledOnce();
+		});
 	});
 });
