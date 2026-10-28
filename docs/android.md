@@ -2,10 +2,6 @@
 
 Mutuvia ships an Android app under `android/`. It is a thin shell around the web app: it opens your deployment full-screen in Chrome (a Trusted Web Activity). Signed APKs are published on GitHub Releases.
 
-Contents: [Overview](#overview) · [Architecture](#architecture) · [Updates](#updates) · [Per-deployment setup](#per-deployment-setup) · [Building locally](#building-locally) · [Release and signing](#release-and-signing) · [Manual test checklist](#manual-test-checklist) · [Known limitations](#known-limitations) · [Troubleshooting](#troubleshooting)
-
----
-
 ## Overview
 
 The app is a **Trusted Web Activity (TWA)**, not a WebView wrapper. A TWA renders your site in the user's installed Chrome, without a URL bar, once Chrome has verified (via Digital Asset Links) that the app and the website belong together. Because it is real Chrome, everything the PWA already does keeps working unchanged:
@@ -20,31 +16,19 @@ A plain WebView would lose Web Push and service workers. If no TWA-capable brows
 
 One Gradle module (`app`) with a single Kotlin class: `MutuviaLauncherActivity` extends the androidbrowserhelper `LauncherActivity` and launches `https://<host>/`. Everything deployment-specific (host, name, application id, version) is injected at build time through Gradle properties, so one source tree serves any community.
 
-```
-android/
-├── settings.gradle.kts, build.gradle.kts, gradle.properties
-├── gradlew, gradle/wrapper/        # Gradle wrapper (checksum-pinned)
-└── app/
-    ├── build.gradle.kts            # host/appName/appId/version -> manifest, versionCode
-    └── src/main/
-        ├── AndroidManifest.xml     # TWA activity, intent filters, asset statements
-        ├── res/                    # icon, splash, colours
-        └── java/org/mutuvia/app/MutuviaLauncherActivity.kt
-```
-
 The web side only has to serve `/.well-known/assetlinks.json`, implemented in `src/routes/.well-known/assetlinks.json/+server.ts`.
 
 ## Updates
 
 - **Web content** updates through the normal service worker flow. Deploy the server and users get the new version; there is nothing to do on the Android side.
-- **The APK is a thin shell** and only needs rebuilding when the shell itself changes (new Chrome helper library version, icon, host). Users then download the new `mutuvia-X.Y.Z.apk` from GitHub Releases and install it over the existing app.
+- **The APK is a thin shell** and only needs rebuilding when the shell itself changes (new Chrome helper library version, icon, host). Users then download the new `mutuvia-vX.Y.Z.apk` from GitHub Releases and install it over the existing app.
 - **Same-signer rule:** Android only installs an update signed with the same key as the installed app, so releases must always use the same keystore. See [key custody](#release-and-signing).
 
 ## Per-deployment setup
 
 Do this once for each deployment (each community has its own host).
 
-1. Set `APP_URL` to `https://<host>` exactly. The assetlinks route and the app's launch URL must agree on the host.
+1. Set `APP_URL` to `https://<host>`, the same host as `mutuvia.host` in the app, so shared `/accept/…` and `/send/…` links match the app's intent filter.
 2. Set the two Android variables (see the README environment table):
    - `ANDROID_PACKAGE_NAME` - the app's `applicationId` (default `org.mutuvia.app`)
    - `ANDROID_SHA256_FINGERPRINTS` - comma-separated SHA-256 fingerprints of the signing certificate(s), e.g. the release key and, while testing, the debug key
@@ -71,7 +55,7 @@ Adjust the package name if you changed `mutuvia.applicationId`.
 
 ## Building locally
 
-Use Android Studio (open the `android/` directory) or the Gradle wrapper. JDK 17+ and the Android SDK (platform 36, build-tools 36.0.0) are required.
+Use Android Studio (open the `android/` directory) or the Gradle wrapper. JDK 17+ and the Android SDK (platform 36) are required.
 
 ```bash
 cd android
@@ -79,18 +63,17 @@ cd android
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Release builds refuse the placeholder host `mutuvia.example.org`. Signing reads `MUTUVIA_KEYSTORE_PATH`, `MUTUVIA_KEYSTORE_PASSWORD`, `MUTUVIA_KEY_ALIAS` and `MUTUVIA_KEY_PASSWORD` from the environment and is skipped (unsigned APK) when the path is unset.
+Release tasks (`assembleRelease`) refuse the placeholder host `mutuvia.example.org`. Signing reads `MUTUVIA_KEYSTORE_PATH`, `MUTUVIA_KEYSTORE_PASSWORD`, `MUTUVIA_KEY_ALIAS` and `MUTUVIA_KEY_PASSWORD` from the environment and is skipped (unsigned APK) when the path is unset.
 
 Settable with `-P` or in `android/gradle.properties`:
 
-| Property                | Default                     | Meaning                                                     |
-| ----------------------- | --------------------------- | ----------------------------------------------------------- |
-| `mutuvia.host`          | `mutuvia.example.org`       | Bare hostname of the deployment (required for real builds). |
-| `mutuvia.applicationId` | `org.mutuvia.app`           | Android application id.                                     |
-| `mutuvia.appName`       | `Mutuvia`                   | Launcher label.                                             |
-| `mutuvia.version`       | `version` in `package.json` | Semver without `v`; becomes `versionName`.                  |
+| Property                | Default               | Meaning                                                     |
+| ----------------------- | --------------------- | ----------------------------------------------------------- |
+| `mutuvia.host`          | `mutuvia.example.org` | Bare hostname of the deployment (required for real builds). |
+| `mutuvia.applicationId` | `org.mutuvia.app`     | Android application id.                                     |
+| `mutuvia.appName`       | `Mutuvia`             | Launcher label.                                             |
 
-Debug builds are signed with `~/.android/debug.keystore`. Add its fingerprint to `ANDROID_SHA256_FINGERPRINTS` to test a debug build against your deployment:
+Locally built debug APKs are signed with your `~/.android/debug.keystore`. Add its fingerprint to `ANDROID_SHA256_FINGERPRINTS` to test a debug build against your deployment (CI debug builds use a throwaway key and cannot verify):
 
 ```bash
 keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA256
@@ -122,7 +105,7 @@ Add these GitHub Actions secrets and variable (Settings > Secrets and variables 
 
 1. Bump `version` in `package.json` and add the `## [X.Y.Z]` section to `CHANGELOG.md`.
 2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. The `Android` workflow checks that the tag equals the `package.json` version, builds and signs the release APK, verifies the signature, and attaches `mutuvia-X.Y.Z.apk` and `mutuvia-X.Y.Z.apk.sha256` to the GitHub Release for the tag (the release and its notes are created by the existing release process; the workflow only adds assets). Tags containing `-` are marked pre-release.
+3. The `Android` workflow checks that the tag equals the `package.json` version, builds and signs the release APK, verifies the signature, and attaches `mutuvia-vX.Y.Z.apk` and `mutuvia-vX.Y.Z.apk.sha256` to the GitHub Release for the tag, creating the release (without notes) if none exists yet. Tags containing `-` are marked pre-release.
 
 `versionCode` is derived as `MAJOR*10000 + MINOR*100 + PATCH` (a pre-release suffix is ignored), so keep minor and patch below 100.
 
@@ -147,7 +130,7 @@ Run on a real device with Chrome installed, against a deployment with assetlinks
 - **SSE and backgrounding.** The SSE stream drops when the app is backgrounded; Web Push covers notifications in that case.
 - **No Chrome, no push, no camera.** Without a TWA-capable browser the WebView fallback is used, with no Web Push, no service worker and no camera access (the library's fallback does not grant `getUserMedia`), so QR scanning only works in TWA mode.
 - **Icons.** API 26+ uses the adaptive icon (vector foreground from `static/favicon.svg` on the brand colour); API 24 and 25 use the PNGs under `res/mipmap-*`, which are rendered from the same geometry.
-- **Android developer verification.** Google has announced that, starting with a regional rollout in 2026 and going global in 2027, apps must come from registered developers on certified devices. Sideloaded apps from unregistered developers may then need an extra confirmation flow or be blocked; a free limited-distribution registration and an advanced flow for unverified apps are reported, and `adb install` is unaffected. This is based on secondary sources ([Android Authority](https://www.androidauthority.com/google-android-sideloading-unverified-apps-new-rules-3650343/), [Android Police](https://www.androidpolice.com/androids-confusing-new-sideloading-limitations/)); check Google's own developer pages for the current rules before relying on GitHub-hosted APKs.
+- **Android developer verification.** Google is phasing in a requirement (regional in 2026, global in 2027) that sideloaded apps come from registered developers; check Google's current rules before relying on GitHub-hosted APKs.
 - **Google Play is not set up.** Distribution is via GitHub Releases only. The same project could produce an AAB for a Play upload later.
 - **One APK per community.** The host, name and signing key are baked in. To ship your own app, fork the build with your own key and `mutuvia.*` properties; APKs signed with different keys cannot update each other.
 

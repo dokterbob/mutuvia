@@ -119,7 +119,7 @@ docker compose --profile postgres up -d
 
 An Android app lives under [`android/`](android/): a Trusted Web Activity that opens your deployment full-screen in Chrome, so Web Push, the camera scanner and sharing keep working.
 
-- **Download**: `mutuvia-<version>.apk` (plus a `.sha256` checksum) on the [GitHub Releases](https://github.com/dokterbob/mutuvia/releases) page. Allow "Install unknown apps" for your browser or file manager.
+- **Download**: `mutuvia-v<version>.apk` (plus a `.sha256` checksum) on the [GitHub Releases](https://github.com/dokterbob/mutuvia/releases) page. Allow "Install unknown apps" for your browser or file manager.
 - **Your deployment must serve Digital Asset Links** at `/.well-known/assetlinks.json`, otherwise the app shows a URL bar. Set `ANDROID_PACKAGE_NAME` and `ANDROID_SHA256_FINGERPRINTS` (see the table above).
 - **Per-community builds** (own host, name, signing key) are built with Gradle properties; the release workflow is `.github/workflows/android.yml`.
 

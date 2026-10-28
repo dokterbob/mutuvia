@@ -17,17 +17,16 @@ val mutuviaApplicationId = property("mutuvia.applicationId", "org.mutuvia.app")
 val mutuviaAppName = property("mutuvia.appName", "Mutuvia")
 
 // package.json is the single source of truth for the version.
-val packageJsonVersion = Regex(""""version"\s*:\s*"([^"]+)"""")
+val mutuviaVersion = Regex(""""version"\s*:\s*"([^"]+)"""")
     .find(rootProject.file("../package.json").readText())?.groupValues?.get(1)
     ?: error("No \"version\" in package.json")
-val mutuviaVersion = property("mutuvia.version", packageJsonVersion).removePrefix("v")
 
 // MAJOR*10000 + MINOR*100 + PATCH, pre-release suffix ignored: 0.4.0 -> 400.
 val mutuviaVersionCode = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(mutuviaVersion)
     ?.destructured?.let { (major, minor, patch) ->
         require(minor.toInt() < 100 && patch.toInt() < 100) { "minor and patch must be < 100: $mutuviaVersion" }
         major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
-    } ?: error("mutuvia.version must be MAJOR.MINOR.PATCH, got '$mutuviaVersion'")
+    } ?: error("package.json version must be MAJOR.MINOR.PATCH, got '$mutuviaVersion'")
 
 require("/" !in mutuviaHost && ":" !in mutuviaHost) {
     "mutuvia.host must be a bare hostname (no scheme, port or path), got '$mutuviaHost'"
@@ -59,7 +58,7 @@ android {
             "string",
             "asset_statements",
             """[{\"relation\":[\"delegate_permission/common.handle_all_urls\"],""" +
-                """\"target\":{\"namespace\":\"web\",\"site\":\"https://$mutuviaHost/\"}}]",
+                """\"target\":{\"namespace\":\"web\",\"site\":\"https://$mutuviaHost/\"}}]""",
         )
     }
 
@@ -86,7 +85,7 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             // Without MUTUVIA_KEYSTORE_PATH the release APK is left unsigned.
             if (releaseKeystorePath != null) {
                 signingConfig = signingConfigs.getByName("release")
