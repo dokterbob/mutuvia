@@ -45,6 +45,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Connections are implicit** — upserted on transaction settlement, no friend management UI
 - **Atomic settlement**: Insert transaction + update QR status + upsert connection in one database transaction (SQLite or PG)
 - **Real-time updates via SSE + Web Push** — `/api/events` streams notifications to open tabs; `web-push` (VAPID) delivers to backgrounded PWA users. Dedup via `SeenEventIds` FIFO set in the client.
+- **Android shell cannot be built in sandboxed agents without the Android SDK** — CI compiles it; keep pure logic in JVM-testable classes.
 - **Keep README.md in sync**: When changing the tech stack, project structure, scripts, or configuration, update `README.md` to reflect the change.
 
 ## Git Workflow
@@ -139,3 +140,6 @@ Run with: `bunx playwright test` (starts dev server automatically).
 - `src/routes/onboarding/` — 9-step onboarding flow
 - `src/routes/(app)/` — Authenticated app screens (home, send, receive, history, settings)
 - `src/routes/accept/[token]/` — QR acceptance screen
+- `android/` — Android TWA shell (Gradle project; see `docs/android.md`)
+- `src/routes/.well-known/assetlinks.json/+server.ts` — Digital Asset Links for the Android app
+- `.github/workflows/android.yml` — Android CI and signed-APK release to GitHub Releases

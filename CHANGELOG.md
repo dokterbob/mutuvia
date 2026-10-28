@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Android app** — Trusted Web Activity shell, with signed APKs published on GitHub Releases. See [docs/android.md](docs/android.md).
+
+### Fixed
+
+- Push notification icon path now points at the generated `/pwa-192x192.png` (the previous path did not exist).
+
 ## [0.4.0] - 2026-10-27
 
 ### Added
