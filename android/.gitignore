@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+build/
+.gradle/
+.kotlin/
+local.properties
+captures/
+.idea/
+*.iml
+*.keystore
+*.jks

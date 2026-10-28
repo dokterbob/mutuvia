@@ -18,20 +18,18 @@ A plain WebView would lose Web Push and service workers. If no TWA-capable brows
 
 ## Architecture
 
-One Gradle module (`app`), Kotlin only. `MutuviaLauncherActivity` extends the androidbrowserhelper `LauncherActivity`, launches `https://<host>/`. Everything deployment-specific (host, name, application id, version) is injected at build time through Gradle properties, so one source tree serves any community.
+One Gradle module (`app`) with a single Kotlin class: `MutuviaLauncherActivity` extends the androidbrowserhelper `LauncherActivity` and launches `https://<host>/`. Everything deployment-specific (host, name, application id, version) is injected at build time through Gradle properties, so one source tree serves any community.
 
 ```
 android/
 ├── settings.gradle.kts, build.gradle.kts, gradle.properties
 ├── gradlew, gradle/wrapper/        # Gradle wrapper (checksum-pinned)
-├── buildSrc/                       # versionCode derivation + unit test
 └── app/
-    ├── build.gradle.kts            # host/appName/appId/version -> manifest + BuildConfig
+    ├── build.gradle.kts            # host/appName/appId/version -> manifest, versionCode
     └── src/main/
         ├── AndroidManifest.xml     # TWA activity, intent filters, asset statements
         ├── res/                    # icon, splash, colours
-        └── kotlin/org/mutuvia/app/
-            └── MutuviaLauncherActivity.kt
+        └── java/org/mutuvia/app/MutuviaLauncherActivity.kt
 ```
 
 The web side only has to serve `/.well-known/assetlinks.json`, implemented in `src/routes/.well-known/assetlinks.json/+server.ts`.
@@ -77,10 +75,11 @@ Use Android Studio (open the `android/` directory) or the Gradle wrapper. JDK 17
 
 ```bash
 cd android
-./gradlew -p buildSrc test
-./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug -Pmutuvia.host=mutuvia.example.org
+./gradlew :app:lintDebug :app:assembleDebug -Pmutuvia.host=mutuvia.example.org
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Release builds refuse the placeholder host `mutuvia.example.org`. Signing reads `MUTUVIA_KEYSTORE_PATH`, `MUTUVIA_KEYSTORE_PASSWORD`, `MUTUVIA_KEY_ALIAS` and `MUTUVIA_KEY_PASSWORD` from the environment and is skipped (unsigned APK) when the path is unset.
 
 Settable with `-P` or in `android/gradle.properties`:
 
@@ -123,7 +122,7 @@ Add these GitHub Actions secrets and variable (Settings > Secrets and variables 
 
 1. Bump `version` in `package.json` and add the `## [X.Y.Z]` section to `CHANGELOG.md`.
 2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. The `Android` workflow checks that the tag equals the `package.json` version, builds and signs the release APK, verifies the signature, and attaches `mutuvia-X.Y.Z.apk` and `mutuvia-X.Y.Z.apk.sha256` to the GitHub Release for the tag. An existing release is kept (including its notes); notes come from `CHANGELOG.md` only when it has none. Tags containing `-` are published as pre-releases.
+3. The `Android` workflow checks that the tag equals the `package.json` version, builds and signs the release APK, verifies the signature, and attaches `mutuvia-X.Y.Z.apk` and `mutuvia-X.Y.Z.apk.sha256` to the GitHub Release for the tag (the release and its notes are created by the existing release process; the workflow only adds assets). Tags containing `-` are marked pre-release.
 
 `versionCode` is derived as `MAJOR*10000 + MINOR*100 + PATCH` (a pre-release suffix is ignored), so keep minor and patch below 100.
 
@@ -146,7 +145,8 @@ Run on a real device with Chrome installed, against a deployment with assetlinks
 
 - **Web Share Target.** The `share_target` entry in the web manifest does not work from the TWA; sharing _out_ (`navigator.share`) works.
 - **SSE and backgrounding.** The SSE stream drops when the app is backgrounded; Web Push covers notifications in that case.
-- **No Chrome, no push.** Without a TWA-capable browser the WebView fallback is used, with no Web Push and no service worker.
+- **No Chrome, no push, no camera.** Without a TWA-capable browser the WebView fallback is used, with no Web Push, no service worker and no camera access (the library's fallback does not grant `getUserMedia`), so QR scanning only works in TWA mode.
+- **Icons.** API 26+ uses the adaptive icon (vector foreground from `static/favicon.svg` on the brand colour); API 24 and 25 use the PNGs under `res/mipmap-*`, which are rendered from the same geometry.
 - **Android developer verification.** Google has announced that, starting with a regional rollout in 2026 and going global in 2027, apps must come from registered developers on certified devices. Sideloaded apps from unregistered developers may then need an extra confirmation flow or be blocked; a free limited-distribution registration and an advanced flow for unverified apps are reported, and `adb install` is unaffected. This is based on secondary sources ([Android Authority](https://www.androidauthority.com/google-android-sideloading-unverified-apps-new-rules-3650343/), [Android Police](https://www.androidpolice.com/androids-confusing-new-sideloading-limitations/)); check Google's own developer pages for the current rules before relying on GitHub-hosted APKs.
 - **Google Play is not set up.** Distribution is via GitHub Releases only. The same project could produce an AAB for a Play upload later.
 - **One APK per community.** The host, name and signing key are baked in. To ship your own app, fork the build with your own key and `mutuvia.*` properties; APKs signed with different keys cannot update each other.

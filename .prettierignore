@@ -11,3 +11,8 @@ bun.lockb
 # inlang SDK-generated files kept out of formatting
 project.inlang/.meta.json
 project.inlang/README.md
+
+# Android Gradle build outputs (git-ignored via android/.gitignore)
+/android/.gradle/
+/android/**/build/
+/android/**/.gradle/

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    Adaptive-icon foreground: the logo from static/favicon.svg (512x512 units),
+    scaled to 0.15 and centred on the 108dp canvas so it stays well inside the
+    66dp safe zone. The background layer is @color/mutuvia_primary.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="256"
+        android:pivotY="256"
+        android:scaleX="0.15"
+        android:scaleY="0.15"
+        android:translateX="-202"
+        android:translateY="-202">
+        <!-- 270 degree arc, open in the top-right quarter -->
+        <path
+            android:pathData="M256,118 C180,118 118,180 118,256 C118,332 180,394 256,394 C332,394 394,332 394,256"
+            android:strokeWidth="28"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+        <!-- Upward arrow, white at 75% opacity -->
+        <path
+            android:pathData="M256,148 V365 M197,207 L256,148 L315,207"
+            android:strokeWidth="22"
+            android:strokeColor="#BFFFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>
