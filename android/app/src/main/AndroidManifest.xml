@@ -74,6 +74,21 @@
             android:configChanges="orientation|screenSize"
             android:exported="false" />
 
+        <!-- LauncherActivity enables/disables this component at launch to add a
+             "Site settings" shortcut, and crashes if the manifest does not declare it. -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+            android:enabled="false"
+            android:exported="true">
+            <meta-data
+                android:name="android.support.customtabs.trusted.MANAGE_SPACE_URL"
+                android:value="https://${host}/" />
+            <intent-filter>
+                <action android:name="android.support.customtabs.action.ACTION_MANAGE_TRUSTED_WEB_ACTIVITY_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name="com.google.androidbrowserhelper.trusted.FocusActivity"
             android:exported="false" />
