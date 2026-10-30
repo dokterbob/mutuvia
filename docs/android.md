@@ -122,7 +122,7 @@ Add these GitHub Actions secrets and variable (Settings > Secrets and variables 
 
 1. Bump `version` in `package.json` and add the `## [X.Y.Z]` section to `CHANGELOG.md`.
 2. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. The `Android` workflow checks that the tag equals the `package.json` version, builds and signs the release APK, verifies the signature, and attaches `mutuvia-vX.Y.Z.apk` and `mutuvia-vX.Y.Z.apk.sha256` to the GitHub Release for the tag, creating the release (without notes) if none exists yet. Tags containing `-` are marked pre-release.
+3. The `Android` workflow checks that the tag equals the `package.json` version, builds and signs the release APK, verifies the signature, and attaches `mutuvia-vX.Y.Z.apk` and `mutuvia-vX.Y.Z.apk.sha256` to the GitHub Release for the tag, creating the release (without notes) if none exists yet. Tags containing `-` are marked pre-release. The release is created as a draft, the assets are attached, and only then is it published, because this repository uses immutable releases (assets cannot be added after publishing, and a published tag name can never be reused). So a failed run leaves a draft to delete, and the tag can be pushed again; but never create the release by hand, publish it first, and then tag.
 
 `versionCode` is derived as `MAJOR*10000 + MINOR*100 + PATCH` (a pre-release suffix is ignored), so keep minor and patch below 100.
 
