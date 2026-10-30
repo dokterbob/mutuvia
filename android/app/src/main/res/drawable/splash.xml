@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    Splash image shown by androidbrowserhelper while the browser starts:
+    static/favicon.svg with rounded corners, drawn on the white
+    @color/mutuvia_background.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <path
+        android:fillColor="@color/mutuvia_primary"
+        android:pathData="M112,0 H400 A112,112 0 0 1 512,112 V400 A112,112 0 0 1 400,512 H112 A112,112 0 0 1 0,400 V112 A112,112 0 0 1 112,0 Z" />
+    <path
+        android:pathData="M256,118 C180,118 118,180 118,256 C118,332 180,394 256,394 C332,394 394,332 394,256"
+        android:strokeWidth="28"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M256,148 V365 M197,207 L256,148 L315,207"
+        android:strokeWidth="22"
+        android:strokeColor="#BFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

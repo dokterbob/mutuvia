@@ -22,6 +22,7 @@
 - [x] Seed script: 3 test users with varied balances
 - [x] `.env.example` with all config documented
 - [x] AGPL-3.0 license
+- [x] **Android app** — Trusted Web Activity shell, signed APK on GitHub Releases (see [docs/android.md](docs/android.md))
 
 ---
 

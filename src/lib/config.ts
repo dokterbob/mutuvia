@@ -3,6 +3,8 @@
 import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 
+const ANDROID_SHA256_FINGERPRINT = /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/;
+
 export const config = {
 	get appName() {
 		return publicEnv.PUBLIC_APP_NAME || 'Mutuvia';
@@ -81,6 +83,25 @@ export const config = {
 	},
 	get vapidSubject() {
 		return env.VAPID_SUBJECT ?? `mailto:admin@example.com`;
+	},
+	// ── Android app (Digital Asset Links) ──
+	get androidPackageName() {
+		return env.ANDROID_PACKAGE_NAME || 'org.mutuvia.app';
+	},
+	get androidSha256Fingerprints(): string[] {
+		const fingerprints = (env.ANDROID_SHA256_FINGERPRINTS || '')
+			.split(',')
+			.map((fp) => fp.trim().toUpperCase())
+			.filter(Boolean);
+		for (const fp of fingerprints) {
+			if (!ANDROID_SHA256_FINGERPRINT.test(fp)) {
+				throw new Error(
+					`ANDROID_SHA256_FINGERPRINTS entry "${fp}" is not a valid SHA-256 fingerprint ` +
+						'(expected 32 colon-separated hex bytes, e.g. AA:BB:...:FF)'
+				);
+			}
+		}
+		return fingerprints;
 	},
 	get appVersion(): string {
 		return __APP_VERSION__;

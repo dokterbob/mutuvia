@@ -29,7 +29,7 @@ function buildNotificationOptions(event: NotificationEvent): {
 				title: 'Transaction settled',
 				options: {
 					body: `${event.otherName} · ${event.formattedAmount}`,
-					icon: '/icon-192x192.png',
+					icon: '/pwa-192x192.png',
 					tag: `qr-${event.qrId}`,
 					data: event
 				}
@@ -39,7 +39,7 @@ function buildNotificationOptions(event: NotificationEvent): {
 				title: 'Transaction declined',
 				options: {
 					body: 'Your payment request was declined.',
-					icon: '/icon-192x192.png',
+					icon: '/pwa-192x192.png',
 					tag: `qr-${event.qrId}`,
 					data: event
 				}
@@ -49,7 +49,7 @@ function buildNotificationOptions(event: NotificationEvent): {
 				title: 'Balance updated',
 				options: {
 					body: event.formattedBalance,
-					icon: '/icon-192x192.png',
+					icon: '/pwa-192x192.png',
 					tag: 'balance',
 					data: event
 				}
@@ -59,7 +59,7 @@ function buildNotificationOptions(event: NotificationEvent): {
 				title: `Payment received`,
 				options: {
 					body: `${event.senderName} sent ${event.formattedAmount}${event.description ? ` · ${event.description}` : ''}`,
-					icon: '/icon-192x192.png',
+					icon: '/pwa-192x192.png',
 					tag: `reusable-payment-${event.id}`,
 					data: event
 				}

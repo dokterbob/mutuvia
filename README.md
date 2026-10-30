@@ -106,10 +106,24 @@ docker compose --profile postgres up -d
 | `PUBLIC_VAPID_KEY`             | Push     | —                                  | VAPID public key for Web Push. Generate with `bunx web-push generate-vapid-keys`. Required for push notifications to backgrounded PWA users.                                    |
 | `PRIVATE_VAPID_KEY`            | Push     | —                                  | VAPID private key for Web Push.                                                                                                                                                 |
 | `VAPID_SUBJECT`                | No       | `mailto:admin@example.com`         | VAPID contact URL (`mailto:` or `https:`).                                                                                                                                      |
+| `ANDROID_PACKAGE_NAME`         | Android  | `org.mutuvia.app`                  | Android `applicationId` served in `/.well-known/assetlinks.json`.                                                                                                               |
+| `ANDROID_SHA256_FINGERPRINTS`  | Android  | —                                  | Comma-separated SHA-256 fingerprints of the APK signing certificate; serves `/.well-known/assetlinks.json`.                                                                     |
 | `PUBLIC_SENTRY_DSN`            | No       | —                                  | Sentry DSN. Set to enable error tracking and the feedback widget.                                                                                                               |
 | `SENTRY_AUTH_TOKEN`            | CI       | —                                  | Sentry auth token for source map uploads. Only needed in CI builds.                                                                                                             |
 | `SENTRY_ORG`                   | CI       | —                                  | Sentry organisation slug. Only needed in CI builds.                                                                                                                             |
 | `SENTRY_PROJECT`               | CI       | —                                  | Sentry project slug. Only needed in CI builds.                                                                                                                                  |
+
+---
+
+## Android app
+
+An Android app lives under [`android/`](android/): a Trusted Web Activity that opens your deployment full-screen in Chrome, so Web Push, the camera scanner and sharing keep working.
+
+- **Download**: `mutuvia-v<version>.apk` (plus a `.sha256` checksum) on the [GitHub Releases](https://github.com/dokterbob/mutuvia/releases) page. Allow "Install unknown apps" for your browser or file manager.
+- **Your deployment must serve Digital Asset Links** at `/.well-known/assetlinks.json`, otherwise the app shows a URL bar. Set `ANDROID_PACKAGE_NAME` and `ANDROID_SHA256_FINGERPRINTS` (see the table above).
+- **Per-community builds** (own host, name, signing key) are built with Gradle properties; the release workflow is `.github/workflows/android.yml`.
+
+Setup, release procedure, key custody and troubleshooting: [docs/android.md](docs/android.md).
 
 ---
 
