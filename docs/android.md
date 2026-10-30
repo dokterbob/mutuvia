@@ -63,6 +63,23 @@ cd android
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
+CI runs exactly `./gradlew --no-daemon :app:lintDebug :app:assembleDebug :app:assembleRelease -Pmutuvia.host=ci.invalid` (JDK 21); running the same command locally is the quickest way to reproduce a CI failure. A local `ANDROID_HOME` pointing at an SDK with `platforms;android-36` and `build-tools` is enough (Android Studio not required); it also builds with newer JDKs such as 26.
+
+To install on a device or emulator with USB debugging enabled:
+
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+To dry-run release signing locally, create a throwaway keystore and point the signing variables at it (never reuse the real release key for this):
+
+```bash
+keytool -genkeypair -v -keystore /tmp/test.keystore -alias test -keyalg RSA -keysize 2048 -validity 30 -storepass testpass -keypass testpass -dname "CN=test"
+MUTUVIA_KEYSTORE_PATH=/tmp/test.keystore MUTUVIA_KEYSTORE_PASSWORD=testpass MUTUVIA_KEY_ALIAS=test MUTUVIA_KEY_PASSWORD=testpass \
+  ./gradlew :app:assembleRelease -Pmutuvia.host=mutuvia.example.net
+"$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
+
 Release tasks (`assembleRelease`) refuse the placeholder host `mutuvia.example.org`. Signing reads `MUTUVIA_KEYSTORE_PATH`, `MUTUVIA_KEYSTORE_PASSWORD`, `MUTUVIA_KEY_ALIAS` and `MUTUVIA_KEY_PASSWORD` from the environment and is skipped (unsigned APK) when the path is unset.
 
 Settable with `-P` or in `android/gradle.properties`:
