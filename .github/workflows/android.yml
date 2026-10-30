@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# NOTE: move this file to .github/workflows/android.yml — it could not be pushed
-# there from the sandbox, which lacks the GitHub `workflow` token scope.
 name: Android
 
 on:
