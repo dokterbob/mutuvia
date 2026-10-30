@@ -36,3 +36,7 @@ src/lib/paraglide/
 # Test results
 playwright-report/
 test-results/
+
+# Android signing keys (never commit; see docs/android.md)
+*.keystore
+*.jks
