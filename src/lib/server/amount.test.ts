@@ -6,7 +6,7 @@ vi.mock('$lib/config', () => ({
 	config: { maxTransactionAmount: 100_000_000 } // 1,000,000.00 at 2 decimal places
 }));
 
-import { parseAmount } from './amount';
+import { parseAmount, parseStoredAmount } from './amount';
 
 describe('parseAmount', () => {
 	describe('valid inputs', () => {
@@ -57,6 +57,41 @@ describe('parseAmount', () => {
 			['an array', ['5'], 2]
 		])('%s: %j at %i dp → null', (_label, input, dp) => {
 			expect(parseAmount(input, dp)).toBeNull();
+		});
+	});
+});
+
+describe('parseStoredAmount', () => {
+	// Parses an already-minor-unit integer string — e.g. the `qr_amount`
+	// cookie, which this app only ever sets to `String(parseAmount(...))`.
+	// Tampering with that cookie is display-only (the send action re-validates
+	// with parseAmount before settling), but the prefilled display value must
+	// still never trust an attacker-controlled cookie string.
+	describe('valid inputs', () => {
+		test.each<[string, string, number]>([
+			['a plain positive integer', '1050', 1050],
+			['leading zeros', '0500', 500],
+			['leading and trailing whitespace', '  500  ', 500],
+			['the smallest unit', '1', 1],
+			['exactly at the max', '100000000', 100_000_000]
+		])('%s: %j → %i', (_label, input, expected) => {
+			expect(parseStoredAmount(input)).toBe(expected);
+		});
+	});
+
+	describe('rejected inputs (tampered cookie)', () => {
+		test.each<[string, unknown]>([
+			['trailing garbage', '10abc'],
+			['exponential notation', '1e9'],
+			['negative sign', '-5'],
+			['a decimal point', '10.50'],
+			['zero', '0'],
+			['above the max', '100000001'],
+			['empty string', ''],
+			['undefined (cookie absent)', undefined],
+			['null', null]
+		])('%s: %j → null', (_label, input) => {
+			expect(parseStoredAmount(input)).toBeNull();
 		});
 	});
 });

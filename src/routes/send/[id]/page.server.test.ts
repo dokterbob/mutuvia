@@ -30,6 +30,13 @@ const { settleReusableMock, dbSelectMock, selectLimitFn } = vi.hoisted(() => {
 	return { settleReusableMock: vi.fn(), dbSelectMock, selectLimitFn };
 });
 
+vi.mock('@sentry/sveltekit', () => ({
+	wrapLoadWithSentry: (fn: unknown) => fn,
+	wrapServerLoadWithSentry: (fn: unknown) => fn,
+	sentryHandle: () => async (input: { event: unknown; resolve: (e: unknown) => unknown }) =>
+		input.resolve(input.event),
+	handleErrorWithSentry: vi.fn()
+}));
 vi.mock('$lib/server/db', () => ({ db: { select: dbSelectMock } }));
 vi.mock('$lib/server/schema', () => ({ paymentRequests: {} }));
 vi.mock('drizzle-orm', () => ({ eq: vi.fn((a: unknown, b: unknown) => ({ eq: [a, b] })) }));
@@ -56,7 +63,7 @@ vi.mock('@sveltejs/kit', () => ({
 	fail: vi.fn((status: number, data: unknown) => ({ status, ...(data as object) }))
 }));
 
-const { actions } = await import('./+page.server');
+const { actions, load } = await import('./+page.server');
 
 function formDataWith(amount: string | null): FormData {
 	const fd = new FormData();
@@ -148,5 +155,78 @@ describe('send/[id] startFastTrack/startFullOnboarding — cookie amount validat
 		).rejects.toThrow(MockRedirect);
 
 		expect(cookies._store.get('qr_amount')).toBe('1050');
+	});
+});
+
+describe('send/[id] load — tampered qr_amount cookie', () => {
+	const reusableQr = {
+		id: 'pr-1',
+		status: 'active',
+		reusable: true,
+		expiresAt: null,
+		initiatingUserId: 'initiator-1',
+		amount: null,
+		description: null,
+		initiatorName: 'Ana'
+	};
+
+	beforeEach(() => {
+		selectLimitFn.mockResolvedValue([reusableQr]);
+	});
+
+	describe.each([
+		['trailing garbage', '10abc'],
+		['exponential notation', '1e9'],
+		['negative sign', '-5'],
+		['above the sanity bound', '100000001']
+	])('Given an unauthenticated scanner with a tampered cookie (%s: %j)', (_label, tampered) => {
+		test('When load runs → prefilledAmount is null, not the tampered value', async () => {
+			const cookies = makeCookies();
+			cookies.get = () => tampered;
+
+			const result = await load({
+				params: { id: 'pr-1' },
+				locals: {},
+				cookies
+			} as never);
+
+			expect(result).toMatchObject({ needsAuth: true, prefilledAmount: null });
+		});
+	});
+
+	describe.each([
+		['trailing garbage', '10abc'],
+		['exponential notation', '1e9'],
+		['negative sign', '-5'],
+		['above the sanity bound', '100000001']
+	])(
+		'Given an authenticated, non-initiating scanner with a tampered cookie (%s: %j)',
+		(_label, tampered) => {
+			test('When load runs → prefilledAmount is null, not the tampered value', async () => {
+				const cookies = makeCookies();
+				cookies.get = () => tampered;
+
+				const result = await load({
+					params: { id: 'pr-1' },
+					locals: { session: {}, appUser: { id: 'scanner-1', displayName: 'Bruno' } },
+					cookies
+				} as never);
+
+				expect(result).toMatchObject({ needsAuth: false, prefilledAmount: null });
+			});
+		}
+	);
+
+	test('Given a genuine stored amount cookie, When load runs → prefilledAmount is the parsed value', async () => {
+		const cookies = makeCookies();
+		cookies.get = () => '1050';
+
+		const result = await load({
+			params: { id: 'pr-1' },
+			locals: {},
+			cookies
+		} as never);
+
+		expect(result).toMatchObject({ needsAuth: true, prefilledAmount: 1050 });
 	});
 });

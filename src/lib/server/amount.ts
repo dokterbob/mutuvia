@@ -57,3 +57,22 @@ export function parseAmount(input: unknown, fractionDigits: number): number | nu
 
 	return amount;
 }
+
+/**
+ * Parses an already-minor-unit integer string, such as the `qr_amount`
+ * cookie (`send/[id]/+page.server.ts` sets it to `String(parseAmount(...))`
+ * and never anything else). Equivalent to `parseAmount(input, 0)` — no
+ * decimal point, same strict digit grammar, same bounds — but named
+ * separately so call sites reading a value back out of storage don't read
+ * like they're parsing a currency-formatted user input with zero decimals.
+ *
+ * This is a defense-in-depth / display-correctness guard, not a security
+ * boundary by itself: callers that settle a transaction must still
+ * re-validate the amount themselves (as `send/[id]/+page.server.ts`'s `send`
+ * action already does via `parseAmount`, and as the settlement layer
+ * re-checks again) — a tampered cookie must never be trusted for anything
+ * beyond a prefilled display value.
+ */
+export function parseStoredAmount(input: unknown): number | null {
+	return parseAmount(input, 0);
+}
