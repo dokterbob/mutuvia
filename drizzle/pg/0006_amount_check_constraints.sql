@@ -1,0 +1,3 @@
+ALTER TABLE "payment_requests" ADD CONSTRAINT "payment_requests_amount_positive_check" CHECK ("payment_requests"."amount" IS NULL OR "payment_requests"."amount" > 0);--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_amount_positive_check" CHECK ("transactions"."amount" > 0);--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_not_self_payment_check" CHECK ("transactions"."from_user_id" <> "transactions"."to_user_id");

@@ -10,6 +10,7 @@ import { settleReusable } from '$lib/server/payment-requests';
 import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
 import { config } from '$lib/config';
+import { parseAmount } from '$lib/server/amount';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -96,20 +97,16 @@ function setSendReturnCookies(
 export const actions: Actions = {
 	startFastTrack: async ({ params, cookies, request }) => {
 		const data = await request.formData();
-		const amountStr = data.get('amount') as string | null;
-		const amount = amountStr ? parseFloat(amountStr) : null;
 		const dp = currencyFractionDigits();
-		const amountInt = amount && amount > 0 ? Math.round(amount * Math.pow(10, dp)) : null;
+		const amountInt = parseAmount(data.get('amount'), dp);
 		setSendReturnCookies(cookies, params.id, amountInt, true);
 		redirect(307, '/onboarding/phone');
 	},
 
 	startFullOnboarding: async ({ params, cookies, request }) => {
 		const data = await request.formData();
-		const amountStr = data.get('amount') as string | null;
-		const amount = amountStr ? parseFloat(amountStr) : null;
 		const dp = currencyFractionDigits();
-		const amountInt = amount && amount > 0 ? Math.round(amount * Math.pow(10, dp)) : null;
+		const amountInt = parseAmount(data.get('amount'), dp);
 		setSendReturnCookies(cookies, params.id, amountInt, false);
 		redirect(307, '/onboarding');
 	},
@@ -118,24 +115,13 @@ export const actions: Actions = {
 		if (!locals.session || !locals.appUser) error(401, 'Not authenticated');
 
 		const data = await request.formData();
-		const amountStr = data.get('amount') as string;
 		const dp = currencyFractionDigits();
-		const floatAmount = parseFloat(amountStr);
+		const amount = parseAmount(data.get('amount'), dp);
 
-		if (isNaN(floatAmount) || floatAmount <= 0) {
+		if (amount === null) {
 			cookies.delete('qr_amount', { path: '/' });
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
-
-		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
-		if (submittedDecimals > dp) {
-			cookies.delete('qr_amount', { path: '/' });
-			return fail(400, {
-				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
-			});
-		}
-
-		const amount = Math.round(floatAmount * Math.pow(10, dp));
 
 		const result = await settleReusable(params.id, locals.appUser.id, amount);
 

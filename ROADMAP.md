@@ -61,7 +61,7 @@ Ordered roughly by community value and implementation readiness. See [section 12
 
 - [ ] **Trusted contacts / direct transfer** — Skip QR for known members. Needs mutual consent UX design.
 - [ ] **Re-auth per transaction** — Step-up authentication for high-value sends.
-- [ ] **Maximum transaction amount** — Community governance decision; add as config.
+- [x] **Maximum transaction amount** — `MAX_TRANSACTION_AMOUNT` config (`src/lib/config.ts`), enforced by `parseAmount()` and re-checked in the settlement layer. This is a fixed operator-set sanity bound to catch fat-fingered/malicious amounts, not a community-governance feature — a per-community configurable version (if ever wanted) is still open.
 - [ ] **Credit limits** — Community-configurable maximum negative balance.
 - [ ] **Admin panel** — Member management, transaction oversight.
 
