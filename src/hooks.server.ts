@@ -14,6 +14,7 @@ import { building } from '$app/environment';
 import { getSessionUnlessSentryTunnel } from '$lib/server/sentry';
 import { isStreamingEndpoint } from '$lib/server/sse-middleware';
 import { extractAcceptUrl } from '$lib/share-url';
+import { applyTrustedIpHeader } from '$lib/server/trusted-ip';
 
 /**
  * Run Drizzle migrations once at server startup, before any request is served.
@@ -74,6 +75,10 @@ const i18nHandle: Handle = ({ event, resolve }) => {
 };
 
 export const authHandle: Handle = async ({ event, resolve }) => {
+	// Must happen before ANY call that reaches Better Auth (including the
+	// getSession below) — see trusted-ip.ts for why.
+	applyTrustedIpHeader(event);
+
 	const sessionLookup = await getSessionUnlessSentryTunnel(event.url.pathname, () =>
 		auth.api.getSession({ headers: event.request.headers })
 	);

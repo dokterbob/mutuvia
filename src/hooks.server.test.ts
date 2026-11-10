@@ -50,7 +50,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 vi.mock('$lib/config', () => ({
-	config: { dbProvider: 'sqlite' }
+	config: { dbProvider: 'sqlite', trustedIpHeader: 'x-mutuvia-client-ip' }
 }));
 
 vi.mock('$lib/paraglide/server', () => ({
@@ -81,7 +81,8 @@ function makeAppEvent(method: string) {
 			url: new URL('https://example.test/home'),
 			request: new Request('https://example.test/home', { method }),
 			route: { id: '/(app)/home' },
-			locals: {}
+			locals: {},
+			getClientAddress: () => '203.0.113.1'
 		},
 		resolve: vi.fn()
 	} as unknown as Parameters<typeof authHandle>[0];
@@ -142,7 +143,8 @@ describe('authHandle', () => {
 			event: {
 				url: new URL('https://example.test/sentry-tunnel'),
 				request: new Request('https://example.test/sentry-tunnel', { method: 'POST' }),
-				locals: {}
+				locals: {},
+				getClientAddress: () => '203.0.113.1'
 			},
 			resolve
 		} as unknown as Parameters<typeof authHandle>[0];
@@ -166,7 +168,8 @@ describe('handle — protocol-relative path guard (GHSA-pfhg-q3qv-9q6r)', () => 
 				url: new URL(url),
 				request: new Request(url),
 				route: { id: null },
-				locals: {}
+				locals: {},
+				getClientAddress: () => '203.0.113.1'
 			},
 			resolve
 		} as unknown as Parameters<typeof handle>[0];
