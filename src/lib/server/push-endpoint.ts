@@ -8,10 +8,6 @@
 // Host allowlist, verified against current vendor documentation (2026-11):
 //   - fcm.googleapis.com               Chrome / Firefox-on-Android via FCM.
 //                                      https://developer.chrome.com/blog/web-push-interop-wins
-//   - android.googleapis.com           Legacy Chrome/GCM endpoint form. Chrome's own
-//                                      blog still documents `android.googleapis.com/gcm/send/…`
-//                                      as a working (if older) endpoint shape.
-//                                      https://developer.chrome.com/blog/web-push-interop-wins
 //   - updates.push.services.mozilla.com  Firefox (Mozilla autopush).
 //                                      https://autopush.readthedocs.io/en/latest/http.html
 //   - *.push.apple.com                 Safari. Apple's own guidance: "If your network
@@ -24,9 +20,16 @@
 //                                      channel URI uses the domain notify.windows.com".
 //                                      https://learn.microsoft.com/windows/apps/design/shell/tiles-and-notifications/firewall-allowlist-config
 //
-// Deliberately NOT included: FCM/autopush staging hosts (e.g. jmt17.google.com,
-// updates-autopush.stage.mozaws.net) — these are non-production and should never
-// appear in a real browser subscription.
+// Deliberately NOT included:
+//   - android.googleapis.com — the legacy GCM-era endpoint form. Chrome stopped
+//     issuing it from Chrome 74 (2019); it was never an agreed part of this
+//     list. Operators who genuinely still need it can add it via
+//     PUSH_ENDPOINT_EXTRA_HOSTS. Any already-stored subscription using this
+//     host gets deleted the next time a push delivery is attempted to it
+//     (push-sender.ts re-validates against this same allowlist at send time).
+//   - FCM/autopush staging hosts (e.g. jmt17.google.com,
+//     updates-autopush.stage.mozaws.net) — these are non-production and
+//     should never appear in a real browser subscription.
 //
 // Operators can extend the list via PUSH_ENDPOINT_EXTRA_HOSTS (see config.ts).
 
@@ -34,7 +37,6 @@ export const PUSH_ENDPOINT_MAX_LENGTH = 2048;
 
 export const DEFAULT_ALLOWED_PUSH_HOSTS: readonly string[] = [
 	'fcm.googleapis.com',
-	'android.googleapis.com',
 	'updates.push.services.mozilla.com',
 	'*.push.apple.com',
 	'*.notify.windows.com'

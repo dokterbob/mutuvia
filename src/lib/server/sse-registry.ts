@@ -19,6 +19,22 @@
 // as terminal and does not auto-reconnect, so evicting the oldest of several
 // tabs sharing one account cannot turn into a reconnect storm that just
 // evicts a different tab every few seconds.
+//
+// Teardown ownership: calling `controller.close()` from here does NOT run
+// the owning ReadableStream's `cancel()` callback — that only fires when the
+// *consumer* cancels the stream, never when the producer closes it. A route
+// (src/routes/api/events/+server.ts) that only relied on its own `cancel()`
+// to clear its `keepaliveTimer` would leak that interval forever once this
+// registry closed the connection from the outside (eviction, closeSession) —
+// the timer would keep firing and querying the database every tick for a
+// stream nobody is reading anymore. To avoid that, `register()` accepts an
+// optional `dispose` callback — the caller's own extra teardown (clear its
+// keepalive timer, mark itself closed). The registry always removes the
+// entry and closes the controller itself FIRST, then calls `dispose` purely
+// as a courtesy notification; it never depends on what `dispose` does, so a
+// caller that forgets to unregister in its own teardown (or a test double
+// that's a no-op) can't leave a stale entry behind or spin the eviction loop
+// forever.
 
 import type { NotificationEvent } from '$lib/notifications';
 
@@ -28,6 +44,7 @@ type Entry = {
 	userId: string;
 	sessionId: string;
 	controller: Controller;
+	dispose: () => void;
 };
 
 // Cap connections per user — evicting the oldest keeps a compromised/leaked
@@ -58,13 +75,29 @@ function removeEntry(entry: Entry): void {
 	}
 }
 
-function closeEntry(entry: Entry): void {
+/**
+ * The registry's own half of closing a connection: always removes it from
+ * both maps and closes its controller, regardless of what (if anything) the
+ * caller's `dispose` does. Only after that does it call `dispose`, so the
+ * caller gets a chance to clear its own keepalive timer etc. — but the
+ * registry's own bookkeeping never depends on that callback running, or
+ * running correctly.
+ */
+function closeEntry(entry: Entry, evicted: boolean): void {
 	removeEntry(entry);
+	if (evicted) {
+		try {
+			entry.controller.enqueue(EVICTED_FRAME);
+		} catch {
+			// already gone
+		}
+	}
 	try {
 		entry.controller.close();
 	} catch {
 		// already closed/errored
 	}
+	entry.dispose();
 }
 
 /**
@@ -72,8 +105,18 @@ function closeEntry(entry: Entry): void {
  * Called when a new SSE connection is established. If the user is already
  * at the connection cap, the oldest connection is sent a terminal `evicted`
  * event and closed first.
+ *
+ * `dispose` is the caller's own extra teardown (e.g. clear its keepalive
+ * timer, mark itself closed) — called once the registry has already
+ * removed the entry and closed the controller, so it's safe for `dispose`
+ * to also unregister/close redundantly (both are idempotent).
  */
-export function register(userId: string, sessionId: string, controller: Controller): void {
+export function register(
+	userId: string,
+	sessionId: string,
+	controller: Controller,
+	dispose: () => void = () => {}
+): void {
 	let userEntries = byUser.get(userId);
 	if (!userEntries) {
 		userEntries = [];
@@ -81,16 +124,10 @@ export function register(userId: string, sessionId: string, controller: Controll
 	}
 
 	while (userEntries.length >= MAX_CONNECTIONS_PER_USER) {
-		const oldest = userEntries[0];
-		try {
-			oldest.controller.enqueue(EVICTED_FRAME);
-		} catch {
-			// already gone — closeEntry() below still cleans up the registry
-		}
-		closeEntry(oldest);
+		closeEntry(userEntries[0], true);
 	}
 
-	const entry: Entry = { userId, sessionId, controller };
+	const entry: Entry = { userId, sessionId, controller, dispose };
 	userEntries.push(entry);
 
 	let sessionEntries = bySession.get(sessionId);
@@ -102,8 +139,12 @@ export function register(userId: string, sessionId: string, controller: Controll
 }
 
 /**
- * Unregister a stream controller for the given user + session.
- * Called when the SSE connection is closed or cancelled.
+ * Unregister a stream controller for the given user + session — removes it
+ * from the registry's maps only, without closing anything or calling
+ * `dispose`. Called by a route's own teardown when it is the one ending the
+ * connection (client disconnect, self-detected invalid session) — calling
+ * this directly (rather than going through `closeEntry`) is fine there
+ * because the route itself already closes its own controller.
  */
 export function unregister(userId: string, sessionId: string, controller: Controller): void {
 	const userEntries = byUser.get(userId);
@@ -122,7 +163,7 @@ export function closeSession(sessionId: string): void {
 	const entries = bySession.get(sessionId);
 	if (!entries) return;
 	for (const entry of Array.from(entries)) {
-		closeEntry(entry);
+		closeEntry(entry, false);
 	}
 }
 

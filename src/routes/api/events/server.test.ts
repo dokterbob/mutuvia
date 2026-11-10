@@ -28,7 +28,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 import { GET } from './+server';
-import { emit } from '$lib/server/sse-registry';
+import { emit, closeSession } from '$lib/server/sse-registry';
 import type { QrCompletedEvent, QrDeclinedEvent } from '$lib/notifications';
 
 // ---------------------------------------------------------------------------
@@ -313,6 +313,92 @@ describe('GET /api/events', () => {
 				const { done } = await reader.read();
 				expect(done).toBe(true);
 			});
+		});
+	});
+
+	// ---------------------------------------------------------------------------
+	// Regression coverage for the keepalive-timer leak: closing a connection
+	// from OUTSIDE its own request (cap eviction, closeSession on sign-out)
+	// must clear that connection's own keepaliveTimer too, or it keeps firing
+	// isSessionStillValid() DB queries forever for a stream nobody reads.
+	// Exercised through the real GET handler + the real sse-registry (only
+	// db/schema/drizzle-orm are mocked in this file).
+	// ---------------------------------------------------------------------------
+
+	describe('connection cap eviction (through the real GET handler)', () => {
+		it('delivers the terminal evicted event, then clears the evicted connection’s keepalive timer', async () => {
+			const userId = nextUserId();
+			const readers: ReadableStreamDefaultReader<Uint8Array>[] = [];
+
+			// Fill up to the cap (5) with distinct sessions for the same user.
+			for (let i = 0; i < 5; i++) {
+				const response = GET(
+					makeEvent({ id: userId }, { sessionId: `${userId}-sess-${i}` })
+				) as Response;
+				const reader = response.body!.getReader();
+				await reader.read(); // discard initial ping
+				readers.push(reader);
+			}
+
+			// A 6th connection evicts the oldest (readers[0]).
+			const response6 = GET(
+				makeEvent({ id: userId }, { sessionId: `${userId}-sess-5` })
+			) as Response;
+			const reader6 = response6.body!.getReader();
+
+			// The evicted stream gets the terminal `evicted` frame before closing.
+			const { value: evictedFrame, done: notYetDone } = await readers[0].read();
+			expect(notYetDone).toBe(false);
+			expect(decoder.decode(evictedFrame)).toBe('event: evicted\ndata: {}\n\n');
+
+			const { done: streamDone } = await readers[0].read();
+			expect(streamDone).toBe(true);
+
+			await reader6.read(); // discard its initial ping
+
+			// If the evicted connection's keepaliveTimer had leaked, it would add
+			// its own isSessionStillValid() query on every subsequent tick, on
+			// top of the 5 surviving connections' own queries.
+			selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
+			const callsBefore = selectLimitFn.mock.calls.length;
+			await vi.advanceTimersByTimeAsync(20_000);
+			const callsAfterOneTick = selectLimitFn.mock.calls.length;
+
+			expect(callsAfterOneTick - callsBefore).toBe(5); // not 6
+
+			// Cleanup
+			for (const reader of readers.slice(1)) await reader.cancel();
+			await reader6.cancel();
+		});
+	});
+
+	describe('closeSession (through the real GET handler)', () => {
+		it('closes every connection for that session and clears their keepalive timers', async () => {
+			const userId = nextUserId();
+			const sessionId = `${userId}-shared-session`;
+
+			const response1 = GET(makeEvent({ id: userId }, { sessionId })) as Response;
+			const reader1 = response1.body!.getReader();
+			await reader1.read(); // initial ping
+
+			const response2 = GET(makeEvent({ id: userId }, { sessionId })) as Response;
+			const reader2 = response2.body!.getReader();
+			await reader2.read(); // initial ping
+
+			closeSession(sessionId);
+
+			const [{ done: done1 }, { done: done2 }] = await Promise.all([
+				reader1.read(),
+				reader2.read()
+			]);
+			expect(done1).toBe(true);
+			expect(done2).toBe(true);
+
+			// No evicted signal on a sign-out closure — just a clean close.
+			selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
+			const callsBefore = selectLimitFn.mock.calls.length;
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(selectLimitFn.mock.calls.length).toBe(callsBefore);
 		});
 	});
 });

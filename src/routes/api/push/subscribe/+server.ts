@@ -4,7 +4,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { pushSubscriptions } from '$lib/server/schema';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, notInArray } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { config } from '$lib/config';
 import {
@@ -48,7 +48,11 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	// previously registered to a different user — e.g. a shared or
 	// handed-down device — ownership moves to the subscribing user instead
 	// of leaving two owners receiving notifications for the same browser.
-	await db
+	// A single INSERT ... ON CONFLICT ... RETURNING is one atomic statement,
+	// so it both performs the upsert and tells us (via the returned id,
+	// unchanged by the UPDATE branch) whether this was a fresh insert or an
+	// existing/transferred row — no separate SELECT needed.
+	const [row] = await db
 		.insert(pushSubscriptions)
 		.values({
 			id,
@@ -68,28 +72,46 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 				userAgent,
 				createdAt: new Date()
 			}
-		});
-
-	// Fetch the row (whether newly inserted, pre-existing, or just transferred).
-	const [row] = await db
-		.select({ id: pushSubscriptions.id })
-		.from(pushSubscriptions)
-		.where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.endpoint, endpoint)))
-		.limit(1);
+		})
+		.returning({ id: pushSubscriptions.id });
 
 	const isNew = row!.id === id;
 
-	// Cap subscriptions per user — drop the oldest beyond the cap.
-	const userRows = await db
-		.select({ id: pushSubscriptions.id })
-		.from(pushSubscriptions)
-		.where(eq(pushSubscriptions.userId, userId))
-		.orderBy(desc(pushSubscriptions.createdAt));
-	if (userRows.length > MAX_SUBSCRIPTIONS_PER_USER) {
-		const excessIds = userRows.slice(MAX_SUBSCRIPTIONS_PER_USER).map((r) => r.id);
-		await db.delete(pushSubscriptions).where(inArray(pushSubscriptions.id, excessIds));
-	}
+	// Cap subscriptions per user — a single DELETE whose subquery picks the
+	// MAX_SUBSCRIPTIONS_PER_USER most recent rows is one atomic statement
+	// (no separate SELECT-then-DELETE race), and is a no-op when the user is
+	// still at or under the cap.
+	await db
+		.delete(pushSubscriptions)
+		.where(
+			and(
+				eq(pushSubscriptions.userId, userId),
+				notInArray(
+					pushSubscriptions.id,
+					db
+						.select({ id: pushSubscriptions.id })
+						.from(pushSubscriptions)
+						.where(eq(pushSubscriptions.userId, userId))
+						.orderBy(desc(pushSubscriptions.createdAt))
+						.limit(MAX_SUBSCRIPTIONS_PER_USER)
+				)
+			)
+		);
 
 	console.info(`[push] subscription ${isNew ? 'stored' : 'already exists'} for user ${userId}`);
 	return json({ id: row!.id }, { status: isNew ? 201 : 200 });
 };
+
+// Not wrapped together in a single cross-provider transaction: the upsert
+// and the cap trim above are each one atomic statement on their own (no
+// internal read-then-write race), but a request could in principle still
+// observe >MAX_SUBSCRIPTIONS_PER_USER rows for an instant between them, or
+// the trim could run against a user who has since subscribed again
+// concurrently. Doing the whole thing as one transaction would need
+// provider-specific implementation files and a dispatcher — the pattern
+// settlement.sqlite.ts/settlement.pg.ts use for the ledger, where
+// `db.transaction()` is synchronous on the SQLite driver and must never be
+// handed an async callback (see the comment at the top of
+// settlement.sqlite.ts). That's worth it for ledger correctness; it isn't
+// here — the cap is a soft bound ("about 10", not a security property), and
+// the window for the race is a single HTTP request's worth of time.

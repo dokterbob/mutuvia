@@ -40,7 +40,13 @@ export const GET: RequestHandler = ({ locals }) => {
 	let ctrl: ReadableStreamDefaultController<Uint8Array>;
 	let closed = false;
 
-	const closeConnection = () => {
+	// The ONE idempotent teardown path for this connection — used for client
+	// disconnect (stream cancel()), this connection detecting its own session
+	// is invalid, AND the registry closing this connection from the outside
+	// (cap eviction, closeSession on sign-out). Passed to register() as
+	// `dispose` so those outside callers can clear OUR keepaliveTimer too —
+	// see the comment at the top of sse-registry.ts for why that matters.
+	const dispose = () => {
 		if (closed) return;
 		closed = true;
 		clearInterval(keepaliveTimer);
@@ -55,7 +61,7 @@ export const GET: RequestHandler = ({ locals }) => {
 	const stream = new ReadableStream<Uint8Array>({
 		start(controller) {
 			ctrl = controller;
-			register(userId, sessionId, ctrl);
+			register(userId, sessionId, ctrl, dispose);
 
 			const sendPing = () => {
 				try {
@@ -73,7 +79,7 @@ export const GET: RequestHandler = ({ locals }) => {
 				void isSessionStillValid(sessionId).then((valid) => {
 					if (closed) return;
 					if (!valid) {
-						closeConnection();
+						dispose();
 						return;
 					}
 					sendPing();
@@ -81,7 +87,7 @@ export const GET: RequestHandler = ({ locals }) => {
 			}, KEEPALIVE_INTERVAL_MS);
 		},
 		cancel() {
-			closeConnection();
+			dispose();
 		}
 	});
 

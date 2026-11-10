@@ -348,3 +348,97 @@ describe('closeSession', () => {
 		});
 	});
 });
+
+describe('dispose callback (caller-owned teardown)', () => {
+	// Regression coverage for the keepalive-timer leak: `controller.close()`
+	// does not run the owning ReadableStream's cancel() callback, so a route
+	// that only cleared its own interval timer from cancel() would leak that
+	// timer forever whenever the registry closed the connection from the
+	// outside. The registry always removes the entry and closes the
+	// controller itself (never depending on `dispose` to do that — see the
+	// "falls back" test below for why), and ALSO calls `dispose` so the
+	// route can clear its own keepalive timer.
+
+	describe('given a connection registered with a custom dispose callback', () => {
+		it('closes the controller AND calls dispose when evicted by the cap', () => {
+			const dispose = vi.fn();
+			const ctrl = makeController();
+			register(userId, sessionId, ctrl, dispose);
+
+			// Fill up to the cap with other connections so this one gets evicted.
+			const fillers = Array.from({ length: MAX_CONNECTIONS_PER_USER - 1 }, () => makeController());
+			fillers.forEach((f, i) => register(userId, `${sessionId}-filler-${i}`, f));
+
+			// One more registration pushes the user over the cap, evicting the oldest.
+			const newCtrl = makeController();
+			register(userId, `${sessionId}-new`, newCtrl);
+
+			expect(ctrl.close).toHaveBeenCalledOnce();
+			expect(dispose).toHaveBeenCalledOnce();
+
+			// Cleanup
+			fillers.forEach((f, i) => unregister(userId, `${sessionId}-filler-${i}`, f));
+			unregister(userId, `${sessionId}-new`, newCtrl);
+		});
+
+		it('closes the controller AND calls dispose when the session is closed (sign-out)', () => {
+			const dispose = vi.fn();
+			const ctrl = makeController();
+			register(userId, sessionId, ctrl, dispose);
+
+			closeSession(sessionId);
+
+			expect(ctrl.close).toHaveBeenCalledOnce();
+			expect(dispose).toHaveBeenCalledOnce();
+		});
+
+		it('never calls dispose while the connection is neither evicted nor closed', () => {
+			const dispose = vi.fn();
+			const ctrl = makeController();
+			register(userId, sessionId, ctrl, dispose);
+
+			emit(userId, qrCompleted);
+
+			expect(dispose).not.toHaveBeenCalled();
+
+			unregister(userId, sessionId, ctrl);
+		});
+	});
+
+	describe('given a dispose callback that does not unregister itself (e.g. a no-op test double)', () => {
+		it('still removes the entry and closes it exactly once — no infinite eviction loop', () => {
+			const ctrl = makeController();
+			// A dispose that does nothing at all — notably, does NOT call
+			// unregister(). The registry must not depend on that to make
+			// progress, or this would spin forever once this entry became
+			// the oldest at the cap.
+			register(userId, sessionId, ctrl, () => {});
+
+			closeSession(sessionId);
+
+			expect(ctrl.close).toHaveBeenCalledOnce();
+			expect(() => emit(userId, qrCompleted)).not.toThrow();
+			expect(ctrl.enqueue).not.toHaveBeenCalled(); // already unregistered
+		});
+
+		it('terminates eviction even when every connection at the cap has a no-op dispose', () => {
+			const ctrls = Array.from({ length: MAX_CONNECTIONS_PER_USER }, () => makeController());
+			ctrls.forEach((ctrl, i) => register(userId, `${sessionId}-${i}`, ctrl, () => {}));
+
+			// Registering one more must evict exactly the oldest and return —
+			// if the eviction loop depended on dispose() to shrink the
+			// registry, this would hang forever instead of returning.
+			const newCtrl = makeController();
+			register(userId, `${sessionId}-new`, newCtrl, () => {});
+
+			expect(ctrls[0].close).toHaveBeenCalledOnce();
+			for (const ctrl of ctrls.slice(1)) {
+				expect(ctrl.close).not.toHaveBeenCalled();
+			}
+
+			// Cleanup
+			ctrls.slice(1).forEach((ctrl, i) => unregister(userId, `${sessionId}-${i + 1}`, ctrl));
+			unregister(userId, `${sessionId}-new`, newCtrl);
+		});
+	});
+});
