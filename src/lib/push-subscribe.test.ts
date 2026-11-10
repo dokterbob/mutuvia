@@ -19,7 +19,7 @@ vi.mock('$env/dynamic/public', () => ({
 	}
 }));
 
-import { subscribeToPush } from './push-subscribe';
+import { subscribeToPush, unsubscribeFromPush } from './push-subscribe';
 
 // ---------------------------------------------------------------------------
 // Shared mock objects
@@ -94,12 +94,26 @@ describe('subscribeToPush()', () => {
 		expect(result).toBe(false);
 	});
 
-	it('returns true without re-subscribing when already subscribed (idempotent)', async () => {
+	it('does not call pushManager.subscribe() again when already subscribed (idempotent)', async () => {
 		mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
 		const result = await subscribeToPush();
 		expect(result).toBe(true);
 		expect(mockPushManager.subscribe).not.toHaveBeenCalled();
-		expect(mockFetch).not.toHaveBeenCalled();
+	});
+
+	it('still POSTs to /api/push/subscribe when already subscribed — ownership must be reasserted', async () => {
+		// A shared/handed-down device may already have a browser-level
+		// subscription that the server still attributes to a previous user.
+		// Re-POSTing re-asserts the current user as the owner.
+		mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+		const result = await subscribeToPush();
+		expect(result).toBe(true);
+		expect(mockFetch).toHaveBeenCalledWith(
+			'/api/push/subscribe',
+			expect.objectContaining({
+				method: 'POST'
+			})
+		);
 	});
 
 	it('calls pushManager.subscribe() with userVisibleOnly: true and an applicationServerKey', async () => {
@@ -137,5 +151,73 @@ describe('subscribeToPush()', () => {
 	it('returns true on a full successful subscription flow', async () => {
 		const result = await subscribeToPush();
 		expect(result).toBe(true);
+	});
+});
+
+describe('unsubscribeFromPush()', () => {
+	const mockUnsubscribingSubscription = {
+		endpoint: 'https://fcm.googleapis.com/test-endpoint',
+		unsubscribe: vi.fn<() => Promise<boolean>>()
+	};
+
+	const mockGetRegistration = vi.fn();
+	const mockUnsubPushManager = {
+		getSubscription: vi.fn()
+	};
+
+	beforeEach(() => {
+		vi.stubGlobal('navigator', {
+			serviceWorker: { getRegistration: mockGetRegistration },
+			userAgent: 'test-agent'
+		});
+		vi.stubGlobal('window', { PushManager: class PushManager {} });
+		vi.stubGlobal('fetch', mockFetch);
+
+		mockGetRegistration.mockResolvedValue({ pushManager: mockUnsubPushManager });
+		mockUnsubPushManager.getSubscription.mockResolvedValue(mockUnsubscribingSubscription);
+		mockUnsubscribingSubscription.unsubscribe.mockResolvedValue(true);
+		mockFetch.mockResolvedValue(new Response(null, { status: 200 }));
+
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+		vi.resetAllMocks();
+	});
+
+	it('unsubscribes the browser subscription and tells the server', async () => {
+		await unsubscribeFromPush();
+		expect(mockUnsubscribingSubscription.unsubscribe).toHaveBeenCalled();
+		expect(mockFetch).toHaveBeenCalledWith(
+			'/api/push/unsubscribe',
+			expect.objectContaining({ method: 'POST' })
+		);
+		const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+		expect(body.endpoint).toBe('https://fcm.googleapis.com/test-endpoint');
+	});
+
+	it('does nothing when there is no service worker registration', async () => {
+		mockGetRegistration.mockResolvedValue(null);
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+		expect(mockFetch).not.toHaveBeenCalled();
+	});
+
+	it('does nothing when there is no active subscription', async () => {
+		mockUnsubPushManager.getSubscription.mockResolvedValue(null);
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+		expect(mockFetch).not.toHaveBeenCalled();
+	});
+
+	it('does not throw and still unsubscribes locally when the server request fails', async () => {
+		mockFetch.mockRejectedValue(new Error('network down'));
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+		expect(mockUnsubscribingSubscription.unsubscribe).toHaveBeenCalled();
+	});
+
+	it('never throws, even if PushManager is unavailable', async () => {
+		vi.stubGlobal('window', {}); // no PushManager
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
 	});
 });

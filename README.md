@@ -107,6 +107,7 @@ docker compose --profile postgres up -d
 | `PUBLIC_VAPID_KEY`             | Push     | —                                  | VAPID public key for Web Push. Generate with `bunx web-push generate-vapid-keys`. Required for push notifications to backgrounded PWA users.                                                                                                                                      |
 | `PRIVATE_VAPID_KEY`            | Push     | —                                  | VAPID private key for Web Push.                                                                                                                                                                                                                                                   |
 | `VAPID_SUBJECT`                | No       | `mailto:admin@example.com`         | VAPID contact URL (`mailto:` or `https:`).                                                                                                                                                                                                                                        |
+| `PUSH_ENDPOINT_EXTRA_HOSTS`    | No       | —                                  | Comma-separated extra push-endpoint hosts to allow beyond the built-in browser vendor allowlist (`fcm.googleapis.com`, `android.googleapis.com`, `updates.push.services.mozilla.com`, `*.push.apple.com`, `*.notify.windows.com`). Each entry is an exact host or `*.suffix`.     |
 | `ANDROID_PACKAGE_NAME`         | Android  | `org.mutuvia.app`                  | Android `applicationId` served in `/.well-known/assetlinks.json`.                                                                                                                                                                                                                 |
 | `ANDROID_SHA256_FINGERPRINTS`  | Android  | —                                  | Comma-separated SHA-256 fingerprints of the APK signing certificate; serves `/.well-known/assetlinks.json`.                                                                                                                                                                       |
 | `PUBLIC_SENTRY_DSN`            | No       | —                                  | Sentry DSN. Set to enable error tracking and the feedback widget.                                                                                                                                                                                                                 |
@@ -223,12 +224,13 @@ src/
 │   │   ├── db.ts            # Drizzle db instance (delegates to db.sqlite or db.pg)
 │   │   ├── db.sqlite.ts     # SQLite driver (bun:sqlite, WAL mode)
 │   │   ├── db.pg.ts         # PostgreSQL driver (bun:sql)
+│   │   ├── push-endpoint.ts # Push endpoint/keys validation + host allowlist (SSRF guard)
 │   │   ├── push-sender.ts   # Best-effort Web Push delivery (VAPID), stale sub cleanup
 │   │   ├── qr.ts            # JWT sign/verify (jose)
 │   │   ├── schema.ts        # Re-exports active schema
 │   │   ├── schema.sqlite.ts # Drizzle schema for SQLite
 │   │   ├── schema.pg.ts     # Drizzle schema for PostgreSQL
-│   │   └── sse-registry.ts  # In-memory per-user SSE fan-out registry
+│   │   └── sse-registry.ts  # In-memory per-user/session SSE fan-out registry, connection cap
 │   └── components/ui/       # shadcn-svelte components
 ├── routes/
 │   ├── onboarding/          # 9-step onboarding flow
