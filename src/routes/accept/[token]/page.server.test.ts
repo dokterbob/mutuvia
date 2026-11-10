@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settlement → notification fanout regression tests for issue #82.
+// Settlement → notification fanout regression tests for issue #82, plus the
+// atomic-settlement / qrId-binding tests for the ledger-integrity fix.
 //
 // Before the fix, the `accept` action in +page.server.ts wrapped its entire
 // notification block in a broad try/catch. If anything threw before emit() was
@@ -8,6 +9,11 @@
 // worked.
 //
 // Tests marked "[resilience]" guard against this regression long-term.
+//
+// The actual ledger insert / status claim now live in
+// settleOneTimeAccept (./settlement.sqlite.ts / .pg.ts), which this file
+// mocks — its real atomicity/concurrency behaviour against a real SQLite DB
+// is covered in settlement.sqlite.test.ts instead.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -34,14 +40,12 @@ const {
 	emitMock,
 	sendPushMock,
 	formatAmountMock,
-	upsertConnectionMock,
+	settleOneTimeAcceptMock,
 	redirectMock,
 	dbSelectMock,
-	dbInsertMock,
 	dbUpdateMock,
 	selectLimitFn,
-	updateWhereFn,
-	insertValuesFn
+	updateWhereFn
 } = vi.hoisted(() => {
 	// --- Select chain ---
 	const selectLimitFn = vi.fn();
@@ -51,18 +55,13 @@ const {
 	selectFromFn.mockReturnValue(selectChain);
 	selectWhereFn.mockReturnValue(selectChain);
 
-	// --- Insert chain ---
-	const insertValuesFn = vi.fn().mockResolvedValue(undefined);
-	const insertChain = { values: insertValuesFn };
-
-	// --- Update chain ---
+	// --- Update chain (decline only — accept's settlement is mocked separately) ---
 	const updateWhereFn = vi.fn().mockResolvedValue(undefined);
 	const updateSetFn = vi.fn();
 	const updateChain = { set: updateSetFn };
 	updateSetFn.mockReturnValue({ where: updateWhereFn });
 
 	const dbSelectMock = vi.fn().mockReturnValue(selectChain);
-	const dbInsertMock = vi.fn().mockReturnValue(insertChain);
 	const dbUpdateMock = vi.fn().mockReturnValue(updateChain);
 
 	const redirectMock = vi.fn().mockImplementation((status: number, location: string) => {
@@ -73,14 +72,12 @@ const {
 		emitMock: vi.fn(),
 		sendPushMock: vi.fn().mockResolvedValue(undefined),
 		formatAmountMock: vi.fn().mockReturnValue('€10.00'),
-		upsertConnectionMock: vi.fn().mockResolvedValue(undefined),
+		settleOneTimeAcceptMock: vi.fn(),
 		redirectMock,
 		dbSelectMock,
-		dbInsertMock,
 		dbUpdateMock,
 		selectLimitFn,
-		updateWhereFn,
-		insertValuesFn
+		updateWhereFn
 	};
 });
 
@@ -95,8 +92,10 @@ vi.mock('$lib/server/currency', () => ({
 	currencyFractionDigits: vi.fn(() => 2)
 }));
 vi.mock('$lib/server/balance', () => ({
-	getBalance: vi.fn().mockResolvedValue(0),
-	upsertConnection: upsertConnectionMock
+	getBalance: vi.fn().mockResolvedValue(0)
+}));
+vi.mock('$lib/server/payment-requests', () => ({
+	settleOneTimeAccept: settleOneTimeAcceptMock
 }));
 vi.mock('$lib/server/qr', () => ({}));
 vi.mock('$lib/config', () => ({
@@ -110,7 +109,7 @@ vi.mock('@sveltejs/kit', () => ({
 	})
 }));
 vi.mock('$lib/server/db', () => ({
-	db: { select: dbSelectMock, insert: dbInsertMock, update: dbUpdateMock }
+	db: { select: dbSelectMock, update: dbUpdateMock }
 }));
 vi.mock('$lib/server/schema', () => ({
 	paymentRequests: 'paymentRequests',
@@ -154,7 +153,7 @@ const reusablePaymentRequestRecord = {
 function makeAcceptEvent(overrides: Record<string, unknown> = {}) {
 	const formData = new FormData();
 	formData.set('qrId', QR_ID);
-	const request = new Request('http://localhost/accept/test-token', {
+	const request = new Request(`http://localhost/accept/${QR_ID}`, {
 		method: 'POST',
 		body: formData
 	});
@@ -164,8 +163,8 @@ function makeAcceptEvent(overrides: Record<string, unknown> = {}) {
 			session: { id: 'session-1' },
 			appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
 		},
-		params: { token: 'test-token' },
-		url: new URL('http://localhost/accept/test-token'),
+		params: { token: QR_ID },
+		url: new URL(`http://localhost/accept/${QR_ID}`),
 		cookies: { set: vi.fn(), get: vi.fn(), delete: vi.fn() },
 		...overrides
 	} as unknown as Parameters<(typeof actions)['accept']>[0];
@@ -207,9 +206,8 @@ describe('settlement → notification fanout', () => {
 		// Re-apply defaults that clearAllMocks/mockReset may have cleared
 		formatAmountMock.mockReturnValue('€10.00');
 		sendPushMock.mockResolvedValue(undefined);
-		upsertConnectionMock.mockResolvedValue(undefined);
 		updateWhereFn.mockResolvedValue(undefined);
-		insertValuesFn.mockResolvedValue(undefined);
+		settleOneTimeAcceptMock.mockResolvedValue({ ok: true, txId: 'tx-1' });
 		redirectMock.mockImplementation((status: number, location: string) => {
 			throw new MockRedirect(status, location);
 		});
@@ -217,9 +215,13 @@ describe('settlement → notification fanout', () => {
 
 	describe('accept — happy path', () => {
 		beforeEach(() => {
-			selectLimitFn
-				.mockResolvedValueOnce([paymentRequestRecord])
-				.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+			selectLimitFn.mockResolvedValueOnce([paymentRequestRecord]);
+		});
+
+		it('calls settleOneTimeAccept with the QR id and the accepting user', async () => {
+			await runAction(() => actions.accept(makeAcceptEvent()));
+
+			expect(settleOneTimeAcceptMock).toHaveBeenCalledWith(QR_ID, ACCEPTOR_ID);
 		});
 
 		it('emits qr_completed via SSE registry for the initiating user', async () => {
@@ -267,20 +269,48 @@ describe('settlement → notification fanout', () => {
 		});
 	});
 
-	describe('accept — resilience', () => {
-		// Note: formatAmount() is now resilient at the source — it catches
-		// getLocale() failures and returns a locale-independent fallback instead of
-		// throwing. That behaviour is tested directly in currency.test.ts.
-		// This test guards against the DB lookup failure case which can still occur.
+	describe('accept — settlement lost the race', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([paymentRequestRecord]);
+			settleOneTimeAcceptMock.mockResolvedValue({
+				ok: false,
+				status: 400,
+				error: 'This QR code has expired or already been used.'
+			});
+		});
 
-		it('[resilience] emits SSE event to initiator even if display name lookup fails', async () => {
-			selectLimitFn
-				.mockResolvedValueOnce([paymentRequestRecord])
-				.mockRejectedValueOnce(new Error('DB connection lost'));
+		it('returns fail() with the settlement error and does NOT notify either party', async () => {
+			const result = await actions.accept(makeAcceptEvent());
+
+			expect(result).toMatchObject({
+				error: 'This QR code has expired or already been used.'
+			});
+			expect(emitMock).not.toHaveBeenCalled();
+			expect(sendPushMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('accept — qrId does not match the route token', () => {
+		it('[security] fails without ever calling settleOneTimeAccept', async () => {
+			const result = await actions.accept(
+				makeAcceptEvent({ params: { token: 'some-other-token' } })
+			);
+
+			expect(result).toMatchObject({ error: 'Invalid QR ID.' });
+			expect(settleOneTimeAcceptMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('accept — resilience', () => {
+		// Note: formatAmount() is resilient at the source — it catches
+		// getLocale() failures and returns a locale-independent fallback instead
+		// of throwing. That behaviour is tested directly in currency.test.ts.
+
+		it('[resilience] still emits SSE events to both parties after a successful settlement', async () => {
+			selectLimitFn.mockResolvedValueOnce([paymentRequestRecord]);
 
 			await runAction(() => actions.accept(makeAcceptEvent()));
 
-			// Must still emit with a fallback name — DB failure must not silently block notifications.
 			expect(emitMock).toHaveBeenCalledWith(
 				INITIATOR_ID,
 				expect.objectContaining({ type: 'qr_completed', qrId: QR_ID })
@@ -290,18 +320,16 @@ describe('settlement → notification fanout', () => {
 
 	describe('settlement integrity', () => {
 		it('settlement remains committed if sendPushToUser throws', async () => {
-			selectLimitFn
-				.mockResolvedValueOnce([paymentRequestRecord])
-				.mockResolvedValueOnce([{ displayName: 'Alice' }]);
+			selectLimitFn.mockResolvedValueOnce([paymentRequestRecord]);
 			sendPushMock.mockRejectedValue(new Error('Push service unavailable'));
 
 			// Must not propagate the push error
 			await expect(runAction(() => actions.accept(makeAcceptEvent()))).resolves.toBeUndefined();
 
-			// DB mutations still executed
-			expect(dbInsertMock).toHaveBeenCalled();
-			expect(dbUpdateMock).toHaveBeenCalled();
-			expect(upsertConnectionMock).toHaveBeenCalled();
+			// Settlement (the atomic insert + claim + connection upsert) still ran
+			expect(settleOneTimeAcceptMock).toHaveBeenCalled();
+			// ...and notifications still fired despite the push rejection
+			expect(emitMock).toHaveBeenCalled();
 		});
 	});
 
@@ -422,7 +450,6 @@ describe('accept action — reusable QR guard', () => {
 		redirectMock.mockImplementation((status: number, location: string) => {
 			throw new MockRedirect(status, location);
 		});
-		insertValuesFn.mockResolvedValue(undefined);
 		updateWhereFn.mockResolvedValue(undefined);
 	});
 
@@ -445,17 +472,11 @@ describe('accept action — reusable QR guard', () => {
 			expect(caught?.location).toBe(`/send/${reusablePaymentRequestRecord.id}`);
 		});
 
-		it('When the accept action is called → does NOT call db.insert (no settlement)', async () => {
+		it('When the accept action is called → does NOT call settleOneTimeAccept (no settlement)', async () => {
 			// Suppress redirect
 			await runAction(() => actions.accept(makeReusableAcceptEvent()));
 
-			expect(dbInsertMock).not.toHaveBeenCalled();
-		});
-
-		it('When the accept action is called → does NOT call db.update', async () => {
-			await runAction(() => actions.accept(makeReusableAcceptEvent()));
-
-			expect(dbUpdateMock).not.toHaveBeenCalled();
+			expect(settleOneTimeAcceptMock).not.toHaveBeenCalled();
 		});
 	});
 });
