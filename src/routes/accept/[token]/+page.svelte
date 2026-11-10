@@ -13,7 +13,6 @@
 
 	let fastTrackLoading = $state(false);
 	let fullOnboardingLoading = $state(false);
-	let unauthDeclineLoading = $state(false);
 	let acceptLoading = $state(false);
 	let declineLoading = $state(false);
 
@@ -128,46 +127,25 @@
 				</Button>
 			</form>
 
-			<!-- Decline is intentionally available to unauthenticated users — they should
-			     be able to dismiss a QR without signing in. -->
-			<form
-				method="POST"
-				action="?/decline"
-				use:enhance={() => {
-					unauthDeclineLoading = true;
-					return async ({ update }) => {
-						try {
-							await update();
-						} finally {
-							unauthDeclineLoading = false;
-						}
-					};
-				}}
-				class="mt-2"
-			>
-				<input type="hidden" name="qrId" value={data.qrId} />
-				<Button
-					type="submit"
-					variant="ghost"
-					loading={unauthDeclineLoading}
-					class="w-full text-sm text-muted-foreground"
-				>
-					<XIcon class="mr-1 h-4 w-4" />
-					{m.accept_decline()}
-				</Button>
-			</form>
+			<!-- Declining requires an account (it's attributed to whichever logged-in
+			     user holds the link), so unauthenticated visitors aren't offered the
+			     option here — only the sign-in CTAs above. -->
 		</div>
 	{:else}
 		<!-- Authenticated view: accept/decline -->
 		<div class="flex flex-1 flex-col">
 			{@render transactionSummary()}
 
-			<p class="mb-2 text-sm text-muted-foreground">
-				{m.accept_balance_label({
-					name: data.initiatorName ?? '',
-					balance: data.initiatorBalance ?? ''
-				})}
-			</p>
+			{#if data.direction === 'send' && data.initiatorBalance}
+				<!-- The initiator's total balance is shown only here, only while deciding
+				     whether to accept money FROM them, and never for 'receive' QRs. -->
+				<p class="mb-2 text-sm text-muted-foreground">
+					{m.accept_balance_label({
+						name: data.initiatorName ?? '',
+						balance: data.initiatorBalance
+					})}
+				</p>
+			{/if}
 
 			<p class="mb-4 text-sm text-muted-foreground">
 				{#if data.direction === 'send'}
