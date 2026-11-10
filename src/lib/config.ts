@@ -217,9 +217,18 @@ export function validateConfig(): void {
 	void config.expiredQrRetentionSeconds;
 
 	if (!config.isProduction) {
-		console.log(
-			`[config] Skipping production startup validation (dev=${dev}, NODE_ENV=${env.NODE_ENV ?? 'unset'}).`
-		);
+		if (dev) {
+			// `bun run dev` — expected every time, not worth a warning.
+			console.log('[config] Skipping production startup validation (bun run dev).');
+		} else {
+			// A built server (Docker-shaped, not `bun run dev`) explicitly told
+			// via NODE_ENV that it isn't production — worth flagging loudly,
+			// since it disables the BETTER_AUTH_SECRET/OTP-channel checks and
+			// should only happen for E2E or deliberate non-production testing.
+			console.warn(
+				`[WARNING] Skipping production startup validation — built server with NODE_ENV=${env.NODE_ENV} (dev=${dev}).`
+			);
+		}
 		return;
 	}
 

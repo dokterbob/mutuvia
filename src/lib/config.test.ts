@@ -233,6 +233,19 @@ describe('validateConfig', () => {
 			privateEnv.NODE_ENV = 'production';
 			expect(() => validateConfig()).not.toThrow();
 		});
+
+		test('when skipped, then logs quietly rather than warning — expected every time under bun run dev', () => {
+			const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			try {
+				validateConfig();
+				expect(logSpy).toHaveBeenCalled();
+				expect(warnSpy).not.toHaveBeenCalled();
+			} finally {
+				logSpy.mockRestore();
+				warnSpy.mockRestore();
+			}
+		});
 	});
 
 	// The fail-closed fix: a built server must validate unless explicitly
@@ -259,6 +272,17 @@ describe('validateConfig', () => {
 		test('when validated with nothing configured, then does not throw (NODE_ENV=test)', () => {
 			privateEnv.NODE_ENV = 'test';
 			expect(() => validateConfig()).not.toThrow();
+		});
+
+		test('when skipped, then warns loudly — a built server was explicitly told it is not production', () => {
+			privateEnv.NODE_ENV = 'test';
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			try {
+				validateConfig();
+				expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[WARNING]'));
+			} finally {
+				warnSpy.mockRestore();
+			}
 		});
 
 		test('when validated with a malformed QR_TTL_SECONDS, then still throws — that check is unconditional', () => {
