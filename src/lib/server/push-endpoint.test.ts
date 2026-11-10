@@ -26,11 +26,6 @@ describe('validatePushEndpoint()', () => {
 			expect(result.ok).toBe(true);
 		});
 
-		it('accepts the legacy android.googleapis.com host', () => {
-			const result = validatePushEndpoint('https://android.googleapis.com/gcm/send/abc123');
-			expect(result.ok).toBe(true);
-		});
-
 		it('accepts updates.push.services.mozilla.com', () => {
 			const result = validatePushEndpoint('https://updates.push.services.mozilla.com/wpush/v2/abc');
 			expect(result.ok).toBe(true);
@@ -66,6 +61,18 @@ describe('validatePushEndpoint()', () => {
 		it('rejects a trailing-dot variant of an allowed host', () => {
 			const result = validatePushEndpoint('https://fcm.googleapis.com./abc');
 			expect(result.ok).toBe(false);
+		});
+
+		it('rejects the legacy android.googleapis.com host by default (Chrome stopped issuing it in 2019)', () => {
+			const result = validatePushEndpoint('https://android.googleapis.com/gcm/send/abc123');
+			expect(result.ok).toBe(false);
+		});
+
+		it('accepts android.googleapis.com when an operator explicitly allows it via PUSH_ENDPOINT_EXTRA_HOSTS', () => {
+			const result = validatePushEndpoint('https://android.googleapis.com/gcm/send/abc123', [
+				'android.googleapis.com'
+			]);
+			expect(result.ok).toBe(true);
 		});
 	});
 
