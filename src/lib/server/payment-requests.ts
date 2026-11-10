@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { db } from '$lib/server/db';
-import { paymentRequests, transactions } from '$lib/server/schema';
+import { paymentRequests } from '$lib/server/schema';
 import { formatAmount } from '$lib/server/currency';
-import { eq, and, desc, gt, isNull, or, inArray, sql } from 'drizzle-orm';
+import { eq, and, desc, gt, isNull, or, inArray } from 'drizzle-orm';
 import { config } from '$lib/config';
-import { upsertConnection } from '$lib/server/balance';
+
+export { settleOneTimeAccept, settleReusable } from './settlement';
 
 export async function getPendingItems(userId: string, limit?: number) {
 	const retentionCutoff = new Date(Date.now() - config.expiredQrRetentionSeconds * 1000);
@@ -91,83 +92,6 @@ export async function cancelPaymentRequest(qrId: string, userId: string): Promis
 				eq(paymentRequests.status, 'active')
 			)
 		);
-}
-
-export async function settleReusable(
-	paymentRequestId: string,
-	scannerId: string,
-	amount: number
-): Promise<{ ok: true; txId: string } | { ok: false; status: number; error: string }> {
-	if (amount <= 0) {
-		return { ok: false, status: 400, error: 'Amount must be greater than zero' };
-	}
-
-	let initiatingUserId: string | undefined;
-
-	const result = (await db.transaction(async (tx) => {
-		const [pr] = await tx
-			.select()
-			.from(paymentRequests)
-			.where(eq(paymentRequests.id, paymentRequestId))
-			.limit(1);
-
-		if (!pr) {
-			return { ok: false, status: 404, error: 'Payment request not found' };
-		}
-
-		if (pr.status !== 'active') {
-			return { ok: false, status: 409, error: 'Payment request is not active' };
-		}
-
-		if (!pr.reusable) {
-			return { ok: false, status: 400, error: 'Payment request is not reusable' };
-		}
-
-		if (scannerId === pr.initiatingUserId) {
-			return { ok: false, status: 400, error: 'Cannot pay yourself' };
-		}
-
-		if (pr.amount !== null && pr.amount !== amount) {
-			return { ok: false, status: 400, error: 'Amount does not match the required amount' };
-		}
-
-		if (pr.expiresAt && pr.expiresAt <= new Date()) {
-			return { ok: false, status: 410, error: 'Payment request has expired' };
-		}
-
-		initiatingUserId = pr.initiatingUserId;
-
-		const txId = crypto.randomUUID();
-		const now = new Date();
-
-		await tx.insert(transactions).values({
-			id: txId,
-			fromUserId: scannerId,
-			toUserId: pr.initiatingUserId,
-			amount,
-			note: pr.description,
-			unitCode: config.unitCode,
-			paymentRequestId,
-			createdAt: now
-		});
-
-		await tx
-			.update(paymentRequests)
-			.set({
-				totalReceived: sql`${paymentRequests.totalReceived} + ${amount}`,
-				paymentCount: sql`${paymentRequests.paymentCount} + 1`,
-				updatedAt: now
-			})
-			.where(eq(paymentRequests.id, paymentRequestId));
-
-		return { ok: true as const, txId };
-	})) as { ok: true; txId: string } | { ok: false; status: number; error: string };
-
-	if (result.ok && initiatingUserId) {
-		await upsertConnection(scannerId, initiatingUserId);
-	}
-
-	return result;
 }
 
 export async function pausePaymentRequest(id: string, userId: string): Promise<void> {
