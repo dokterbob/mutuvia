@@ -15,13 +15,41 @@ function orderedPair(a: string, b: string): [string, string] {
 	return a < b ? [a, b] : [b, a];
 }
 
-/** See settlement.sqlite.ts#settleOneTimeAccept for the claim-then-write rationale. */
+/**
+ * See settlement.sqlite.ts#settleOneTimeAccept for the claim-then-write
+ * rationale, and for why this starts with a pre-read guarding self-payment
+ * and the amount bound (defense in depth against a thrown CHECK-constraint
+ * violation instead of a clean `ok: false`).
+ */
 export async function settleOneTimeAccept(
 	qrId: string,
 	acceptingUserId: string
 ): Promise<SettleResult> {
 	return db.transaction(async (tx) => {
 		const now = new Date();
+
+		const [pr] = await tx
+			.select()
+			.from(paymentRequests)
+			.where(eq(paymentRequests.id, qrId))
+			.limit(1);
+
+		if (!pr) {
+			return { ok: false, status: 400, error: 'This QR code has expired or already been used.' };
+		}
+
+		if (pr.initiatingUserId === acceptingUserId) {
+			return { ok: false, status: 400, error: 'Cannot accept your own QR code.' };
+		}
+
+		if (
+			pr.amount === null ||
+			!Number.isSafeInteger(pr.amount) ||
+			pr.amount <= 0 ||
+			pr.amount > config.maxTransactionAmount
+		) {
+			return { ok: false, status: 400, error: 'This QR code has an invalid amount.' };
+		}
 
 		const claimed = await tx
 			.update(paymentRequests)
@@ -49,7 +77,10 @@ export async function settleOneTimeAccept(
 			id: txId,
 			fromUserId,
 			toUserId,
-			amount: qr.amount ?? 0,
+			// Non-null and validated above (the UPDATE above doesn't touch
+			// `amount`, so `qr.amount` — the post-claim RETURNING row — is still
+			// the same value as `pr.amount`).
+			amount: qr.amount!,
 			unitCode: config.unitCode,
 			note: qr.description,
 			paymentRequestId: qr.id,
@@ -72,8 +103,15 @@ export async function settleReusable(
 	scannerId: string,
 	amount: number
 ): Promise<SettleResult> {
-	if (amount <= 0) {
+	// Re-validated here (not just in the route) so no caller — present or
+	// future — can push a non-integer, non-positive, or over-the-sanity-bound
+	// amount into the ledger; the route's own parseAmount() call is the first
+	// line of defense, this is the last.
+	if (!Number.isSafeInteger(amount) || amount <= 0) {
 		return { ok: false, status: 400, error: 'Amount must be greater than zero' };
+	}
+	if (amount > config.maxTransactionAmount) {
+		return { ok: false, status: 400, error: 'Amount exceeds the maximum allowed' };
 	}
 
 	return db.transaction(async (tx) => {

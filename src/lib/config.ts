@@ -24,6 +24,21 @@ export const config = {
 	get qrTtlSeconds() {
 		return parseInt(env.QR_TTL_SECONDS || '259200', 10);
 	},
+	// Sanity bound on a single transaction's amount, in minor units (cents).
+	// This is NOT a credit limit — it exists only to reject fat-fingered or
+	// malicious amounts (e.g. accidental extra zeros) before they reach the
+	// ledger. Default (100000000 = 1,000,000.00 in a 2-decimal currency) fits
+	// comfortably inside PostgreSQL's `integer` column type.
+	get maxTransactionAmount() {
+		const raw = env.MAX_TRANSACTION_AMOUNT || '100000000';
+		const value = parseInt(raw, 10);
+		if (!Number.isSafeInteger(value) || value <= 0) {
+			throw new Error(
+				`MAX_TRANSACTION_AMOUNT "${raw}" must be a positive integer (minor units), e.g. 100000000`
+			);
+		}
+		return value;
+	},
 	get expiredQrRetentionSeconds() {
 		return parseInt(env.EXPIRED_QR_RETENTION_SECONDS || '259200', 10);
 	},

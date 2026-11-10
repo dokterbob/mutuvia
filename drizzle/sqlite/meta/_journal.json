@@ -50,6 +50,13 @@
 			"when": 1780000468596,
 			"tag": "0006_flimsy_gravity",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "6",
+			"when": 1794335764210,
+			"tag": "0007_sticky_calypso",
+			"breakpoints": true
 		}
 	]
 }
