@@ -60,6 +60,17 @@ const mockUnauthData = {
 	note: null
 };
 
+const mockAuthReceiveData = {
+	expired: false,
+	needsAuth: false,
+	direction: 'receive' as const,
+	initiatorName: 'Alice',
+	formattedAmount: '€10.00',
+	initiatorBalance: null,
+	qrId: 'test-qr-id',
+	note: null
+};
+
 // ---------------------------------------------------------------------------
 // Authenticated view
 // ---------------------------------------------------------------------------
@@ -235,5 +246,42 @@ describe('accept page – unauthenticated view: spinner / loading state', () => 
 			expect(fastTrackButton).toBeDisabled();
 			expect(container.querySelector('.animate-spin')).not.toBeNull();
 		});
+	});
+
+	test('[security] renders no decline form at all — the server action now 401s unauthenticated callers', () => {
+		const { container } = render(AcceptPage, {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			props: { data: mockUnauthData as any, form: null }
+		});
+
+		expect(container.querySelector('form[action="?/decline"]')).toBeNull();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Balance display — only for direction 'send', never 'receive'
+// ---------------------------------------------------------------------------
+
+describe('accept page – initiator balance [security]', () => {
+	test('direction "send": renders the balance label', () => {
+		const { getByText } = render(AcceptPage, {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			props: { data: mockAuthData as any, form: null }
+		});
+
+		expect(getByText('Alice balance: €50.00')).toBeTruthy();
+	});
+
+	test('[security] direction "receive": never renders the balance label, even if present in data', () => {
+		const { container, queryByText } = render(AcceptPage, {
+			// A malformed/future server response could theoretically still set
+			// initiatorBalance for a 'receive' QR — the template's own `direction
+			// === 'send'` guard must suppress it regardless of what load() sends.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			props: { data: { ...mockAuthReceiveData, initiatorBalance: '€50.00' } as any, form: null }
+		});
+
+		expect(queryByText(/balance/i)).toBeNull();
+		expect(container.textContent).not.toContain('€50.00');
 	});
 });
