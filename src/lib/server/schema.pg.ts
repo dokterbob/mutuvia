@@ -15,17 +15,26 @@ import { sql } from 'drizzle-orm';
 // ── Better Auth managed tables ──
 // These are created/managed by Better Auth. We define them here for FK references only.
 
-export const user = pgTable('user', {
-	id: text('id').primaryKey(),
-	name: text('name'),
-	email: text('email'),
-	emailVerified: boolean('email_verified').notNull(),
-	image: text('image'),
-	createdAt: timestamp('created_at').notNull(),
-	updatedAt: timestamp('updated_at').notNull(),
-	phoneNumber: text('phone_number'),
-	phoneNumberVerified: boolean('phone_number_verified')
-});
+export const user = pgTable(
+	'user',
+	{
+		id: text('id').primaryKey(),
+		name: text('name'),
+		email: text('email'),
+		emailVerified: boolean('email_verified').notNull(),
+		image: text('image'),
+		createdAt: timestamp('created_at').notNull(),
+		updatedAt: timestamp('updated_at').notNull(),
+		phoneNumber: text('phone_number'),
+		phoneNumberVerified: boolean('phone_number_verified')
+	},
+	(table) => [
+		// See the matching comment in schema.sqlite.ts — same invariant, same
+		// NULL-tolerant unique-index semantics on both engines.
+		uniqueIndex('user_phone_number_idx').on(table.phoneNumber),
+		uniqueIndex('user_email_idx').on(table.email)
+	]
+);
 
 export const session = pgTable('session', {
 	id: text('id').primaryKey(),

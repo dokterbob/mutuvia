@@ -13,17 +13,43 @@ import { sql } from 'drizzle-orm';
 // ── Better Auth managed tables ──
 // These are created/managed by Better Auth. We define them here for FK references only.
 
-export const user = sqliteTable('user', {
-	id: text('id').primaryKey(),
-	name: text('name'),
-	email: text('email'),
-	emailVerified: integer('email_verified', { mode: 'boolean' }).notNull(),
-	image: text('image'),
-	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-	phoneNumber: text('phone_number'),
-	phoneNumberVerified: integer('phone_number_verified', { mode: 'boolean' })
-});
+export const user = sqliteTable(
+	'user',
+	{
+		id: text('id').primaryKey(),
+		name: text('name'),
+		email: text('email'),
+		emailVerified: integer('email_verified', { mode: 'boolean' }).notNull(),
+		image: text('image'),
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+		updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+		phoneNumber: text('phone_number'),
+		phoneNumberVerified: integer('phone_number_verified', { mode: 'boolean' })
+	},
+	(table) => [
+		// Backstop against the phone-number pre-claim attack (see auth.ts and
+		// auth.test.ts) and against two concurrent email/phone changes landing
+		// on the same value (see settings' change-email/change-phone races) —
+		// in either case the DB now rejects the write outright instead of
+		// silently allowing two users to share a credential.
+		//
+		// Both columns are nullable and a plain (non-partial, non-expression)
+		// unique index is used deliberately: SQLite and PostgreSQL both treat
+		// NULL as distinct from every other NULL under a unique constraint, so
+		// any number of users with no phone number (NULL) coexist fine — this
+		// is the only state we need to tolerate, since every user row always
+		// gets a non-null `email` (a real one, or a synthetic placeholder from
+		// `makePlaceholderEmail` for phone-first sign-ups — see
+		// src/lib/placeholder-email.ts). Case: every write path that sets
+		// `email` already lowercases it first (`/sign-in/email-otp`,
+		// `/email-otp/change-email`, `makePlaceholderEmail`'s digits-only
+		// output) — see schema.pg.ts / the migration for the detection queries
+		// to run before applying this to an existing database with
+		// case-varying or duplicate data.
+		uniqueIndex('user_phone_number_idx').on(table.phoneNumber),
+		uniqueIndex('user_email_idx').on(table.email)
+	]
+);
 
 export const session = sqliteTable('session', {
 	id: text('id').primaryKey(),
