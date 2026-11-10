@@ -5,6 +5,13 @@ import { env as publicEnv } from '$env/dynamic/public';
 
 const ANDROID_SHA256_FINGERPRINT = /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/;
 
+// `transactions.amount` / `payment_requests.amount` are PostgreSQL `integer`
+// (int4) on both providers' schemas (SQLite's `integer` column has no such
+// ceiling itself, but the two providers must behave identically). A value
+// above this would pass parseAmount() but then throw `22003 integer out of
+// range` as an unhandled 500 at INSERT time on PG.
+const PG_INT4_MAX = 2147483647;
+
 export const config = {
 	get appName() {
 		return publicEnv.PUBLIC_APP_NAME || 'Mutuvia';
@@ -28,13 +35,15 @@ export const config = {
 	// This is NOT a credit limit — it exists only to reject fat-fingered or
 	// malicious amounts (e.g. accidental extra zeros) before they reach the
 	// ledger. Default (100000000 = 1,000,000.00 in a 2-decimal currency) fits
-	// comfortably inside PostgreSQL's `integer` column type.
+	// comfortably inside PostgreSQL's `integer` column type. Capped at
+	// PG_INT4_MAX (2147483647) so the same config value behaves identically
+	// on both providers and can never itself overflow the ledger column.
 	get maxTransactionAmount() {
 		const raw = env.MAX_TRANSACTION_AMOUNT || '100000000';
 		const value = parseInt(raw, 10);
-		if (!Number.isSafeInteger(value) || value <= 0) {
+		if (!Number.isSafeInteger(value) || value <= 0 || value > PG_INT4_MAX) {
 			throw new Error(
-				`MAX_TRANSACTION_AMOUNT "${raw}" must be a positive integer (minor units), e.g. 100000000`
+				`MAX_TRANSACTION_AMOUNT "${raw}" must be a positive integer (minor units) no greater than ${PG_INT4_MAX} (PostgreSQL integer column max), e.g. 100000000`
 			);
 		}
 		return value;

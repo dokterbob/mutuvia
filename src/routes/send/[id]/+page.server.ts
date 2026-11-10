@@ -10,7 +10,7 @@ import { settleReusable } from '$lib/server/payment-requests';
 import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
 import { config } from '$lib/config';
-import { parseAmount } from '$lib/server/amount';
+import { parseAmount, parseStoredAmount } from '$lib/server/amount';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -39,8 +39,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	if (!qr.reusable) error(404, 'Not found');
 
 	if (!locals.session || !locals.appUser) {
-		const cookieAmount = cookies.get('qr_amount');
-		const prefilledAmount = cookieAmount ? parseInt(cookieAmount, 10) : null;
+		const prefilledAmount = parseStoredAmount(cookies.get('qr_amount'));
 		return {
 			needsAuth: true,
 			qrId: qr.id,
@@ -59,7 +58,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 
 	const scannerBalance = await getBalance(locals.appUser.id);
 	const cookieAmount = cookies.get('qr_amount');
-	const prefilledAmount = cookieAmount ? parseInt(cookieAmount, 10) : null;
+	const prefilledAmount = parseStoredAmount(cookieAmount);
 	if (cookieAmount) cookies.delete('qr_amount', { path: '/' });
 	return {
 		qrId: qr.id,
