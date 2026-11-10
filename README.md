@@ -31,7 +31,7 @@ bun run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-In development, SMS and email OTP codes are logged to the console (no Prelude credentials needed).
+With the default `.env.example` (`DEV_LOG_OTP=true`), SMS and email OTP codes are logged to the console — no Prelude or SMTP credentials needed.
 
 ---
 
@@ -47,6 +47,8 @@ cp .env.docker.example .env
 # Edit .env — generate secrets:
 #   bun run generate-secret  # paste output into QR_JWT_SECRET and BETTER_AUTH_SECRET
 # Set APP_URL if deploying to a fixed domain; omit for Render (auto-detected).
+# Also set PRELUDE_API_TOKEN or SMTP_HOST — the app refuses to start in
+# production with neither configured.
 
 # 2a. SQLite deployment
 docker compose --profile sqlite up -d
@@ -97,8 +99,9 @@ docker compose --profile postgres up -d
 | `QR_TTL_SECONDS`               | No       | `259200`                           | QR token validity window in seconds (default: 3 days).                                                                                                                                                                                                                            |
 | `EXPIRED_QR_RETENTION_SECONDS` | No       | `259200`                           | How long expired QR records are kept before cleanup (default: 3 days).                                                                                                                                                                                                            |
 | `MAX_TRANSACTION_AMOUNT`       | No       | `100000000`                        | Sanity bound on a single transaction's amount, in minor units (cents). Not a credit limit — only rejects fat-fingered or malicious amounts before they reach the ledger. Must not exceed `2147483647` (PostgreSQL `integer` max; ledger columns are `integer` on both providers). |
-| `PRELUDE_API_TOKEN`            | Prod     | —                                  | SMS OTP delivery via Prelude Verify. Omit in dev — OTPs log to console.                                                                                                                                                                                                           |
-| `SMTP_HOST`                    | Prod     | —                                  | SMTP server for email OTP. Works with any provider (Resend, Brevo, SES, etc.). Omit in dev — OTPs log to console.                                                                                                                                                                 |
+| `DEV_LOG_OTP`                  | No       | `false`                            | Prints OTPs to the console instead of sending them. Defaults off; set to `true` for local dev. Allowed in production (e.g. temporary debugging) but logs a loud startup warning and does **not** count as a configured delivery channel below.                                    |
+| `PRELUDE_API_TOKEN`            | Prod     | —                                  | SMS OTP delivery via Prelude Verify. At least one of this or `SMTP_HOST` is required in production — the app refuses to start otherwise. Omit in dev — set `DEV_LOG_OTP=true` to see OTPs in the console.                                                                         |
+| `SMTP_HOST`                    | Prod     | —                                  | SMTP server for email OTP. Works with any provider (Resend, Brevo, SES, etc.). Omit in dev — set `DEV_LOG_OTP=true` to see OTPs in the console.                                                                                                                                   |
 | `SMTP_PORT`                    | No       | `587`                              | SMTP port (`587` for STARTTLS, `465` for implicit TLS).                                                                                                                                                                                                                           |
 | `SMTP_SECURE`                  | No       | `false`                            | Set `true` for port 465 (implicit TLS); `false` uses STARTTLS.                                                                                                                                                                                                                    |
 | `SMTP_USER`                    | No       | —                                  | SMTP username (required when your provider needs auth).                                                                                                                                                                                                                           |

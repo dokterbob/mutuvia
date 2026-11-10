@@ -9,12 +9,19 @@ import { config } from '$lib/config';
 import { sendOtpEmail } from './mailer';
 import { makePlaceholderEmail } from '$lib/placeholder-email';
 import { closeSession } from './sse-registry';
+import { maskPhone } from './phone-mask';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
 const prelude = config.preludeApiToken ? new Prelude({ apiToken: config.preludeApiToken }) : null;
 
 export const auth = betterAuth({
+	// Without an explicit baseURL, Better Auth falls back to its own
+	// isProduction detection to decide whether session cookies get the
+	// Secure attribute — see node_modules/better-auth/dist/cookies/index.mjs.
+	// Passing it explicitly makes that decision depend on APP_URL's protocol
+	// instead, which is correct in every environment (prod, dev, E2E).
+	baseURL: config.appUrl,
 	database: drizzleAdapter(db, {
 		provider: config.dbProvider
 	}),
@@ -37,19 +44,25 @@ export const auth = betterAuth({
 			},
 			sendOTP: async ({ phoneNumber: phone, code }) => {
 				if (!prelude) {
-					if (process.env.NODE_ENV !== 'production') {
+					if (config.devLogOtp) {
 						console.log(`[DEV] OTP for ${phone}: ${code}`);
-					} else {
-						console.error('PRELUDE_API_TOKEN not configured');
+						return;
 					}
-					return;
+					// Throw rather than silently return — Better Auth logs this via
+					// its background-task error handler. Note this does NOT make
+					// the failure visible in the HTTP response: Better Auth's
+					// phone-number route always returns `{ message: "code sent" }`
+					// regardless of what sendOTP does (likely to avoid leaking
+					// phone-number enumeration signals), so "visible" here means
+					// visible in server logs, not to the calling client.
+					throw new Error('PRELUDE_API_TOKEN not configured — cannot send SMS OTP');
 				}
 				const result = await prelude.verification.create({
 					target: { type: 'phone_number', value: phone },
 					options: { code_size: 6 }
 				});
 				if (result.status === 'blocked') {
-					console.error(`Prelude blocked verification for ${phone}: ${result.reason}`);
+					console.error(`Prelude blocked verification for ${maskPhone(phone)}: ${result.reason}`);
 				}
 			},
 			// Only override verification when Prelude is configured —
