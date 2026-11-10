@@ -6,6 +6,7 @@ import {
 	integer,
 	primaryKey,
 	uniqueIndex,
+	index,
 	check
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
@@ -89,6 +90,21 @@ export const verification = sqliteTable('verification', {
 	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
 	createdAt: integer('created_at', { mode: 'timestamp' }),
 	updatedAt: integer('updated_at', { mode: 'timestamp' })
+});
+
+// Better Auth's own IP-based rate limiter, with `rateLimit.storage: 'database'`
+// in auth.ts. Field names (`key`, `count`, `lastRequest`) are dictated by
+// Better Auth's internal `getAuthTables()` (@better-auth/core/db/get-tables.mjs)
+// and MUST match exactly — the Drizzle adapter accesses them as plain JS
+// property names (not through its DB-column mapping), independent of the
+// actual SQL column names below. Better Auth does not prune this table
+// itself — see the "Rate limit table cleanup" note in the PR description for
+// what that means operationally.
+export const rateLimit = sqliteTable('rate_limit', {
+	id: text('id').primaryKey(),
+	key: text('key').notNull().unique(),
+	count: integer('count').notNull(),
+	lastRequest: integer('last_request').notNull()
 });
 
 // ── Application tables ──
@@ -199,4 +215,22 @@ export const pushSubscriptions = sqliteTable(
 	// ever have one owner for a given push endpoint. Subscribing re-assigns
 	// ownership to the subscribing user (see src/routes/api/push/subscribe/+server.ts).
 	(table) => [uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint)]
+);
+
+// Per-destination OTP send throttle — independent of client IP (see
+// src/lib/server/otp-throttle.ts for the atomic check-and-record logic).
+// One row per OTP actually sent to `destination` (a normalized E.164 phone
+// number or lowercased email). An append-only log rather than a counter
+// because we enforce two independent windows at once (e.g. 3/10min AND
+// 10/day) — a single counter+lastRequest row (Better Auth's own rateLimit
+// shape) can't represent that. Rows older than the longer window are pruned
+// opportunistically on each check, so this table stays bounded.
+export const otpThrottle = sqliteTable(
+	'otp_throttle',
+	{
+		id: text('id').primaryKey(),
+		destination: text('destination').notNull(),
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+	},
+	(table) => [index('otp_throttle_destination_idx').on(table.destination, table.createdAt)]
 );

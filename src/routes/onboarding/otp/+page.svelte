@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import * as m from '$lib/paraglide/messages.js';
 	import { authClient } from '$lib/auth-client';
+	import { otpSendErrorMessage } from '$lib/otp-error';
 	import { Button } from '$lib/components/ui/button';
 	import { OtpInput } from '$lib/components/ui/otp-input';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -43,7 +44,7 @@
 						type: 'sign-in'
 					});
 		if (result.error) {
-			authError = result.error.message || m.error_send_code();
+			authError = otpSendErrorMessage(result.error);
 		}
 	}
 </script>

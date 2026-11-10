@@ -6,6 +6,7 @@
 	import { onDestroy } from 'svelte';
 	import { authClient } from '$lib/auth-client';
 	import { isPlaceholderEmail } from '$lib/placeholder-email';
+	import { otpSendErrorMessage } from '$lib/otp-error';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -59,7 +60,7 @@
 		try {
 			const { error } = await authClient.emailOtp.requestEmailChange({ newEmail: newEmail.trim() });
 			if (error) {
-				emailError = error.message || m.error_send_code();
+				emailError = otpSendErrorMessage(error);
 			} else {
 				pendingEmail = newEmail.trim();
 				emailState = 'verifying';
@@ -97,7 +98,7 @@
 		emailError = '';
 		const { error } = await authClient.emailOtp.requestEmailChange({ newEmail: pendingEmail });
 		if (error) {
-			emailError = error.message || m.error_send_code();
+			emailError = otpSendErrorMessage(error);
 			throw new Error(emailError);
 		}
 	}
@@ -119,7 +120,7 @@
 		try {
 			const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: newPhone });
 			if (error) {
-				phoneError = error.message || m.error_send_code();
+				phoneError = otpSendErrorMessage(error);
 			} else {
 				pendingPhone = newPhone;
 				phoneState = 'verifying';
@@ -158,7 +159,7 @@
 		phoneError = '';
 		const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: pendingPhone });
 		if (error) {
-			phoneError = error.message || m.error_send_code();
+			phoneError = otpSendErrorMessage(error);
 			throw new Error(phoneError);
 		}
 	}

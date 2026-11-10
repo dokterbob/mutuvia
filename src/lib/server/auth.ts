@@ -4,6 +4,7 @@ import { betterAuth } from 'better-auth';
 import { createAuthMiddleware, APIError, isAPIError } from 'better-auth/api';
 import { phoneNumber, emailOTP } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import Prelude from '@prelude.so/sdk';
 import { db } from './db';
 import { config } from '$lib/config';
@@ -11,10 +12,67 @@ import { sendOtpEmail } from './mailer';
 import { makePlaceholderEmail } from '$lib/placeholder-email';
 import { closeSession } from './sse-registry';
 import { maskPhone } from './phone-mask';
+import { checkAndRecordOtpSend } from './otp-throttle';
+import { normalizeEmailDestination, normalizePhoneDestination } from './otp-destination';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
 const prelude = config.preludeApiToken ? new Prelude({ apiToken: config.preludeApiToken }) : null;
+
+// Marker stashed on `ctx.context` by `phoneNumberPlugin`'s `sendOTP` when
+// Prelude reports a verification as `blocked`, and read back by `hooks.after`
+// below to turn that into a real client-visible error. Needed because
+// Better Auth's `runInBackgroundOrAwait` (context/create-context.mjs)
+// unconditionally swallows anything `sendOTP` throws — including the
+// fire-and-forget case, which is the default here since
+// `advanced.backgroundTasks.handler` isn't configured — so a thrown error
+// inside `sendOTP` itself can NEVER reach the client; `hooks.after` can,
+// since it runs before the final response is produced (to-auth-endpoints.mjs).
+//
+// Two non-obvious things had to be verified empirically (see
+// auth-abuse.test.ts, which exercises this end to end against a real,
+// mocked-Prelude Better Auth instance) rather than assumed from reading the
+// source, because `better-call`'s middleware plumbing is more layered than
+// it looks:
+//   1. The `ctx` object `sendOTP`'s second argument receives is NOT the same
+//      object identity as the `ctx` a `hooks.after` `createAuthMiddleware`
+//      callback receives for the same request — each gets its own freshly
+//      constructed endpoint-context wrapper. Stashing directly on `ctx`
+//      (confirmed via dumping `Object.keys(ctx)`) does not survive between
+//      the two. `ctx.context`, however, IS the same object reference
+//      throughout one request's whole before/endpoint/after chain — it's
+//      built once per request in better-auth's to-auth-endpoints.mjs
+//      (`context: { ...authContext, returned: undefined, ... }`, a *fresh
+//      per-request copy* spread from the long-lived shared AuthContext, not
+//      that singleton itself) — so mutating it is request-scoped and safe
+//      under concurrency.
+//   2. A plain string key is used, not a Symbol: an earlier attempt with a
+//      Symbol-keyed property did not survive the trip (some context-merging
+//      step in that plumbing likely iterates `Object.keys()`, which excludes
+//      symbols) — switching to a string key, combined with #1, is what
+//      actually worked end to end.
+const PRELUDE_BLOCKED = '__mutuviaPreludeBlocked';
+
+/**
+ * Returns the normalized destination (see otp-destination.ts) an OTP would
+ * be sent to for this request, or `null` if `path` isn't one of the
+ * endpoints that actually triggers a send. Used by the throttle check in
+ * `hooks.before` below.
+ */
+function otpSendDestination(path: string, body: unknown): string | null {
+	if (!body || typeof body !== 'object') return null;
+	const b = body as Record<string, unknown>;
+	if (path === '/phone-number/send-otp' && typeof b.phoneNumber === 'string') {
+		return normalizePhoneDestination(b.phoneNumber);
+	}
+	if (path === '/email-otp/send-verification-otp' && typeof b.email === 'string') {
+		return normalizeEmailDestination(b.email);
+	}
+	if (path === '/email-otp/request-email-change' && typeof b.newEmail === 'string') {
+		return normalizeEmailDestination(b.newEmail);
+	}
+	return null;
+}
 
 // ── Phone number pre-claim fix (see auth.test.ts for the end-to-end attack) ──
 //
@@ -56,7 +114,27 @@ const phoneNumberPlugin = phoneNumber({
 	signUpOnVerification: {
 		getTempEmail: (phoneNumber) => makePlaceholderEmail(phoneNumber)
 	},
-	sendOTP: async ({ phoneNumber: phone, code }) => {
+	// SMS pumping (toll fraud) defense: reject phone numbers outside an
+	// operator-configured country allowlist before an OTP is ever sent.
+	// `false`/a thrown error both map to the same clean 400
+	// (PHONE_NUMBER_ERROR_CODES.INVALID_PHONE_NUMBER — see
+	// node_modules/better-auth/dist/plugins/phone-number/routes.mjs). Uses
+	// `libphonenumber-js` (already pulled in transitively by
+	// `svelte-tel-input`, the library `PhoneInput` itself uses — see
+	// src/lib/components/ui/phone-input — now a direct dependency since
+	// server code needs it independent of that client component) rather
+	// than hand-rolled calling-code prefix matching, which breaks for the
+	// many calling codes shared by multiple countries (+1, +44 extensions,
+	// etc). `undefined` (country not determinable) is rejected whenever an
+	// allowlist is configured — fail closed, since we can't confirm it's
+	// allowed.
+	phoneNumberValidator: (phone) => {
+		const allowlist = config.phoneCountryAllowlist;
+		if (!allowlist) return true;
+		const country = parsePhoneNumberFromString(phone)?.country;
+		return !!country && (allowlist as string[]).includes(country);
+	},
+	sendOTP: async ({ phoneNumber: phone, code }, ctx) => {
 		if (!prelude) {
 			if (config.devLogOtp) {
 				console.log(`[DEV] OTP for ${phone}: ${code}`);
@@ -71,12 +149,28 @@ const phoneNumberPlugin = phoneNumber({
 			// visible in server logs, not to the calling client.
 			throw new Error('PRELUDE_API_TOKEN not configured — cannot send SMS OTP');
 		}
+		// SMS-pumping signal: pass what's cheaply available about the caller
+		// so Prelude's own fraud detection can weigh it. `ip` comes from the
+		// same always-trustworthy header `hooks.server.ts` sets (see
+		// config.trustedIpHeader) — never a raw, client-spoofable header.
 		const result = await prelude.verification.create({
 			target: { type: 'phone_number', value: phone },
-			options: { code_size: 6 }
+			options: { code_size: 6 },
+			signals: {
+				ip: ctx?.headers?.get(config.trustedIpHeader) ?? undefined,
+				user_agent: ctx?.headers?.get('user-agent') ?? undefined,
+				app_version: config.appVersion
+			}
 		});
 		if (result.status === 'blocked') {
+			// Never log the phone number unmasked. `result.reason` is one of a
+			// fixed small set of enum strings (e.g. "suspicious",
+			// "repeated_attempts") — never derived from the phone number
+			// itself, so it's safe to log as-is.
 			console.error(`Prelude blocked verification for ${maskPhone(phone)}: ${result.reason}`);
+			// See the PRELUDE_BLOCKED comment above: this is how the client
+			// actually finds out, since a throw here would be swallowed.
+			if (ctx) (ctx.context as unknown as Record<string, boolean>)[PRELUDE_BLOCKED] = true;
 		}
 	},
 	// Only override verification when Prelude is configured —
@@ -120,7 +214,38 @@ export const auth = betterAuth({
 	// through baseURL or Better Auth's own `isProduction`, which is baked at
 	// build time and unreliable — see patches/svelte-adapter-bun@*.patch.
 	advanced: {
-		useSecureCookies: config.appUrl.startsWith('https://')
+		useSecureCookies: config.appUrl.startsWith('https://'),
+		ipAddress: {
+			// Better Auth's default (`x-forwarded-for`) is a raw, client-settable
+			// header — reading it directly would let a client pick its own
+			// rate-limit bucket. `config.trustedIpHeader` instead names a header
+			// `src/hooks.server.ts` always sets itself, from SvelteKit's own
+			// `event.getClientAddress()`, after stripping any client-supplied
+			// value of that same header first. See README's "Reverse proxy /
+			// client IP" section.
+			ipAddressHeaders: [config.trustedIpHeader]
+		}
+	},
+	// Explicit, not `?? config.isProduction` — see `config.rateLimitEnabled`'s
+	// own doc comment for why. `storage: 'database'` needs the `rateLimit`
+	// table (schema.sqlite.ts / schema.pg.ts) and is NOT self-pruning — see
+	// the PR description for what that means operationally.
+	rateLimit: {
+		enabled: config.rateLimitEnabled,
+		storage: 'database',
+		window: 60,
+		max: 20,
+		customRules: {
+			// Better Auth's own default special rules already cover
+			// `/sign-in/*` (3/10s) and `/email-otp/send-verification-otp`
+			// (3/60s) — these are set explicitly anyway so the policy for
+			// every OTP-sending/verifying endpoint is documented in one place
+			// rather than split between here and Better Auth's defaults.
+			'/phone-number/send-otp': { window: 60, max: 3 },
+			'/email-otp/send-verification-otp': { window: 60, max: 3 },
+			'/phone-number/verify': { window: 60, max: 5 },
+			'/sign-in/email-otp': { window: 60, max: 5 }
+		}
 	},
 	database: drizzleAdapter(db, {
 		provider: config.dbProvider
@@ -242,6 +367,28 @@ export const auth = betterAuth({
 					message: 'phoneNumber is not allowed on this endpoint'
 				});
 			}
+
+			// Per-destination OTP send throttle — independent of client IP
+			// (which Better Auth's own `rateLimit` below already covers).
+			// This has to run as a `hooks.before` check that THROWS, rather
+			// than inside `sendOTP`/`sendVerificationOTP`: Better Auth's
+			// `runInBackgroundOrAwait` swallows anything those throw (see the
+			// PRELUDE_BLOCKED comment above), so this is the only place a
+			// throttle rejection can actually reach the client as a 429. Every
+			// endpoint that triggers an OTP send to a destination the caller
+			// controls goes through this — not just the obvious sign-in send
+			// endpoints, but also `requestEmailChange` (which sends to an
+			// arbitrary new address).
+			const destination = config.otpThrottleEnabled ? otpSendDestination(ctx.path, ctx.body) : null;
+			if (destination) {
+				const result = await checkAndRecordOtpSend(destination);
+				if (!result.ok) {
+					throw new APIError('TOO_MANY_REQUESTS', {
+						message: 'Too many attempts. Please try again later.',
+						retryAfterSeconds: result.retryAfterSeconds
+					});
+				}
+			}
 		}),
 		// Server-side session revocation on credential change (so it can't be
 		// skipped by a client). Both endpoints below keep the CURRENT session
@@ -282,6 +429,16 @@ export const auth = betterAuth({
 			const succeeded = !isAPIError(ctx.context.returned);
 			if ((isPhoneCredentialChange || isEmailCredentialChange) && succeeded) {
 				await revokeOtherSessionsForCredentialChange(ctx.headers ?? new Headers());
+			}
+
+			// See the PRELUDE_BLOCKED comment above `phoneNumberPlugin`: this is
+			// the only way a `blocked` Prelude result can reach the client,
+			// since the throw it would otherwise need lives inside `sendOTP`,
+			// which Better Auth always swallows.
+			if ((ctx.context as unknown as Record<string, boolean>)[PRELUDE_BLOCKED]) {
+				throw new APIError('FORBIDDEN', {
+					message: 'Unable to send verification code to this phone number.'
+				});
 			}
 		})
 	},
