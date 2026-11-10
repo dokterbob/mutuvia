@@ -229,6 +229,32 @@ bun run db:generate:pg
 DB_PROVIDER=pg bun run db:migrate
 ```
 
+### Upgrading to unique `user.email` / `user.phone_number`
+
+A migration adds unique indexes on `user.email` and `user.phone_number`
+(closing an account-takeover path where an attacker could pre-claim another
+person's phone number). Both columns stay nullable — NULL never conflicts
+with another NULL on either engine — but if your database already has
+duplicate non-null values, the migration fails loudly (a clear "UNIQUE
+constraint failed" / "could not create unique index" error) rather than
+silently dropping or merging rows. Check for duplicates **before**
+upgrading:
+
+```sql
+-- Same SQL on SQLite and PostgreSQL
+SELECT phone_number, COUNT(*) FROM "user"
+WHERE phone_number IS NOT NULL GROUP BY phone_number HAVING COUNT(*) > 1;
+
+SELECT email, COUNT(*) FROM "user"
+WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1;
+```
+
+If either query returns rows, resolve the duplicates manually first (there
+is no safe automatic merge — decide per case which account is real, migrate
+its data via `app_users`/`connections`/`transactions`, then null out or
+change the losing account's duplicate credential) before running
+`bun run db:migrate`.
+
 ---
 
 ## Project Structure
