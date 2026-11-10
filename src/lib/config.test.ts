@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 
-const { privateEnv } = vi.hoisted(() => ({
-	privateEnv: {} as Record<string, string | undefined>
+const { privateEnv, devFlag } = vi.hoisted(() => ({
+	privateEnv: {} as Record<string, string | undefined>,
+	// Mutable wrapper so tests can flip `dev` ($app/environment) per case —
+	// a plain exported boolean would be snapshotted once at mock-setup time.
+	devFlag: { value: false }
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: privateEnv }));
 vi.mock('$env/dynamic/public', () => ({ env: {} }));
+vi.mock('$app/environment', () => ({
+	get dev() {
+		return devFlag.value;
+	}
+}));
 
 import { config, validateConfig, BETTER_AUTH_SECRET_PLACEHOLDER } from './config';
 
@@ -89,20 +97,49 @@ describe('config (maxTransactionAmount)', () => {
 describe('config (isProduction)', () => {
 	beforeEach(() => {
 		delete privateEnv.NODE_ENV;
+		// Baseline: a built server (`bun run dev` would set this true via the
+		// real $app/environment; everything else — Docker, Playwright's
+		// webServer, a bare `bun build/index.js` — is a built server).
+		devFlag.value = false;
 	});
 
-	test('given no NODE_ENV, when read, then isProduction is false', () => {
-		expect(config.isProduction).toBe(false);
+	// This is the fail-closed fix: a built server with no NODE_ENV at all
+	// must be treated as production, not silently skip validation.
+	test('given a built server and no NODE_ENV, when read, then isProduction is true', () => {
+		expect(config.isProduction).toBe(true);
 	});
 
-	test('given NODE_ENV=development, when read, then isProduction is false', () => {
+	test('given a built server and NODE_ENV=development, when read, then isProduction is false', () => {
 		privateEnv.NODE_ENV = 'development';
 		expect(config.isProduction).toBe(false);
 	});
 
-	test('given NODE_ENV=production, when read, then isProduction is true', () => {
+	test('given a built server and NODE_ENV=test, when read, then isProduction is false', () => {
+		privateEnv.NODE_ENV = 'test';
+		expect(config.isProduction).toBe(false);
+	});
+
+	test('given a built server and NODE_ENV=production, when read, then isProduction is true', () => {
 		privateEnv.NODE_ENV = 'production';
 		expect(config.isProduction).toBe(true);
+	});
+
+	test('given a built server and an unrecognized NODE_ENV, when read, then isProduction is true', () => {
+		privateEnv.NODE_ENV = 'staging';
+		expect(config.isProduction).toBe(true);
+	});
+
+	// `bun run dev` — $app/environment's `dev` is true — is never
+	// production, regardless of NODE_ENV.
+	test('given dev (bun run dev) and no NODE_ENV, when read, then isProduction is false', () => {
+		devFlag.value = true;
+		expect(config.isProduction).toBe(false);
+	});
+
+	test('given dev (bun run dev) and NODE_ENV=production, when read, then isProduction is still false', () => {
+		devFlag.value = true;
+		privateEnv.NODE_ENV = 'production';
+		expect(config.isProduction).toBe(false);
 	});
 });
 
@@ -178,20 +215,60 @@ describe('validateConfig', () => {
 		delete privateEnv.DEV_LOG_OTP;
 		delete privateEnv.QR_TTL_SECONDS;
 		delete privateEnv.EXPIRED_QR_RETENTION_SECONDS;
+		// Baseline: a built server (Docker, Playwright's webServer, a bare
+		// `bun build/index.js`) — NOT `bun run dev`.
+		devFlag.value = false;
 	});
 
-	describe('given a non-production environment', () => {
-		test('when validated with nothing configured, then does not throw', () => {
+	describe('given dev (bun run dev)', () => {
+		beforeEach(() => {
+			devFlag.value = true;
+		});
+
+		test('when validated with nothing configured, then does not throw — dev is never production', () => {
 			expect(() => validateConfig()).not.toThrow();
 		});
 
-		test('when validated with a malformed QR_TTL_SECONDS, then still throws', () => {
+		test('when validated even with NODE_ENV=production, then still does not throw', () => {
+			privateEnv.NODE_ENV = 'production';
+			expect(() => validateConfig()).not.toThrow();
+		});
+	});
+
+	// The fail-closed fix: a built server must validate unless explicitly
+	// told it isn't production — an unset NODE_ENV must NOT skip checks.
+	describe('given a built server with NODE_ENV unset', () => {
+		test('when validated with nothing configured, then throws — an unset NODE_ENV is treated as production', () => {
+			expect(() => validateConfig()).toThrow(/BETTER_AUTH_SECRET/);
+		});
+
+		test('when validated with a full valid production config, then does not throw', () => {
+			privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+			privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+			privateEnv.APP_URL = 'https://example.com';
+			expect(() => validateConfig()).not.toThrow();
+		});
+	});
+
+	describe('given a built server with NODE_ENV=development or test', () => {
+		test('when validated with nothing configured, then does not throw (NODE_ENV=development)', () => {
+			privateEnv.NODE_ENV = 'development';
+			expect(() => validateConfig()).not.toThrow();
+		});
+
+		test('when validated with nothing configured, then does not throw (NODE_ENV=test)', () => {
+			privateEnv.NODE_ENV = 'test';
+			expect(() => validateConfig()).not.toThrow();
+		});
+
+		test('when validated with a malformed QR_TTL_SECONDS, then still throws — that check is unconditional', () => {
+			privateEnv.NODE_ENV = 'test';
 			privateEnv.QR_TTL_SECONDS = 'abc';
 			expect(() => validateConfig()).toThrow(/QR_TTL_SECONDS/);
 		});
 	});
 
-	describe('given a production environment', () => {
+	describe('given a production environment (NODE_ENV=production)', () => {
 		beforeEach(() => {
 			privateEnv.NODE_ENV = 'production';
 		});
