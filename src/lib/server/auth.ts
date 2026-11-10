@@ -16,12 +16,20 @@ import { maskPhone } from './phone-mask';
 const prelude = config.preludeApiToken ? new Prelude({ apiToken: config.preludeApiToken }) : null;
 
 export const auth = betterAuth({
-	// Without an explicit baseURL, Better Auth falls back to its own
-	// isProduction detection to decide whether session cookies get the
-	// Secure attribute — see node_modules/better-auth/dist/cookies/index.mjs.
-	// Passing it explicitly makes that decision depend on APP_URL's protocol
-	// instead, which is correct in every environment (prod, dev, E2E).
-	baseURL: config.appUrl,
+	// Deliberately NOT setting `baseURL`. Better Auth's own route matcher
+	// (isAuthPath, in better-auth/dist/integrations/svelte-kit.mjs) compares
+	// the incoming request's origin against `baseURL`'s origin and 404s on
+	// any mismatch — direct port access, a LAN IP, or a proxy that doesn't
+	// preserve Host would all then break every /api/auth/* route with no
+	// diagnostic. Leaving it unset makes Better Auth derive the origin from
+	// each request instead (see getBaseURL in better-auth/dist/utils/url.mjs),
+	// which is what correctly happened before `trustedOrigins` below existed.
+	// Cookie security is driven explicitly instead (next line) rather than
+	// through baseURL or Better Auth's own `isProduction`, which is baked at
+	// build time and unreliable — see patches/svelte-adapter-bun@*.patch.
+	advanced: {
+		useSecureCookies: config.appUrl.startsWith('https://')
+	},
 	database: drizzleAdapter(db, {
 		provider: config.dbProvider
 	}),

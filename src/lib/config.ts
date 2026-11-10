@@ -2,6 +2,7 @@
 
 import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
+import { dev } from '$app/environment';
 import { isValidHostPattern } from '$lib/server/push-endpoint';
 
 const ANDROID_SHA256_FINGERPRINT = /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/;
@@ -74,14 +75,25 @@ export const config = {
 	get appUrl() {
 		return env.APP_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:5173';
 	},
-	// Read from `$env/dynamic/private` (never inlined at build time) rather
-	// than a bare `process.env.NODE_ENV` reference — the production bundler
-	// (rolldown, via svelte-adapter-bun) statically replaces bare
-	// `process.env.NODE_ENV` reads with a literal at build time, which is
-	// NOT the same thing as this app's runtime environment. See the
-	// `patches/svelte-adapter-bun@*.patch` comment for the full story.
+	// Fails CLOSED: a built server (`dev` false — see $app/environment,
+	// resolved correctly at Vite's build stage regardless of the
+	// svelte-adapter-bun/NODE_ENV bake story below) is treated as production
+	// UNLESS runtime NODE_ENV explicitly says otherwise (`development` or
+	// `test`). An unset NODE_ENV on a built server is production — it must
+	// NOT silently skip validateConfig()'s checks. `bun run dev` (`dev`
+	// true) is never production, regardless of NODE_ENV.
+	//
+	// Deliberately reads `env.NODE_ENV` from `$env/dynamic/private` (never
+	// inlined at build time) rather than a bare `process.env.NODE_ENV`
+	// reference — the production bundler (rolldown, via svelte-adapter-bun)
+	// statically replaces bare `process.env.NODE_ENV` reads with a literal
+	// at build time, which is NOT the same thing as this app's runtime
+	// environment. See the `patches/svelte-adapter-bun@*.patch` comment for
+	// the full story — that bake affects Better Auth's own internal
+	// isProduction, not this getter.
 	get isProduction() {
-		return env.NODE_ENV === 'production';
+		if (dev) return false;
+		return env.NODE_ENV !== 'development' && env.NODE_ENV !== 'test';
 	},
 	// Explicit opt-in to log OTPs to the console. Defaults off; set
 	// DEV_LOG_OTP=true for local dev ergonomics (see .env.example). Enabling
@@ -204,7 +216,12 @@ export function validateConfig(): void {
 	void config.qrTtlSeconds;
 	void config.expiredQrRetentionSeconds;
 
-	if (!config.isProduction) return;
+	if (!config.isProduction) {
+		console.log(
+			`[config] Skipping production startup validation (dev=${dev}, NODE_ENV=${env.NODE_ENV ?? 'unset'}).`
+		);
+		return;
+	}
 
 	const secret = env.BETTER_AUTH_SECRET;
 	if (!secret) {
@@ -234,7 +251,9 @@ export function validateConfig(): void {
 
 	if (!config.appUrl.startsWith('https://')) {
 		console.warn(
-			`[WARNING] APP_URL "${config.appUrl}" is not https in production — cookies and QR links may not be secure.`
+			`[WARNING] APP_URL "${config.appUrl}" is not https in production — the Better Auth ` +
+				'session cookie will NOT get the Secure attribute (see advanced.useSecureCookies in ' +
+				'auth.ts), and QR links will be built as http.'
 		);
 	}
 }
