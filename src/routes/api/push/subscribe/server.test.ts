@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
 	selectLimitFn,
+	selectOrderByFn,
 	insertOnConflictFn,
 	deleteWhereFn,
 	dbSelectMock,
@@ -14,17 +15,23 @@ const {
 	dbDeleteMock,
 	randomUUIDMock
 } = vi.hoisted(() => {
-	// --- Select chain ---
+	// --- Select chain — supports both .where().limit() and .where().orderBy() ---
 	const selectLimitFn = vi.fn();
+	const selectOrderByFn = vi.fn();
 	const selectWhereFn = vi.fn();
 	const selectFromFn = vi.fn();
-	const selectChain = { from: selectFromFn, where: selectWhereFn, limit: selectLimitFn };
+	const selectChain = {
+		from: selectFromFn,
+		where: selectWhereFn,
+		limit: selectLimitFn,
+		orderBy: selectOrderByFn
+	};
 	selectFromFn.mockReturnValue(selectChain);
 	selectWhereFn.mockReturnValue(selectChain);
 
 	// --- Insert chain ---
 	const insertOnConflictFn = vi.fn().mockResolvedValue(undefined);
-	const insertValuesFn = vi.fn().mockReturnValue({ onConflictDoNothing: insertOnConflictFn });
+	const insertValuesFn = vi.fn().mockReturnValue({ onConflictDoUpdate: insertOnConflictFn });
 	const insertChain = { values: insertValuesFn };
 
 	// --- Delete chain ---
@@ -39,6 +46,7 @@ const {
 
 	return {
 		selectLimitFn,
+		selectOrderByFn,
 		insertOnConflictFn,
 		deleteWhereFn,
 		dbSelectMock,
@@ -60,13 +68,20 @@ vi.mock('$lib/server/schema', () => ({
 	pushSubscriptions: {
 		id: 'pushSubscriptions.id',
 		userId: 'pushSubscriptions.userId',
-		endpoint: 'pushSubscriptions.endpoint'
+		endpoint: 'pushSubscriptions.endpoint',
+		createdAt: 'pushSubscriptions.createdAt'
 	}
+}));
+
+vi.mock('$lib/config', () => ({
+	config: { pushEndpointExtraHosts: [] }
 }));
 
 vi.mock('drizzle-orm', () => ({
 	eq: vi.fn((a: unknown, b: unknown) => `${String(a)}=${String(b)}`),
-	and: vi.fn((...args: unknown[]) => args.join(' AND '))
+	and: vi.fn((...args: unknown[]) => args.join(' AND ')),
+	desc: vi.fn((a: unknown) => `${String(a)} DESC`),
+	inArray: vi.fn((a: unknown, b: unknown) => `${String(a)} IN (${String(b)})`)
 }));
 
 vi.mock('node:crypto', () => ({ randomUUID: randomUUIDMock }));
@@ -89,10 +104,16 @@ import { POST as unsubscribePOST } from '../unsubscribe/+server';
 // Helpers
 // ---------------------------------------------------------------------------
 
+// A valid 65-byte uncompressed P-256 point (0x04 prefix + 64 bytes) and a
+// valid 16-byte auth secret, both base64url-encoded — see push-endpoint.test.ts.
+const VALID_P256DH =
+	'BAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE';
+const VALID_AUTH = 'AgICAgICAgICAgICAgICAg';
+
 function makeSubscribeRequest(bodyOverrides: Record<string, unknown> = {}) {
 	const body = {
 		endpoint: 'https://fcm.googleapis.com/test-endpoint',
-		keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
+		keys: { p256dh: VALID_P256DH, auth: VALID_AUTH },
 		userAgent: 'test-agent',
 		...bodyOverrides
 	};
@@ -108,6 +129,14 @@ function makeSubscribeEvent(overrides: Record<string, unknown> = {}) {
 		locals: { appUser: { id: 'user-123', displayName: 'Alice' } },
 		request: makeSubscribeRequest(),
 		...overrides
+	};
+}
+
+/** Like makeSubscribeEvent(), but the overrides apply to the request body. */
+function makeSubscribeEventWithBody(bodyOverrides: Record<string, unknown> = {}) {
+	return {
+		locals: { appUser: { id: 'user-123', displayName: 'Alice' } },
+		request: makeSubscribeRequest(bodyOverrides)
 	};
 }
 
@@ -136,9 +165,14 @@ describe('POST /api/push/subscribe', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		selectLimitFn.mockReset();
+		selectOrderByFn.mockReset();
 		insertOnConflictFn.mockResolvedValue(undefined);
 		deleteWhereFn.mockResolvedValue(undefined);
 		randomUUIDMock.mockReturnValue('test-uuid-1234');
+		// Default: the ownership-check select returns the freshly inserted row,
+		// and the cap-check select returns just that one row (no eviction).
+		selectLimitFn.mockResolvedValue([{ id: 'test-uuid-1234' }]);
+		selectOrderByFn.mockResolvedValue([{ id: 'test-uuid-1234' }]);
 	});
 
 	describe('given an unauthenticated request', () => {
@@ -151,11 +185,23 @@ describe('POST /api/push/subscribe', () => {
 	});
 
 	describe('given an authenticated request with an invalid body', () => {
+		it('returns 400 when the body is not JSON', async () => {
+			const request = new Request('http://localhost/api/push/subscribe', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: 'not json'
+			});
+			const event = { locals: { appUser: { id: 'user-123' } }, request };
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(event as any);
+			expect(res.status).toBe(400);
+		});
+
 		it('returns 400 when endpoint is missing', async () => {
 			const request = new Request('http://localhost/api/push/subscribe', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ keys: { p256dh: 'x', auth: 'y' } })
+				body: JSON.stringify({ keys: { p256dh: VALID_P256DH, auth: VALID_AUTH } })
 			});
 			const event = { locals: { appUser: { id: 'user-123' } }, request };
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -167,37 +213,125 @@ describe('POST /api/push/subscribe', () => {
 			const request = new Request('http://localhost/api/push/subscribe', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ endpoint: 'https://fcm.test' })
+				body: JSON.stringify({ endpoint: 'https://fcm.googleapis.com/test' })
 			});
 			const event = { locals: { appUser: { id: 'user-123' } }, request };
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const res = await subscribePOST(event as any);
 			expect(res.status).toBe(400);
 		});
+
+		it('returns 400 when keys.p256dh is malformed', async () => {
+			const event = makeSubscribeEventWithBody({ keys: { p256dh: 'bad', auth: VALID_AUTH } });
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const res = await subscribePOST(event as any);
+			expect(res.status).toBe(400);
+		});
+
+		describe('given a disallowed endpoint host or scheme', () => {
+			it('returns 400 for a private IP literal', async () => {
+				const event = makeSubscribeEventWithBody({
+					endpoint: 'https://169.254.169.254/latest/meta-data'
+				});
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const res = await subscribePOST(event as any);
+				expect(res.status).toBe(400);
+				const body = await res.json();
+				expect(body.error).toMatch(/IP address/i);
+			});
+
+			it('returns 400 for http:', async () => {
+				const event = makeSubscribeEventWithBody({ endpoint: 'http://fcm.googleapis.com/test' });
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const res = await subscribePOST(event as any);
+				expect(res.status).toBe(400);
+				const body = await res.json();
+				expect(body.error).toMatch(/https/i);
+			});
+
+			it('returns 400 for an unknown host', async () => {
+				const event = makeSubscribeEventWithBody({ endpoint: 'https://evil.example.com/test' });
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const res = await subscribePOST(event as any);
+				expect(res.status).toBe(400);
+				const body = await res.json();
+				expect(body.error).toMatch(/not an allowed push service/i);
+			});
+		});
+
+		describe('given an allowed host', () => {
+			it('returns 201 for fcm.googleapis.com', async () => {
+				const event = makeSubscribeEventWithBody({ endpoint: 'https://fcm.googleapis.com/test' });
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const res = await subscribePOST(event as any);
+				expect(res.status).toBe(201);
+			});
+		});
 	});
 
 	describe('given an authenticated request with a valid body', () => {
 		it('stores the subscription and returns 201 when new', async () => {
-			// select returns the newly inserted row (id matches randomUUID → new)
-			selectLimitFn.mockResolvedValueOnce([{ id: 'test-uuid-1234' }]);
-
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const res = await subscribePOST(makeSubscribeEvent() as any);
+			const res = await subscribePOST(
+				makeSubscribeEvent() as unknown as Parameters<typeof subscribePOST>[0]
+			);
 			expect(res.status).toBe(201);
 			const body = await res.json();
 			expect(body.id).toBe('test-uuid-1234');
 			expect(dbInsertMock).toHaveBeenCalled();
+			expect(insertOnConflictFn).toHaveBeenCalledWith(
+				expect.objectContaining({ target: 'pushSubscriptions.endpoint' })
+			);
 		});
 
 		it('is idempotent — returns 200 with pre-existing id on re-subscribe', async () => {
 			// select returns a pre-existing row (id differs from randomUUID → existing)
-			selectLimitFn.mockResolvedValueOnce([{ id: 'existing-uuid' }]);
+			selectLimitFn.mockResolvedValue([{ id: 'existing-uuid' }]);
+			selectOrderByFn.mockResolvedValue([{ id: 'existing-uuid' }]);
 
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const res = await subscribePOST(makeSubscribeEvent() as any);
+			const res = await subscribePOST(
+				makeSubscribeEvent() as unknown as Parameters<typeof subscribePOST>[0]
+			);
 			expect(res.status).toBe(200);
 			const body = await res.json();
 			expect(body.id).toBe('existing-uuid');
+		});
+
+		it('transfers ownership when the endpoint already belongs to a different user', async () => {
+			// The row that comes back after the upsert belongs to the current user
+			// (userId was overwritten by onConflictDoUpdate) but keeps its original id.
+			selectLimitFn.mockResolvedValue([{ id: 'previous-owners-row-id' }]);
+			selectOrderByFn.mockResolvedValue([{ id: 'previous-owners-row-id' }]);
+
+			const res = await subscribePOST(
+				makeSubscribeEvent() as unknown as Parameters<typeof subscribePOST>[0]
+			);
+			expect(res.status).toBe(200);
+			expect(insertOnConflictFn).toHaveBeenCalledWith(
+				expect.objectContaining({
+					set: expect.objectContaining({ userId: 'user-123' })
+				})
+			);
+		});
+
+		it('caps subscriptions per user, dropping the oldest beyond the cap', async () => {
+			const rows = Array.from({ length: 12 }, (_, i) => ({ id: `row-${i}` }));
+			selectOrderByFn.mockResolvedValue(rows);
+
+			await subscribePOST(makeSubscribeEvent() as unknown as Parameters<typeof subscribePOST>[0]);
+
+			expect(dbDeleteMock).toHaveBeenCalled();
+			expect(deleteWhereFn).toHaveBeenCalledWith(
+				expect.stringContaining('row-10') // oldest two beyond the cap of 10
+			);
+		});
+
+		it('does not delete anything when at or under the cap', async () => {
+			const rows = Array.from({ length: 10 }, (_, i) => ({ id: `row-${i}` }));
+			selectOrderByFn.mockResolvedValue(rows);
+
+			await subscribePOST(makeSubscribeEvent() as unknown as Parameters<typeof subscribePOST>[0]);
+
+			expect(dbDeleteMock).not.toHaveBeenCalled();
 		});
 	});
 });
@@ -223,6 +357,14 @@ describe('POST /api/push/unsubscribe', () => {
 			const res = await unsubscribePOST(makeUnsubscribeEvent() as any);
 			expect(res.status).toBe(200);
 			expect(dbDeleteMock).toHaveBeenCalled();
+		});
+
+		it('scopes deletion to the caller — only rows owned by locals.appUser.id', async () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await unsubscribePOST(makeUnsubscribeEvent() as any);
+			expect(deleteWhereFn).toHaveBeenCalledWith(
+				expect.stringContaining('pushSubscriptions.userId=user-123')
+			);
 		});
 
 		it('returns 200 even when endpoint was not found (idempotent)', async () => {

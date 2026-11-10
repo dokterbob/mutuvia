@@ -1,20 +1,56 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// DB mock — only used by the keepalive session-revalidation path, which only
+// ever runs once fake timers are advanced past KEEPALIVE_INTERVAL_MS (20s).
+// Tests that don't advance timers never touch this mock.
+// ---------------------------------------------------------------------------
+
+const { selectLimitFn, dbSelectMock } = vi.hoisted(() => {
+	const selectLimitFn = vi.fn();
+	const selectWhereFn = vi.fn().mockReturnValue({ limit: selectLimitFn });
+	const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+	const dbSelectMock = vi.fn().mockReturnValue({ from: selectFromFn });
+	return { selectLimitFn, dbSelectMock };
+});
+
+vi.mock('$lib/server/db', () => ({
+	db: { select: dbSelectMock }
+}));
+
+vi.mock('$lib/server/schema', () => ({
+	session: { id: 'session.id', expiresAt: 'session.expiresAt' }
+}));
+
+vi.mock('drizzle-orm', () => ({
+	eq: vi.fn((a: unknown, b: unknown) => `${String(a)}=${String(b)}`)
+}));
+
 import { GET } from './+server';
 import { emit } from '$lib/server/sse-registry';
 import type { QrCompletedEvent, QrDeclinedEvent } from '$lib/notifications';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 type GetEvent = Parameters<typeof GET>[0];
 
-function makeEvent(appUser: { id: string } | null, headers?: HeadersInit): GetEvent {
+function makeEvent(
+	appUser: { id: string } | null,
+	options?: { headers?: HeadersInit; sessionId?: string }
+): GetEvent {
 	return {
-		request: new Request('http://localhost/api/events', { headers }),
-		locals: { appUser }
+		request: new Request('http://localhost/api/events', { headers: options?.headers }),
+		locals: {
+			appUser,
+			session: appUser ? { id: options?.sessionId ?? `session-for-${appUser.id}` } : null
+		}
 	} as unknown as GetEvent;
 }
+
+const FAR_FUTURE = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -49,6 +85,8 @@ function nextUserId(): string {
 describe('GET /api/events', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
+		selectLimitFn.mockReset();
+		selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
 	});
 
 	afterEach(() => {
@@ -153,7 +191,7 @@ describe('GET /api/events', () => {
 			// Open a second connection with the header present to verify it is ignored.
 			const secondUserId = nextUserId();
 			const response = GET(
-				makeEvent({ id: secondUserId }, { 'Last-Event-ID': qrCompleted.id })
+				makeEvent({ id: secondUserId }, { headers: { 'Last-Event-ID': qrCompleted.id } })
 			) as Response;
 			const reader2 = response.body!.getReader();
 
@@ -238,6 +276,43 @@ describe('GET /api/events', () => {
 			} finally {
 				await reader2.cancel();
 			}
+		});
+
+		// -----------------------------------------------------------------------
+		// 8. Keepalive re-validates the session every tick
+		// -----------------------------------------------------------------------
+
+		describe('keepalive session re-validation', () => {
+			it('keeps pinging while the session remains valid', async () => {
+				await reader.read(); // initial ping
+
+				selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { value, done } = await reader.read();
+				expect(done).toBe(false);
+				expect(decoder.decode(value)).toBe(': ping\n\n');
+			});
+
+			it('closes the stream once the session has expired', async () => {
+				await reader.read(); // initial ping
+
+				selectLimitFn.mockResolvedValue([{ expiresAt: new Date(Date.now() - 1000) }]);
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { done } = await reader.read();
+				expect(done).toBe(true);
+			});
+
+			it('closes the stream once the session row no longer exists', async () => {
+				await reader.read(); // initial ping
+
+				selectLimitFn.mockResolvedValue([]);
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { done } = await reader.read();
+				expect(done).toBe(true);
+			});
 		});
 	});
 });
