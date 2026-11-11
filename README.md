@@ -246,6 +246,10 @@ a raw number of seconds.
   database `status` stays `'active'` until the owner pauses or archives it — the pending list, the
   scan-to-pay landing page, and `/api/qr-status/[id]` all derive "expired" from `expires_at` rather
   than trusting `status` alone.
+- `QR_TTL_SECONDS`, `REUSABLE_QR_TTL_SECONDS` and `QR_MAX_TTL_SECONDS` are each capped at
+  315360000 seconds (10 years) — an absurdly large value (e.g. a stray extra digit) is rejected at
+  boot instead of silently overflowing into an `Invalid Date` on the first QR created under it.
+  `EXPIRED_QR_RETENTION_SECONDS` has no such ceiling — it's a retention window, not a QR lifetime.
 
 ### Database provider
 

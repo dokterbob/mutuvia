@@ -138,11 +138,19 @@ export function settleOneTimeAccept(qrId: string, acceptingUserId: string): Sett
  *
  * Validation reads happen first (for precise error messages), then the
  * counter increment is the atomic claim: a conditional UPDATE requiring
- * `status='active'`, with RETURNING. Only once that claim succeeds does the
- * ledger row get inserted — so a forced failure of the ledger insert rolls
- * back the counter increment too (real atomicity), and a request that was
- * paused/archived/declined between the read and the claim is rejected
- * without writing a ledger row.
+ * `status='active' AND not expired` (the same `notExpiredCondition()` used by
+ * `settleOneTimeAccept()`), with RETURNING. Only once that claim succeeds
+ * does the ledger row get inserted — so a forced failure of the ledger insert
+ * rolls back the counter increment too (real atomicity), and a request that
+ * expired, or was paused/archived/declined, between the pre-read and the
+ * claim is rejected without writing a ledger row.
+ *
+ * A single `now`, taken once at the top of the transaction, is used for the
+ * pre-read's expiry check, the claim's `notExpiredCondition()`, and
+ * `updatedAt`/`createdAt` below — the pre-read and the claim must agree on
+ * what "now" means, or a QR that expires in the gap between them (however
+ * small — this is one transaction, not two separate round trips) could pass
+ * the pre-read's check yet still lose the claim as expired (or vice versa).
  */
 export function settleReusable(
 	paymentRequestId: string,
@@ -162,6 +170,8 @@ export function settleReusable(
 
 	return db.transaction(
 		(tx) => {
+			const now = new Date();
+
 			const [pr] = tx
 				.select()
 				.from(paymentRequests)
@@ -182,10 +192,8 @@ export function settleReusable(
 					status: 400,
 					error: 'Amount does not match the required amount'
 				} as const;
-			if (isExpired(pr.expiresAt))
+			if (isExpired(pr.expiresAt, now))
 				return { ok: false, status: 410, error: 'Payment request has expired' } as const;
-
-			const now = new Date();
 
 			const claimed = tx
 				.update(paymentRequests)
@@ -194,12 +202,29 @@ export function settleReusable(
 					paymentCount: sql`${paymentRequests.paymentCount} + 1`,
 					updatedAt: now
 				})
-				.where(and(eq(paymentRequests.id, paymentRequestId), eq(paymentRequests.status, 'active')))
+				.where(
+					and(
+						eq(paymentRequests.id, paymentRequestId),
+						eq(paymentRequests.status, 'active'),
+						notExpiredCondition(paymentRequests.expiresAt, now)
+					)
+				)
 				.returning()
 				.all();
 
 			if (claimed.length !== 1) {
-				return { ok: false, status: 409, error: 'Payment request is not active' } as const;
+				// Zero rows: the status or expiry condition failed the claim. The
+				// pre-read already ruled out status !== 'active' and an expiry it
+				// could see, so in practice this means the QR expired in the gap
+				// between the pre-read and the claim (a concurrent
+				// pause/archive/decline is also possible) — report it as expired
+				// either way. No ledger row has been written yet (the insert below
+				// hasn't run), so there is nothing to roll back.
+				return {
+					ok: false,
+					status: 410,
+					error: 'Payment request has expired'
+				} as const;
 			}
 
 			const txId = crypto.randomUUID();

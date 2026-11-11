@@ -16,6 +16,7 @@ import { rmSync } from 'node:fs';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import * as schema from './schema.sqlite';
 import { eq, and } from 'drizzle-orm';
+import * as qrExpiry from './qr-expiry';
 
 // settlement.sqlite.ts imports the live singleton from `./db.sqlite`, which
 // opens `config.dbFileName` at module load time. We can't inject a db
@@ -362,6 +363,33 @@ describe('settleReusable — real SQLite transaction', () => {
 			expect(result).toMatchObject({ ok: false, status: 410 });
 			expect(countTransactions('rpr-expired')).toBe(0);
 			expect(getPr('rpr-expired')?.totalReceived).toBe(0);
+		});
+
+		// Review fix (PR #137 follow-up): the pre-read's own `isExpired()` call
+		// isn't the only thing standing between an expired QR and the ledger —
+		// the claim UPDATE's WHERE must independently reject it too (defense in
+		// depth, and the only thing that would have caught a QR that expired in
+		// the gap between the pre-read and the claim, however small that gap
+		// really is). Proven here by disabling the pre-read's own check — if
+		// the claim's WHERE didn't also have `notExpiredCondition()`, this
+		// would settle anyway, because `status` stays 'active' regardless of
+		// expiry. Before the fix, this test failed (ok:true, a ledger row
+		// written) with exactly this setup.
+		test('When the pre-read check is bypassed → the claim itself still rejects it, with no ledger row', () => {
+			const isExpiredSpy = vi.spyOn(qrExpiry, 'isExpired').mockReturnValue(false);
+			try {
+				seedReusablePr('rpr-bypass', { expiresAt: new Date(Date.now() - 1000) });
+
+				const result = settleReusable('rpr-bypass', ACCEPTOR, 1000);
+
+				expect(isExpiredSpy).toHaveBeenCalled();
+				expect(result).toMatchObject({ ok: false, status: 410 });
+				expect(countTransactions('rpr-bypass')).toBe(0);
+				expect(getPr('rpr-bypass')?.totalReceived).toBe(0);
+				expect(getPr('rpr-bypass')?.paymentCount).toBe(0);
+			} finally {
+				isExpiredSpy.mockRestore();
+			}
 		});
 	});
 

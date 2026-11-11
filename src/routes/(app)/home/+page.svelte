@@ -219,6 +219,13 @@
 								</p>
 							</div>
 							<div class="flex items-center gap-2">
+								{#if item.expiresAt}
+									<p class="text-xs text-muted-foreground">
+										{m.qr_expires({
+											time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+										})}
+									</p>
+								{/if}
 								<span
 									class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
 								>
