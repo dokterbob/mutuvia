@@ -13,7 +13,11 @@ import { makePlaceholderEmail } from '$lib/placeholder-email';
 import { closeSession } from './sse-registry';
 import { maskPhone } from './phone-mask';
 import { checkAndRecordOtpSend } from './otp-throttle';
-import { normalizeEmailDestination, normalizePhoneDestination } from './otp-destination';
+import {
+	canonicalE164,
+	normalizeEmailDestination,
+	normalizePhoneDestination
+} from './otp-destination';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
@@ -72,6 +76,47 @@ function otpSendDestination(path: string, body: unknown): string | null {
 		return normalizeEmailDestination(b.newEmail);
 	}
 	return null;
+}
+
+/**
+ * Review fix (PR #136): the per-destination throttle key used to only
+ * `.trim()` a phone number, so "+15550001111" and "+1 5550001111" landed in
+ * different buckets — an attacker could spend unlimited distinct throttle
+ * buckets against the same real number just by varying whitespace, fully
+ * defeating the throttle. Canonicalizing the key alone isn't enough on its
+ * own, though: `/phone-number/verify` writes `ctx.body.phoneNumber`
+ * *directly* to `user.phone_number` (in both the `signUpOnVerification` and
+ * `updatePhoneNumber` branches — see routes.mjs), so a non-canonical string
+ * reaching that endpoint would also sidestep the unique index on
+ * `user.phone_number` added in PR #135 ("+1 555…" and "+1555…" would count
+ * as two different strings to SQLite/Postgres).
+ *
+ * Rejecting outright (rather than silently rewriting the body to the
+ * canonical form) is the simpler and safer of the two options `canonicalE164`
+ * and `normalizePhoneDestination`'s doc comments describe: it needs no
+ * `hooks.before` request-mutation machinery, and it never second-guesses
+ * what the caller meant. It also costs nothing for real users: the actual
+ * client (PhoneInput / svelte-tel-input) always emits clean E.164 with no
+ * internal whitespace, so only a non-standard caller is ever affected.
+ *
+ * Applied to both endpoints that accept a `phoneNumber` body field and can
+ * trigger a send/write: `/phone-number/send-otp` (so a malformed number
+ * never reaches the throttle count or Prelude) and `/phone-number/verify`
+ * (so a malformed number never reaches `createUser`/`updateUser`). Uses the
+ * exact same message Better Auth's own `phoneNumberValidator` rejection
+ * already shows for a disallowed country (`PHONE_NUMBER_ERROR_CODES.
+ * INVALID_PHONE_NUMBER` = "Invalid phone number") — this is not a new
+ * user-facing string, so it needs no new i18n/localization entry.
+ */
+function rejectNonCanonicalPhoneNumber(path: string, body: unknown): void {
+	if (path !== '/phone-number/send-otp' && path !== '/phone-number/verify') return;
+	if (!body || typeof body !== 'object') return;
+	const raw = (body as Record<string, unknown>).phoneNumber;
+	if (typeof raw !== 'string') return;
+	const canonical = canonicalE164(raw);
+	if (!canonical || canonical !== raw) {
+		throw new APIError('BAD_REQUEST', { message: 'Invalid phone number' });
+	}
 }
 
 // ── Phone number pre-claim fix (see auth.test.ts for the end-to-end attack) ──
@@ -367,6 +412,10 @@ export const auth = betterAuth({
 					message: 'phoneNumber is not allowed on this endpoint'
 				});
 			}
+
+			// Must run before the throttle check below — see
+			// rejectNonCanonicalPhoneNumber's doc comment.
+			rejectNonCanonicalPhoneNumber(ctx.path, ctx.body);
 
 			// Per-destination OTP send throttle — independent of client IP
 			// (which Better Auth's own `rateLimit` below already covers).
