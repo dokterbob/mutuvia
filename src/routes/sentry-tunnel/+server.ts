@@ -66,11 +66,21 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
 	const upstreamUrl = `https://${envelopeDsn.hostname}/api/${dsnProjectId(envelopeDsn)}/envelope/`;
 
-	const upstream = await fetch(upstreamUrl, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/x-sentry-envelope' },
-		body: rawBody.buffer as ArrayBuffer
-	});
+	let upstream: Response;
+	try {
+		upstream = await fetch(upstreamUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-sentry-envelope' },
+			body: rawBody.buffer as ArrayBuffer,
+			// Bounds how long this unauthenticated-by-nature endpoint will hold
+			// a connection open on a slow/unresponsive upstream — see
+			// config.sentryTunnelUpstreamTimeoutMs's doc comment.
+			signal: AbortSignal.timeout(config.sentryTunnelUpstreamTimeoutMs)
+		});
+	} catch (err) {
+		console.error('[sentry-tunnel] upstream request failed:', err);
+		return new Response('Upstream error', { status: 504 });
+	}
 
 	return new Response(null, { status: upstream.status });
 };

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const { privateEnv, publicEnv, devFlag } = vi.hoisted(() => ({
 	privateEnv: {} as Record<string, string | undefined>,
@@ -493,6 +493,83 @@ describe('validateConfig', () => {
 			}
 		});
 
+		// Review round 1, finding 2: HSTS (src/lib/server/security-headers.ts)
+		// is only trustworthy once svelte-adapter-bun is told how to
+		// determine each request's real protocol — without ORIGIN or
+		// PROTOCOL_HEADER it defaults every request to 'https', which can
+		// make HSTS fire even when real traffic arrives over plain http.
+		describe('given a non-https APP_URL (HSTS warning only applies when APP_URL IS https)', () => {
+			test('when validated with no ORIGIN/PROTOCOL_HEADER, then does not warn about them', () => {
+				privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+				privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+				privateEnv.APP_URL = 'http://example.com';
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					validateConfig();
+					expect(warnSpy).not.toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+		});
+
+		describe('given an https APP_URL', () => {
+			beforeEach(() => {
+				privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+				privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+				privateEnv.APP_URL = 'https://example.com';
+			});
+
+			afterEach(() => {
+				delete privateEnv.ORIGIN;
+				delete privateEnv.PROTOCOL_HEADER;
+			});
+
+			test('when neither ORIGIN nor PROTOCOL_HEADER is set, then warns that the adapter cannot verify the real protocol', () => {
+				delete privateEnv.ORIGIN;
+				delete privateEnv.PROTOCOL_HEADER;
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					expect(() => validateConfig()).not.toThrow();
+					expect(warnSpy).toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+
+			test('when ORIGIN is set, then does not warn', () => {
+				privateEnv.ORIGIN = 'https://example.com';
+				delete privateEnv.PROTOCOL_HEADER;
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					validateConfig();
+					expect(warnSpy).not.toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+
+			test('when PROTOCOL_HEADER is set, then does not warn', () => {
+				delete privateEnv.ORIGIN;
+				privateEnv.PROTOCOL_HEADER = 'x-forwarded-proto';
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					validateConfig();
+					expect(warnSpy).not.toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+		});
+
 		test('when validated with a malformed EXPIRED_QR_RETENTION_SECONDS, then throws even before reaching the secret checks', () => {
 			privateEnv.EXPIRED_QR_RETENTION_SECONDS = '-5';
 			expect(() => validateConfig()).toThrow(/EXPIRED_QR_RETENTION_SECONDS/);
@@ -724,5 +801,25 @@ describe('config (sentryTunnelMaxBodyBytes)', () => {
 	test('given a non-positive value, when read, then throws', () => {
 		privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES = '0';
 		expect(() => config.sentryTunnelMaxBodyBytes).toThrow(/SENTRY_TUNNEL_MAX_BODY_BYTES/);
+	});
+});
+
+describe('config (sentryTunnelUpstreamTimeoutMs)', () => {
+	beforeEach(() => {
+		delete privateEnv.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS;
+	});
+
+	test('given no env var, when read, then defaults to 5000ms', () => {
+		expect(config.sentryTunnelUpstreamTimeoutMs).toBe(5000);
+	});
+
+	test('given a custom value, when read, then uses it', () => {
+		privateEnv.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS = '2000';
+		expect(config.sentryTunnelUpstreamTimeoutMs).toBe(2000);
+	});
+
+	test('given a non-positive value, when read, then throws', () => {
+		privateEnv.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS = '0';
+		expect(() => config.sentryTunnelUpstreamTimeoutMs).toThrow(/SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS/);
 	});
 });

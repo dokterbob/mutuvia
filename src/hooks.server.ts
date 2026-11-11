@@ -166,19 +166,25 @@ const mainSequence = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, au
  *   gets headers, matching what `src/hooks.server.test.ts`'s existing
  *   `authHandle` tests already assert the redirect looks like.
  * - NOT covered, and accepted: a handful of pre-`handle` framework-internal
- *   paths in respond.js itself — a malformed-URI 400, a `reroute` hook
- *   error, the `/${app_dir}/env.js`/`/${app_dir}/*` 404s, and the canonical
- *   trailing-slash 308 redirect. None carry cookies or page content; the
- *   final response once a trailing-slash redirect lands on its canonical
- *   path IS covered. An uncaught non-Redirect throw from one of OUR OWN
- *   hook functions (not currently possible — none of them can throw besides
- *   the one redirect() case above) would also escape unheadered; this is a
- *   latent gap, not an active one.
+ *   paths in respond.js itself, all checked at the very top of
+ *   `internal_respond()` BEFORE `options.hooks.handle(...)` is ever called —
+ *   SvelteKit's own built-in CSRF origin check (a cross-site, non-JSON form
+ *   POST/PUT/PATCH/DELETE gets a plain-text 403 straight from respond.js,
+ *   with none of the headers below — this app also relies on that check,
+ *   see README's "Security headers" -> "Known gaps"), a malformed-URI 400, a
+ *   `reroute` hook error, the `/${app_dir}/env.js`/`/${app_dir}/*` 404s, and
+ *   the canonical trailing-slash 308 redirect. None of these carry cookies
+ *   or page content; the final response once a trailing-slash redirect
+ *   lands on its canonical path IS covered. An uncaught non-Redirect throw
+ *   from one of OUR OWN hook functions (not currently possible — none of
+ *   them can throw besides the one redirect() case above) would also escape
+ *   unheadered; this is a latent gap, not an active one.
  */
 function finalizeResponse(event: Parameters<Handle>[0]['event'], response: Response): Response {
 	applySecurityHeaders(response, {
 		pathname: event.url.pathname,
 		isHttps: event.url.protocol === 'https:',
+		appUrlIsHttps: config.appUrl.startsWith('https://'),
 		authenticated: !!event.locals.user,
 		hstsMaxAgeSeconds: config.hstsMaxAgeSeconds,
 		hstsIncludeSubdomains: config.hstsIncludeSubdomains

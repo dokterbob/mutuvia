@@ -92,53 +92,54 @@ docker compose --profile postgres up -d
 
 The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (length/shape) test, not full validity, so two numbers that are merely structurally plausible but not both real, assigned numbers — e.g. `+39612345678` alongside `+390612345678` — are each accepted and each get their own throttle budget. These are not aliases of one handset (unlike the email cases above); they're simply different, or non-existent, numbers, so there is no real destination being double-counted — and any actual abuse through this gap is still bounded by the per-IP limiter and by Prelude's own fraud checks on the send itself.
 
-| Variable                           | Required | Default                            | Description                                                                                                                                                                                                                                                                            |
-| ---------------------------------- | -------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QR_JWT_SECRET`                    | **Yes**  | —                                  | Min 32 chars. Signs QR JWT tokens.                                                                                                                                                                                                                                                     |
-| `BETTER_AUTH_SECRET`               | **Yes**  | —                                  | Min 32 chars. Signs Better Auth sessions.                                                                                                                                                                                                                                              |
-| `APP_URL`                          | No       | auto-detected                      | Public base URL. Used in QR links and auth. On Render, falls back to `RENDER_EXTERNAL_URL`. In dev, falls back to the Vite server's network URL (LAN IP when `--host` is used).                                                                                                        |
-| `PORT`                             | No       | `3000`                             | Server listen port.                                                                                                                                                                                                                                                                    |
-| `PUBLIC_APP_NAME`                  | No       | `Mutuvia`                          | Display name for rebranding.                                                                                                                                                                                                                                                           |
-| `PUBLIC_APP_TAGLINE`               | No       | `Together, we are more.`           | Tagline fallback (localized via i18n).                                                                                                                                                                                                                                                 |
-| `PUBLIC_COMMUNITY_DOC_URL`         | No       | —                                  | URL linked in Settings → About.                                                                                                                                                                                                                                                        |
-| `DB_PROVIDER`                      | No       | `sqlite`                           | Database backend: `sqlite` or `pg`.                                                                                                                                                                                                                                                    |
-| `DB_FILE_NAME`                     | No       | `sqlite.db`                        | SQLite file path.                                                                                                                                                                                                                                                                      |
-| `DATABASE_URL`                     | PG only  | —                                  | Full PostgreSQL connection URL including password.                                                                                                                                                                                                                                     |
-| `POSTGRES_PASSWORD`                | PG only  | `mutuvia`                          | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                                                                                                                                    |
-| `UNIT_CODE`                        | No       | `EUR`                              | ISO 4217 code or custom unit identifier.                                                                                                                                                                                                                                               |
-| `PUBLIC_UNIT_SYMBOL`               | No       | `€`                                | Displayed unit symbol.                                                                                                                                                                                                                                                                 |
-| `PUBLIC_UNIT_DISPLAY_NAME`         | No       | `euro`                             | Lowercase singular name for the unit.                                                                                                                                                                                                                                                  |
-| `QR_TTL_SECONDS`                   | No       | `259200`                           | Default expiry for a **one-time** QR, in seconds (default: 3 days). The creator can pick a different preset (1h/1d/3d/1w/30d) in the app; this is only the default selection.                                                                                                          |
-| `REUSABLE_QR_TTL_SECONDS`          | No       | — (never)                          | Default expiry for a **reusable** QR, in seconds. Unset/empty means "never expire" — the historical behavior. See "QR expiry" below.                                                                                                                                                   |
-| `QR_MAX_TTL_SECONDS`               | No       | — (unbounded)                      | Optional upper bound, in seconds, on any QR's expiry. Removes every preset above it, and removes "never" entirely (even for reusable QRs). The app refuses to start if `QR_TTL_SECONDS` or `REUSABLE_QR_TTL_SECONDS` would exceed it — see "QR expiry" below.                          |
-| `EXPIRED_QR_RETENTION_SECONDS`     | No       | `259200`                           | How long expired QR records stay in the pending list before being hidden (default: 3 days). Display-only today — there is no background deletion job.                                                                                                                                  |
-| `MAX_TRANSACTION_AMOUNT`           | No       | `100000000`                        | Sanity bound on a single transaction's amount, in minor units (cents). Not a credit limit — only rejects fat-fingered or malicious amounts before they reach the ledger. Must not exceed `2147483647` (PostgreSQL `integer` max; ledger columns are `integer` on both providers).      |
-| `DEV_LOG_OTP`                      | No       | `false`                            | Prints OTPs to the console instead of sending them. Defaults off; set to `true` for local dev. Allowed in production (e.g. temporary debugging) but logs a loud startup warning and does **not** count as a configured delivery channel below.                                         |
-| `TRUSTED_IP_HEADER`                | No       | `x-mutuvia-client-ip`              | Header Better Auth's rate limiter reads the client IP from. The app manages this header itself on every request — see "Reverse proxy / client IP" above. Only change this if you have a specific reason to rename it.                                                                  |
-| `RATE_LIMIT_DISABLE_FOR_TESTING`   | No       | `false`                            | Test-only kill switch for Better Auth's rate limiter. Only honoured when `NODE_ENV` is `development`/`test` (never in production, regardless of this value) — logs a loud startup warning whenever it's in effect. Used by Playwright's `webServer`; do not set in a real deployment.  |
-| `OTP_THROTTLE_DISABLE_FOR_TESTING` | No       | `false`                            | Same kill switch, for the independent per-destination OTP send throttle (3 sends/10 min, 10/day per phone number or email). Same production fail-closed behaviour and startup warning as above.                                                                                        |
-| `PHONE_COUNTRY_ALLOWLIST`          | No       | —                                  | Comma-separated ISO 3166-1 alpha-2 country codes (e.g. `PT,NL,DE,ES,FR`). When set, phone sign-up/OTP is restricted to numbers resolving to one of these countries — an SMS-pumping (toll fraud) defense. A number whose country can't be determined is rejected whenever this is set. |
-| `PRELUDE_API_TOKEN`                | Prod     | —                                  | SMS OTP delivery via Prelude Verify. At least one of this or `SMTP_HOST` is required in production — the app refuses to start otherwise. Omit in dev — set `DEV_LOG_OTP=true` to see OTPs in the console.                                                                              |
-| `SMTP_HOST`                        | Prod     | —                                  | SMTP server for email OTP. Works with any provider (Resend, Brevo, SES, etc.). Omit in dev — set `DEV_LOG_OTP=true` to see OTPs in the console.                                                                                                                                        |
-| `SMTP_PORT`                        | No       | `587`                              | SMTP port (`587` for STARTTLS, `465` for implicit TLS).                                                                                                                                                                                                                                |
-| `SMTP_SECURE`                      | No       | `false`                            | Set `true` for port 465 (implicit TLS); `false` uses STARTTLS.                                                                                                                                                                                                                         |
-| `SMTP_USER`                        | No       | —                                  | SMTP username (required when your provider needs auth).                                                                                                                                                                                                                                |
-| `SMTP_PASS`                        | No       | —                                  | SMTP password. Must be set together with `SMTP_USER`.                                                                                                                                                                                                                                  |
-| `SMTP_FROM`                        | No       | `{APP_NAME} <noreply@example.com>` | Sender address for OTP emails.                                                                                                                                                                                                                                                         |
-| `PUBLIC_VAPID_KEY`                 | Push     | —                                  | VAPID public key for Web Push. Generate with `bunx web-push generate-vapid-keys`. Required for push notifications to backgrounded PWA users.                                                                                                                                           |
-| `PRIVATE_VAPID_KEY`                | Push     | —                                  | VAPID private key for Web Push.                                                                                                                                                                                                                                                        |
-| `VAPID_SUBJECT`                    | No       | `mailto:admin@example.com`         | VAPID contact URL (`mailto:` or `https:`).                                                                                                                                                                                                                                             |
-| `PUSH_ENDPOINT_EXTRA_HOSTS`        | No       | —                                  | Comma-separated extra push-endpoint hosts to allow beyond the built-in browser vendor allowlist (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `*.push.apple.com`, `*.notify.windows.com`). Each entry is an exact host or `*.suffix`.                                    |
-| `ANDROID_PACKAGE_NAME`             | Android  | `org.mutuvia.app`                  | Android `applicationId` served in `/.well-known/assetlinks.json`.                                                                                                                                                                                                                      |
-| `ANDROID_SHA256_FINGERPRINTS`      | Android  | —                                  | Comma-separated SHA-256 fingerprints of the APK signing certificate; serves `/.well-known/assetlinks.json`.                                                                                                                                                                            |
-| `PUBLIC_SENTRY_DSN`                | No       | —                                  | Sentry DSN. Set to enable error tracking and the feedback widget.                                                                                                                                                                                                                      |
-| `SENTRY_AUTH_TOKEN`                | CI       | —                                  | Sentry auth token for source map uploads. Only needed in CI builds.                                                                                                                                                                                                                    |
-| `SENTRY_ORG`                       | CI       | —                                  | Sentry organisation slug. Only needed in CI builds.                                                                                                                                                                                                                                    |
-| `SENTRY_PROJECT`                   | CI       | —                                  | Sentry project slug. Only needed in CI builds.                                                                                                                                                                                                                                         |
-| `PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | No       | `0.1`                              | Fraction (0–1) of transactions sampled for Sentry performance tracing. Shared by client and server init — see "Security headers" below.                                                                                                                                                |
-| `SENTRY_TUNNEL_MAX_BODY_BYTES`     | No       | `5000000`                          | Cap on a single `/sentry-tunnel` request body, enforced against actual bytes streamed (never the client-supplied `Content-Length`).                                                                                                                                                    |
-| `HSTS_MAX_AGE_SECONDS`             | No       | `15552000`                         | `Strict-Transport-Security` max-age, in seconds (180 days). Only sent when the request is seen as https.                                                                                                                                                                               |
-| `HSTS_INCLUDE_SUBDOMAINS`          | No       | `false`                            | Adds `includeSubDomains` to the HSTS header. Off by default — see "Security headers" below for why.                                                                                                                                                                                    |
+| Variable                            | Required | Default                            | Description                                                                                                                                                                                                                                                                            |
+| ----------------------------------- | -------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QR_JWT_SECRET`                     | **Yes**  | —                                  | Min 32 chars. Signs QR JWT tokens.                                                                                                                                                                                                                                                     |
+| `BETTER_AUTH_SECRET`                | **Yes**  | —                                  | Min 32 chars. Signs Better Auth sessions.                                                                                                                                                                                                                                              |
+| `APP_URL`                           | No       | auto-detected                      | Public base URL. Used in QR links and auth. On Render, falls back to `RENDER_EXTERNAL_URL`. In dev, falls back to the Vite server's network URL (LAN IP when `--host` is used).                                                                                                        |
+| `PORT`                              | No       | `3000`                             | Server listen port.                                                                                                                                                                                                                                                                    |
+| `PUBLIC_APP_NAME`                   | No       | `Mutuvia`                          | Display name for rebranding.                                                                                                                                                                                                                                                           |
+| `PUBLIC_APP_TAGLINE`                | No       | `Together, we are more.`           | Tagline fallback (localized via i18n).                                                                                                                                                                                                                                                 |
+| `PUBLIC_COMMUNITY_DOC_URL`          | No       | —                                  | URL linked in Settings → About.                                                                                                                                                                                                                                                        |
+| `DB_PROVIDER`                       | No       | `sqlite`                           | Database backend: `sqlite` or `pg`.                                                                                                                                                                                                                                                    |
+| `DB_FILE_NAME`                      | No       | `sqlite.db`                        | SQLite file path.                                                                                                                                                                                                                                                                      |
+| `DATABASE_URL`                      | PG only  | —                                  | Full PostgreSQL connection URL including password.                                                                                                                                                                                                                                     |
+| `POSTGRES_PASSWORD`                 | PG only  | `mutuvia`                          | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                                                                                                                                    |
+| `UNIT_CODE`                         | No       | `EUR`                              | ISO 4217 code or custom unit identifier.                                                                                                                                                                                                                                               |
+| `PUBLIC_UNIT_SYMBOL`                | No       | `€`                                | Displayed unit symbol.                                                                                                                                                                                                                                                                 |
+| `PUBLIC_UNIT_DISPLAY_NAME`          | No       | `euro`                             | Lowercase singular name for the unit.                                                                                                                                                                                                                                                  |
+| `QR_TTL_SECONDS`                    | No       | `259200`                           | Default expiry for a **one-time** QR, in seconds (default: 3 days). The creator can pick a different preset (1h/1d/3d/1w/30d) in the app; this is only the default selection.                                                                                                          |
+| `REUSABLE_QR_TTL_SECONDS`           | No       | — (never)                          | Default expiry for a **reusable** QR, in seconds. Unset/empty means "never expire" — the historical behavior. See "QR expiry" below.                                                                                                                                                   |
+| `QR_MAX_TTL_SECONDS`                | No       | — (unbounded)                      | Optional upper bound, in seconds, on any QR's expiry. Removes every preset above it, and removes "never" entirely (even for reusable QRs). The app refuses to start if `QR_TTL_SECONDS` or `REUSABLE_QR_TTL_SECONDS` would exceed it — see "QR expiry" below.                          |
+| `EXPIRED_QR_RETENTION_SECONDS`      | No       | `259200`                           | How long expired QR records stay in the pending list before being hidden (default: 3 days). Display-only today — there is no background deletion job.                                                                                                                                  |
+| `MAX_TRANSACTION_AMOUNT`            | No       | `100000000`                        | Sanity bound on a single transaction's amount, in minor units (cents). Not a credit limit — only rejects fat-fingered or malicious amounts before they reach the ledger. Must not exceed `2147483647` (PostgreSQL `integer` max; ledger columns are `integer` on both providers).      |
+| `DEV_LOG_OTP`                       | No       | `false`                            | Prints OTPs to the console instead of sending them. Defaults off; set to `true` for local dev. Allowed in production (e.g. temporary debugging) but logs a loud startup warning and does **not** count as a configured delivery channel below.                                         |
+| `TRUSTED_IP_HEADER`                 | No       | `x-mutuvia-client-ip`              | Header Better Auth's rate limiter reads the client IP from. The app manages this header itself on every request — see "Reverse proxy / client IP" above. Only change this if you have a specific reason to rename it.                                                                  |
+| `RATE_LIMIT_DISABLE_FOR_TESTING`    | No       | `false`                            | Test-only kill switch for Better Auth's rate limiter. Only honoured when `NODE_ENV` is `development`/`test` (never in production, regardless of this value) — logs a loud startup warning whenever it's in effect. Used by Playwright's `webServer`; do not set in a real deployment.  |
+| `OTP_THROTTLE_DISABLE_FOR_TESTING`  | No       | `false`                            | Same kill switch, for the independent per-destination OTP send throttle (3 sends/10 min, 10/day per phone number or email). Same production fail-closed behaviour and startup warning as above.                                                                                        |
+| `PHONE_COUNTRY_ALLOWLIST`           | No       | —                                  | Comma-separated ISO 3166-1 alpha-2 country codes (e.g. `PT,NL,DE,ES,FR`). When set, phone sign-up/OTP is restricted to numbers resolving to one of these countries — an SMS-pumping (toll fraud) defense. A number whose country can't be determined is rejected whenever this is set. |
+| `PRELUDE_API_TOKEN`                 | Prod     | —                                  | SMS OTP delivery via Prelude Verify. At least one of this or `SMTP_HOST` is required in production — the app refuses to start otherwise. Omit in dev — set `DEV_LOG_OTP=true` to see OTPs in the console.                                                                              |
+| `SMTP_HOST`                         | Prod     | —                                  | SMTP server for email OTP. Works with any provider (Resend, Brevo, SES, etc.). Omit in dev — set `DEV_LOG_OTP=true` to see OTPs in the console.                                                                                                                                        |
+| `SMTP_PORT`                         | No       | `587`                              | SMTP port (`587` for STARTTLS, `465` for implicit TLS).                                                                                                                                                                                                                                |
+| `SMTP_SECURE`                       | No       | `false`                            | Set `true` for port 465 (implicit TLS); `false` uses STARTTLS.                                                                                                                                                                                                                         |
+| `SMTP_USER`                         | No       | —                                  | SMTP username (required when your provider needs auth).                                                                                                                                                                                                                                |
+| `SMTP_PASS`                         | No       | —                                  | SMTP password. Must be set together with `SMTP_USER`.                                                                                                                                                                                                                                  |
+| `SMTP_FROM`                         | No       | `{APP_NAME} <noreply@example.com>` | Sender address for OTP emails.                                                                                                                                                                                                                                                         |
+| `PUBLIC_VAPID_KEY`                  | Push     | —                                  | VAPID public key for Web Push. Generate with `bunx web-push generate-vapid-keys`. Required for push notifications to backgrounded PWA users.                                                                                                                                           |
+| `PRIVATE_VAPID_KEY`                 | Push     | —                                  | VAPID private key for Web Push.                                                                                                                                                                                                                                                        |
+| `VAPID_SUBJECT`                     | No       | `mailto:admin@example.com`         | VAPID contact URL (`mailto:` or `https:`).                                                                                                                                                                                                                                             |
+| `PUSH_ENDPOINT_EXTRA_HOSTS`         | No       | —                                  | Comma-separated extra push-endpoint hosts to allow beyond the built-in browser vendor allowlist (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `*.push.apple.com`, `*.notify.windows.com`). Each entry is an exact host or `*.suffix`.                                    |
+| `ANDROID_PACKAGE_NAME`              | Android  | `org.mutuvia.app`                  | Android `applicationId` served in `/.well-known/assetlinks.json`.                                                                                                                                                                                                                      |
+| `ANDROID_SHA256_FINGERPRINTS`       | Android  | —                                  | Comma-separated SHA-256 fingerprints of the APK signing certificate; serves `/.well-known/assetlinks.json`.                                                                                                                                                                            |
+| `PUBLIC_SENTRY_DSN`                 | No       | —                                  | Sentry DSN. Set to enable error tracking and session replay. (The interactive feedback widget is deliberately not used — see "Security headers" below.)                                                                                                                                |
+| `SENTRY_AUTH_TOKEN`                 | CI       | —                                  | Sentry auth token for source map uploads. Only needed in CI builds.                                                                                                                                                                                                                    |
+| `SENTRY_ORG`                        | CI       | —                                  | Sentry organisation slug. Only needed in CI builds.                                                                                                                                                                                                                                    |
+| `SENTRY_PROJECT`                    | CI       | —                                  | Sentry project slug. Only needed in CI builds.                                                                                                                                                                                                                                         |
+| `PUBLIC_SENTRY_TRACES_SAMPLE_RATE`  | No       | `0.1`                              | Fraction (0–1) of transactions sampled for Sentry performance tracing. Shared by client and server init — see "Security headers" below.                                                                                                                                                |
+| `SENTRY_TUNNEL_MAX_BODY_BYTES`      | No       | `5000000`                          | Cap on a single `/sentry-tunnel` request body, enforced against actual bytes streamed (never the client-supplied `Content-Length`).                                                                                                                                                    |
+| `SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS` | No       | `5000`                             | Timeout, in milliseconds, on the `/sentry-tunnel` → Sentry ingest upstream fetch.                                                                                                                                                                                                      |
+| `HSTS_MAX_AGE_SECONDS`              | No       | `15552000`                         | `Strict-Transport-Security` max-age, in seconds (180 days). Only sent when BOTH `APP_URL` is https AND the current request is itself seen as https — see "Security headers" below and "Reverse proxy / client IP" above (`ORIGIN`/`PROTOCOL_HEADER`).                                  |
+| `HSTS_INCLUDE_SUBDOMAINS`           | No       | `false`                            | Adds `includeSubDomains` to the HSTS header. Off by default — see "Security headers" below for why.                                                                                                                                                                                    |
 
 ### Bun adapter patch
 
@@ -183,7 +184,8 @@ Setup, release procedure, key custody and troubleshooting: [docs/android.md](doc
 
 Every response from the SvelteKit server (pages, form actions, API endpoints, the SSE stream,
 Better Auth routes) carries a baseline set of security headers, applied in one place
-(`src/hooks.server.ts`'s `handle`, backed by `src/lib/server/security-headers.ts`):
+(`src/hooks.server.ts`'s `handle`, backed by `src/lib/server/security-headers.ts`). A few requests
+never reach that code at all — see "Known gaps" below.
 
 - **Content-Security-Policy** — set via `svelte.config.js`'s `kit.csp` (`mode: 'auto'`, nonce-based
   — nothing in this app is prerendered). `default-src 'self'`; `script-src 'self' wasm-unsafe-eval`
@@ -193,31 +195,61 @@ Better Auth routes) carries a baseline set of security headers, applied in one p
   `img-src 'self' data: blob:`; `connect-src 'self'` (Sentry goes through the same-origin
   `/sentry-tunnel`; Web Push delivery is the browser's own PushManager, not a page `fetch`);
   `worker-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`;
-  `object-src 'none'`.
-- **`Strict-Transport-Security`** — only when the request is seen as https (see "Reverse proxy /
-  client IP" above for how that's determined behind a proxy). `HSTS_MAX_AGE_SECONDS` /
-  `HSTS_INCLUDE_SUBDOMAINS` control it; `includeSubDomains` and `preload` are off by default,
-  since this app can't know whether you control every subdomain of your deployment's domain.
+  `object-src 'none'`. `upgrade-insecure-requests` is deliberately **not** set — it would force
+  every request to https even for local dev / the E2E suite, which run over plain http.
+- **`Strict-Transport-Security`** — only when BOTH `APP_URL` is https AND the current request is
+  itself seen as https via `event.url.protocol`. Both are required: `svelte-adapter-bun`'s own
+  `get_origin()` (`dist/files/handler.js`) defaults a request's protocol to `https` whenever
+  neither its `ORIGIN` nor `PROTOCOL_HEADER` env var is configured, regardless of whether real
+  traffic is actually arriving over TLS — so `event.url.protocol` alone is not trustworthy on an
+  all-http deployment that hasn't set either. Requiring `APP_URL` to also be https closes that for
+  an all-http deployment; see "Reverse proxy / client IP" above for configuring `ORIGIN`/
+  `PROTOCOL_HEADER` correctly when `APP_URL` genuinely is https behind a proxy — the app warns
+  loudly at startup if it's https and neither is set, since in that case HSTS could still be sent
+  on a request that actually arrived over plain http (e.g. missing/misconfigured TLS
+  termination). `HSTS_MAX_AGE_SECONDS` / `HSTS_INCLUDE_SUBDOMAINS` control it; `includeSubDomains`
+  and `preload` are off by default, since this app can't know whether you control every subdomain
+  of your deployment's domain.
 - **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: no-referrer`**,
   **`Permissions-Policy: camera=(self), geolocation=(), microphone=()`** (camera is granted to
   same-origin content for the QR scanner; geolocation/microphone are never used),
   **`X-Frame-Options: DENY`** and **`Cross-Origin-Opener-Policy: same-origin`** (legacy/defense-in-
   depth backups for `frame-ancestors`).
-- **`Cache-Control: private, no-store`** — on every response for a signed-in user, and on every
+- **`Cache-Control: private, no-store`** — on every response for a signed-in user, every
   `/accept/*` / `/send/*` response regardless of auth state (these carry per-recipient QR/payment
-  data in the URL and must never be cached by a shared/intermediate cache). Never overrides a
-  `Cache-Control` a route already set itself (the SSE stream's `no-cache`, `/.well-known/
-assetlinks.json`'s `public, max-age=3600`). Hashed, immutable static assets
-  (`/_app/immutable/*`) are served directly by `svelte-adapter-bun`'s own static file handler,
-  which never reaches this logic at all — their own `public,max-age=31536000,immutable` is
-  untouched. A CDN/shared cache in front of this app should respect `Cache-Control` as given; no
-  additional `Vary` tuning was needed since nothing here varies by a header a cache would need to
-  key on beyond what SvelteKit already adds (`Vary: Accept` when a route serves both a page and an
-  endpoint).
+  data in the URL and must never be cached by a shared/intermediate cache), every `/api/auth/*`
+  response (Better Auth's own routes — including the exact response that _creates_ a session,
+  e.g. `POST /api/auth/sign-in/email-otp`, which the "signed-in user" check alone can't catch
+  since it judges auth state from the session that existed _before_ the request), and any response
+  that sets a cookie at all. Never overrides a `Cache-Control` a route already set itself (the SSE
+  stream's `no-cache`, `/.well-known/assetlinks.json`'s `public, max-age=3600`). Hashed, immutable
+  static assets (`/_app/immutable/*`) are served directly by `svelte-adapter-bun`'s own static file
+  handler, which never reaches this logic at all — their own
+  `public,max-age=31536000,immutable` is untouched. A CDN/shared cache in front of this app should
+  respect `Cache-Control` as given; no additional `Vary` tuning was needed since nothing here
+  varies by a header a cache would need to key on beyond what SvelteKit already adds (`Vary:
+Accept` when a route serves both a page and an endpoint).
 - **`X-Robots-Tag: noindex, nofollow`** — on `/accept/*` and `/send/*` only (header-based so it
   reaches crawlers that don't render a `<meta>` tag). `robots.txt` otherwise allows crawling
   everything — these two prefixes are excluded this way instead, so a direct visit still works
   normally for people, just not for indexers.
+
+### Known gaps (cannot be fixed from `handle`)
+
+A few responses never reach `src/hooks.server.ts`'s `handle` hook at all, so they carry none of
+the headers above:
+
+- **SvelteKit's built-in CSRF origin check** answers its plain-text 403 _before_ `handle` runs for
+  a cross-origin form submission (a protection this app also relies on) — see
+  `src/hooks.server.ts`'s own comment on this for the full list of pre-`handle` gaps (that same
+  comment also covers a malformed-URI 400, a canonical trailing-slash 308, and a couple of
+  SvelteKit-internal `/${app_dir}/*` paths).
+- **Every static file `svelte-adapter-bun` serves directly** — `/service-worker.js`,
+  `/manifest.webmanifest`, everything under `/_app/immutable/*`, and the self-hosted
+  `/wasm/zxing_reader.wasm` — gets **no security headers at all**, including the service worker
+  script itself. If you terminate TLS at a reverse proxy in front of this app, that's the natural
+  place to add `X-Content-Type-Options: nosniff` (and, if you want one, a CSP) to those static
+  responses too — this app does not attempt to patch `svelte-adapter-bun` to add them itself.
 
 **QR scanner WASM**: `src/lib/components/qr-scanner.svelte` self-hosts `zxing-wasm`'s
 `zxing_reader.wasm` (via `barcode-detector`'s ponyfill) at `/wasm/zxing_reader.wasm`, instead of
@@ -228,21 +260,52 @@ committing a binary, and `src/lib/wasm-integrity.test.ts` asserts the served cop
 matches `node_modules` (and matches `barcode-detector`'s own exported `ZXING_WASM_SHA256`) — so a
 dependency bump can never silently leave a stale `.wasm` behind.
 
-**Sentry**: `src/lib/sentry-scrub.ts` is a shared, pure scrubber used by both
-`src/hooks.client.ts` and `src/instrumentation.server.ts`'s `beforeSend`/`beforeSendTransaction` —
-it replaces dynamic ids in `/accept/<id>`, `/send/<id>` and `/api/qr-status/<id>`, strips the
-`dest` query param from `/onboarding/otp` URLs, and redacts phone numbers/emails anywhere else in
-free text (URLs, transaction names, breadcrumb data, span descriptions, extra/tags, the `Referer`
-header). Session replay masks all text and inputs and blocks media outright; the feedback
-widget's JS-injected `<style>` tags get this request's own CSP nonce via `styleNonce` (sourced
-from a `<meta name="csp-nonce">` tag in `src/app.html`), since they bypass Svelte's own nonce
-handling entirely. `/sentry-tunnel`
+**Sentry — scrubbing is best-effort, not a guarantee**: `src/lib/sentry-scrub.ts` is a shared, pure,
+table-driven-tested scrubber used by both `src/hooks.client.ts` and
+`src/instrumentation.server.ts`'s `beforeSend`/`beforeSendTransaction`. It PATTERN-MATCHES —
+it cannot find PII in a shape nobody anticipated. What it covers: dynamic ids in `/accept/<id>`,
+`/send/<id>` and `/api/qr-status/<id>`; the `dest` query param on `/onboarding/otp` URLs; phone
+numbers/emails anywhere else in free text — URLs, transaction names, breadcrumb data (including
+the generic navigation/fetch breadcrumbs session replay records; `replayIntegration`'s
+`networkDetailAllowUrls` is left at its default empty list, so replay never records network
+request/response bodies or headers for any URL in the first place), span descriptions,
+`extra`/`tags`/`contexts` (recursively, with a bounded depth/size walk), exception
+`type`/`value`, stack-frame local variables, the top-level `message`/`logentry`, and the
+`Referer` header. `user` is reduced to an opaque `id` only (dropping `email`/`username`/
+`ip_address`, and anything else a custom `setUser()` call might attach) — if there's no `id`,
+`user` is dropped entirely. `request.cookies` and `request.data` (the request body — which, for an
+OTP send/verify request, is itself the phone number/email/code) are **stripped entirely, not
+redacted**, as are the `Cookie` and `Authorization` request headers; this is fixed at the source
+too, not just scrubbed after the fact — `src/instrumentation.server.ts` explicitly configures
+Sentry's `requestDataIntegration` (a _default_ integration for `@sentry/bun`/`@sentry/node` that
+otherwise attaches request cookies and body to every server-side event) with
+`include: { cookies: false, data: false }`, so that data never reaches an event in the first
+place. `sendDefaultPii` is never set anywhere in this app (keeping IP addresses off by default).
+Session replay masks all text and inputs and blocks media outright. **The feedback widget
+(`Sentry.feedbackIntegration`) is deliberately not registered at all** — verified in a real
+browser, not assumed: it injects its own `<style>` elements via plain DOM APIs
+(`document.createElement('style')`), bypassing Svelte's compiled-output nonce handling entirely,
+and Sentry's `styleNonce` option (which sets a `nonce="..."` attribute on those elements) cannot
+fix that under this app's CSP — the nonce VALUE is read correctly client-side (via the `.nonce`
+_IDL property_ of SvelteKit's own nonce'd hydration `<script>` tag, never via a `<meta>` tag or
+`getAttribute('nonce')`, both of which would republish it as a readable content attribute and
+defeat the browser's deliberate nonce-hiding), but that value is never actually authorized by the
+`style-src` directive this app sends in the first place: SvelteKit only adds a `nonce-...` source
+to `style-src` when its own SSR output renders an inline `<style>` tag, which never happens in a
+production build (Vite extracts every Svelte component's styles into the external stylesheet).
+CSP nonces are directive-scoped, so the widget's `<style>` tags are blocked
+(`style-src-elem` violations) and render completely unstyled regardless. Re-enabling it would need
+either sha256-hash-allowlisting its exact, version-pinned injected CSS as static `style-src`
+sources, or adding `'unsafe-inline'` to `style-src` (weakening it for every inline `<style>`
+element) — neither implemented here; see `src/hooks.client.ts`'s comment for the full reasoning.
+`/sentry-tunnel`
 (`src/routes/sentry-tunnel/+server.ts`) only forwards an envelope whose DSN **host and project id**
 both match `PUBLIC_SENTRY_DSN` (host alone isn't enough — see the code comment for the open-proxy
 risk that closes), reads the body as a size-capped stream rather than trusting
-`Content-Length`, and rejects a mismatching `Origin`. It remains intentionally unauthenticated (it
-must work for a crash on the sign-in page itself); a dedicated rate limiter was considered and
-deferred, since the three checks above already bound its blast radius.
+`Content-Length`, times out after `SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS` (default 5s) rather than
+holding the connection open on a hung upstream, and rejects a mismatching `Origin`. It remains
+intentionally unauthenticated (it must work for a crash on the sign-in page itself); a dedicated
+rate limiter was considered and deferred, since the checks above already bound its blast radius.
 
 ---
 
@@ -259,7 +322,7 @@ deferred, since the three checks above already bound its blast radius.
 | i18n          | Paraglide JS v2 (EN, PT, NL, DE, ES)                                            |
 | QR            | jose (JWT) + qrcode                                                             |
 | Realtime      | SSE (server-sent events) + Web Push (`web-push`, VAPID)                         |
-| Observability | Sentry (optional — error tracking + feedback widget)                            |
+| Observability | Sentry (optional — error tracking + session replay)                             |
 | PWA           | vite-plugin-pwa (`@vite-pwa/sveltekit`) — installable, offline fallback page    |
 
 ---

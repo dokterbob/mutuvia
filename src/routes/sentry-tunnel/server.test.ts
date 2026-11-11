@@ -12,7 +12,7 @@ vi.mock('$env/dynamic/public', () => ({
 }));
 
 vi.mock('$lib/config', () => ({
-	config: { sentryTunnelMaxBodyBytes: 5_000_000 }
+	config: { sentryTunnelMaxBodyBytes: 5_000_000, sentryTunnelUpstreamTimeoutMs: 5_000 }
 }));
 
 import { POST } from './+server';
@@ -150,6 +150,37 @@ describe('POST /sentry-tunnel', () => {
 		const response = await POST(makeParams(request));
 		expect(response.status).toBe(413);
 		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	test('returns 504 when the upstream fetch times out', async () => {
+		// Simulates what AbortSignal.timeout(...) produces: fetch rejects with
+		// an AbortError once the signal fires.
+		fetchMock.mockRejectedValueOnce(new DOMException('The operation timed out.', 'TimeoutError'));
+		const envelope = JSON.stringify({ dsn: DSN }) + '\n{}\n';
+		const request = makeRequest({ body: envelope });
+
+		const response = await POST(makeParams(request));
+		expect(response.status).toBe(504);
+	});
+
+	test('returns 504 when the upstream fetch fails for any other network reason', async () => {
+		fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+		const envelope = JSON.stringify({ dsn: DSN }) + '\n{}\n';
+		const request = makeRequest({ body: envelope });
+
+		const response = await POST(makeParams(request));
+		expect(response.status).toBe(504);
+	});
+
+	test('passes an AbortSignal to the upstream fetch', async () => {
+		fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+		const envelope = JSON.stringify({ dsn: DSN }) + '\n{}\n';
+		const request = makeRequest({ body: envelope });
+
+		await POST(makeParams(request));
+
+		const [, init] = fetchMock.mock.calls[0];
+		expect(init.signal).toBeInstanceOf(AbortSignal);
 	});
 
 	test('forwards text-only feedback and returns upstream status', async () => {
