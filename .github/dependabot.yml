@@ -44,6 +44,15 @@ updates:
       actions-minor-patch:
         update-types: ['minor', 'patch']
 
+  # Android Gradle project (android/build.gradle.kts, android/app/build.gradle.kts).
+  - package-ecosystem: 'gradle'
+    directory: '/android'
+    schedule:
+      interval: 'weekly'
+    groups:
+      gradle-minor-patch:
+        update-types: ['minor', 'patch']
+
   # Dockerfile base image (oven/bun, pinned by tag + digest).
   - package-ecosystem: 'docker'
     directory: '/'

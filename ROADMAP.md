@@ -52,8 +52,9 @@ These items improve what's already built before adding new features.
         Better Auth's own `user` table, never on `app_users`; Sentry's shared PII scrubber
         (`src/lib/sentry-scrub.ts`) redacts phone-shaped strings everywhere else
   - [x] Dependency/deploy supply chain — non-root Docker image, pinned base image (tag + digest),
-        pinned CI Actions (by commit SHA) and Bun version, Dependabot (bun/github-actions/docker),
-        `bun audit` in CI (informational — see its PR for why)
+        pinned CI Actions (by commit SHA) and Bun version, Dependabot (bun/github-actions/gradle/
+        docker), `bun audit` in CI (informational — see its PR for why), Android release signing
+        gated behind a GitHub Environment
 - [ ] **Error handling** — Graceful error pages, network failure states in QR polling, form validation feedback.
 - [ ] **Accessibility** — Keyboard navigation, focus management on step transitions, screen reader labels.
 - [ ] **Responsive fine-tuning** — Test on small screens (320px), large phones, tablets.
