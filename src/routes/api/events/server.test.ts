@@ -313,6 +313,29 @@ describe('GET /api/events', () => {
 				const { done } = await reader.read();
 				expect(done).toBe(true);
 			});
+
+			it('disposes the connection (no unhandled rejection) when the session lookup rejects', async () => {
+				await reader.read(); // initial ping
+
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				const dbError = new Error('db connection interrupted');
+				selectLimitFn.mockRejectedValue(dbError);
+
+				// If the rejection inside the keepalive tick were unhandled, this
+				// await would itself blow up with an unhandled rejection surfaced by
+				// vitest — the assertions below are the actual behavioural proof.
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { done } = await reader.read();
+				expect(done).toBe(true);
+				expect(warnSpy).toHaveBeenCalledTimes(1);
+
+				// A subsequent emit for this user must be a no-op — proves the
+				// connection was unregistered, not just left to error out.
+				expect(() => emit(userId, qrCompleted)).not.toThrow();
+
+				warnSpy.mockRestore();
+			});
 		});
 	});
 

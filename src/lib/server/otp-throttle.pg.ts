@@ -20,7 +20,7 @@
 // correctness problem, since the lock only ever makes this MORE strict, not
 // less.
 
-import { eq, and, lt, sql } from 'drizzle-orm';
+import { eq, lt, sql } from 'drizzle-orm';
 import { db } from './db.pg';
 import { otpThrottle } from './schema.pg';
 import {
@@ -38,11 +38,20 @@ export async function checkAndRecordOtpSend(destination: string): Promise<Thrott
 		const now = Date.now();
 		const longWindowStart = new Date(now - LONG_WINDOW_MS);
 
-		await tx
-			.delete(otpThrottle)
-			.where(
-				and(eq(otpThrottle.destination, destination), lt(otpThrottle.createdAt, longWindowStart))
-			);
+		// Prune opportunistically, globally — not scoped to `destination`. See
+		// otp-throttle.sqlite.ts for why: a one-off destination must not keep
+		// its rows forever. This delete is unguarded by the advisory lock
+		// above (that lock only serializes concurrent checks for the SAME
+		// destination) and runs against every row, not just this
+		// destination's — but it is still just a DELETE on rows older than
+		// the long window, which PostgreSQL only ever needs row-level locks
+		// for; it does not acquire a table-level lock and does not read or
+		// lock rows it isn't deleting, so it cannot deadlock against, or
+		// cause a serialization failure for, a concurrent transaction working
+		// a different destination (no shared lock scope, no shared rows once
+		// expired). Two concurrent prunes can both try to delete the same
+		// already-expired row — one simply deletes 0 rows, not an error.
+		await tx.delete(otpThrottle).where(lt(otpThrottle.createdAt, longWindowStart));
 
 		const rows = await tx
 			.select()

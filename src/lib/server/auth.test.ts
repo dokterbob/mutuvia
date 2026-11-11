@@ -27,6 +27,7 @@ import { rmSync } from 'node:fs';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { eq } from 'drizzle-orm';
 import * as schema from './schema.sqlite';
+import { makePlaceholderEmail } from '$lib/placeholder-email';
 
 const { TEST_DB_FILE } = vi.hoisted(() => ({
 	TEST_DB_FILE: `.vitest-auth-sqlite-${process.pid}.db`
@@ -474,5 +475,93 @@ describe('session revocation on credential change — real Better Auth instance'
 		await auth.api.verifyPhoneNumber({ body: { phoneNumber: phone, code: readOtp(phone) } });
 
 		expect(sessionTokens()).toHaveLength(2);
+	});
+});
+
+// Review finding (PR #135): a phone-only user's placeholder email
+// (`<digits>@phone.placeholder`, from `getTempEmail` in auth.ts) is set once,
+// at sign-up, from the phone number they had AT THAT TIME. Changing phone
+// number via `/phone-number/verify` (`updatePhoneNumber: true`) only updates
+// `phoneNumber` — nothing in Better Auth's own `updatePhoneNumber` branch
+// (node_modules/better-auth/dist/plugins/phone-number/routes.mjs) touches
+// `email`. The OLD placeholder is therefore left dangling on the user row,
+// and the OLD phone number is free again (the unique `user_phone_number_idx`
+// only constrains the CURRENT value). If a new person later signs up with
+// that now-released number, `signUpOnVerification`'s `createUser` branch
+// (same file, no `findOne`-by-temp-email guard beforehand) computes the same
+// deterministic placeholder for them and the DB's unique `user_email_idx`
+// rejects the insert outright — even though their OTP was verified
+// correctly. Confirmed live below.
+describe('stale placeholder email release on phone change — real Better Auth instance', () => {
+	test('Given a phone-only user changes their phone number, when a new user later signs up with the OLD (now-released) number, then the sign-up succeeds because the stale placeholder was released', async () => {
+		const oldPhone = '+15553330001';
+		const newPhone = '+15553330002';
+
+		// Phone-only sign-up — gets the deterministic placeholder for oldPhone.
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: oldPhone } });
+		const { headers } = await auth.api.verifyPhoneNumber({
+			body: { phoneNumber: oldPhone, code: readOtp(oldPhone) },
+			returnHeaders: true
+		});
+		const cookie = headers
+			.get('set-cookie')!
+			.split(/,(?=\s*[\w-]+=)/)
+			.map((part) => part.split(';')[0].trim())
+			.join('; ');
+
+		const beforeChange = findUsersByPhone(oldPhone)[0];
+		expect(beforeChange.email).toBe(makePlaceholderEmail(oldPhone));
+
+		// Settings-page phone change: oldPhone -> newPhone.
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: newPhone } });
+		await auth.api.verifyPhoneNumber({
+			body: { phoneNumber: newPhone, code: readOtp(newPhone), updatePhoneNumber: true },
+			headers: new Headers({ cookie })
+		});
+
+		// The user's placeholder should now track their NEW number, not the
+		// old, now-released one.
+		const afterChange = findUsersByPhone(newPhone)[0];
+		expect(afterChange.id).toBe(beforeChange.id);
+		expect(afterChange.email).toBe(makePlaceholderEmail(newPhone));
+		expect(findUsersByPhone(oldPhone)).toHaveLength(0);
+
+		// A different person now signs up with the released oldPhone number —
+		// this must succeed and must NOT collide with afterChange's row.
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: oldPhone } });
+		const signupResult = await auth.api.verifyPhoneNumber({
+			body: { phoneNumber: oldPhone, code: readOtp(oldPhone) }
+		});
+
+		expect(signupResult.user?.id).toBeTruthy();
+		expect(signupResult.user?.id).not.toBe(afterChange.id);
+		expect(signupResult.user?.email).toBe(makePlaceholderEmail(oldPhone));
+	});
+
+	test('Given a user with a real email changes their phone number, then their real email is left untouched', async () => {
+		const email = 'real-email-owner@example.com';
+
+		// Email sign-up first.
+		await auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } });
+		const { headers } = await auth.api.signInEmailOTP({
+			body: { email, otp: readOtp(`sign-in-otp-${email}`) },
+			returnHeaders: true
+		});
+		const cookie = headers
+			.get('set-cookie')!
+			.split(/,(?=\s*[\w-]+=)/)
+			.map((part) => part.split(';')[0].trim())
+			.join('; ');
+
+		const phone = '+15553330099';
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: phone } });
+		await auth.api.verifyPhoneNumber({
+			body: { phoneNumber: phone, code: readOtp(phone), updatePhoneNumber: true },
+			headers: new Headers({ cookie })
+		});
+
+		const updated = findUserByEmail(email);
+		expect(updated).toBeTruthy();
+		expect(updated?.phoneNumber).toBe(phone);
 	});
 });

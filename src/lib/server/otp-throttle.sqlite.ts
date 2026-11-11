@@ -8,7 +8,7 @@
 // checks for the same (or any other) destination: the prune, count, and
 // insert below all run as one indivisible unit.
 
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { db } from './db.sqlite';
 import { otpThrottle } from './schema.sqlite';
 import {
@@ -25,14 +25,17 @@ export function checkAndRecordOtpSend(destination: string): ThrottleResult {
 			const now = Date.now();
 			const longWindowStart = new Date(now - LONG_WINDOW_MS);
 
-			// Prune opportunistically — nothing outside the longer window is
-			// ever consulted again, so this keeps the table bounded without a
-			// separate cleanup job.
-			tx.delete(otpThrottle)
-				.where(
-					and(eq(otpThrottle.destination, destination), lt(otpThrottle.createdAt, longWindowStart))
-				)
-				.run();
+			// Prune opportunistically, globally — not scoped to `destination`.
+			// Nothing outside the longer window is ever consulted again for ANY
+			// destination, so a one-off destination (sent to once, never again)
+			// must not keep its rows forever; scoping the delete to the current
+			// destination would let exactly that happen, growing the table
+			// without bound. This is a full-table scan (the only index on this
+			// table is `(destination, createdAt)`, which doesn't help a
+			// destination-less predicate), but after it runs the table holds at
+			// most LONG_WINDOW_MS (24h) worth of attempts, which is small and
+			// keeps the table bounded without a separate cleanup job.
+			tx.delete(otpThrottle).where(lt(otpThrottle.createdAt, longWindowStart)).run();
 
 			const rows = tx
 				.select()

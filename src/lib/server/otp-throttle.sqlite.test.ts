@@ -149,4 +149,32 @@ describe('checkAndRecordOtpSend — real SQLite transaction', () => {
 			expect(resultB.ok).toBe(true);
 		});
 	});
+
+	describe('Given a stale row (>24h) for a destination that is never sent to again', () => {
+		test('When a send happens for an unrelated, different destination, then the stale row is globally pruned', () => {
+			const staleDest = 'one-off-stale@example.com';
+			const twoDaysAgo = 2 * 24 * 60 * 60 * 1000;
+			seedAttempt(staleDest, twoDaysAgo);
+
+			const result = checkAndRecordOtpSend('unrelated-fresh@example.com');
+
+			expect(result).toEqual({ ok: true });
+			// The prune must not be scoped to the current request's destination —
+			// otherwise a destination used once and never again keeps its row
+			// forever, growing the table without bound.
+			expect(countRows(staleDest)).toBe(0);
+		});
+	});
+
+	describe('Given a non-expired row for a different destination', () => {
+		test('When a send happens for an unrelated destination, then the non-expired row is kept', () => {
+			const otherDest = 'still-fresh-other@example.com';
+			seedAttempt(otherDest, 1_000);
+
+			const result = checkAndRecordOtpSend('unrelated-fresh-2@example.com');
+
+			expect(result).toEqual({ ok: true });
+			expect(countRows(otherDest)).toBe(1);
+		});
+	});
 });
