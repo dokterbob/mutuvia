@@ -53,8 +53,10 @@ const config = {
 				// script-src, script-src-elem, style-src, style-src-attr and
 				// style-src-elem), so setting it is purely our own choice, not
 				// something SvelteKit needs an escape hatch for. Verified the
-				// full E2E suite (including every bits-ui portal/dialog and
-				// the Sentry feedback widget) stays green with this set.
+				// full E2E suite (including every bits-ui portal/dialog)
+				// stays green with this set. (The Sentry feedback widget is
+				// not registered at all — see src/hooks.client.ts's comment —
+				// so it's moot for this directive specifically.)
 				'script-src-attr': ['none'],
 				// Plain `style-src` deliberately omits 'unsafe-inline' so
 				// SvelteKit nonces Svelte's compiled component <style> tags

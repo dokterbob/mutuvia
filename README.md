@@ -260,27 +260,56 @@ committing a binary, and `src/lib/wasm-integrity.test.ts` asserts the served cop
 matches `node_modules` (and matches `barcode-detector`'s own exported `ZXING_WASM_SHA256`) — so a
 dependency bump can never silently leave a stale `.wasm` behind.
 
-**Sentry — scrubbing is best-effort, not a guarantee**: `src/lib/sentry-scrub.ts` is a shared, pure,
-table-driven-tested scrubber used by both `src/hooks.client.ts` and
-`src/instrumentation.server.ts`'s `beforeSend`/`beforeSendTransaction`. It PATTERN-MATCHES —
-it cannot find PII in a shape nobody anticipated. What it covers: dynamic ids in `/accept/<id>`,
-`/send/<id>` and `/api/qr-status/<id>`; the `dest` query param on `/onboarding/otp` URLs; phone
-numbers/emails anywhere else in free text — URLs, transaction names, breadcrumb data (including
-the generic navigation/fetch breadcrumbs session replay records; `replayIntegration`'s
+**Sentry — what the scrubber structurally guarantees vs. best-effort pattern matching**:
+`src/lib/sentry-scrub.ts` is a shared, pure, table-driven-tested scrubber used by both
+`src/hooks.client.ts` and `src/instrumentation.server.ts`'s `beforeSend`/`beforeSendTransaction`.
+Rather than enumerating fields to scrub one at a time (every review round found another one —
+`span.data`, `contexts.trace`, stack-frame `vars`, ... — because enumeration can only close the
+instance of a bug, not the class), it walks the **entire** event recursively and runs the pattern
+matcher over **every string value it finds, anywhere, at any depth**, with a short allowlist of
+structural fields (`event_id`, `trace_id`/`span_id`, timestamps, `release`/`environment`/`sdk`/
+`platform`, stack-frame `filename`/`function`/`module`/line numbers) left untouched so Sentry's
+own grouping/correlation UI keeps working. A field a future SDK version adds is covered
+automatically; only a name collision with that short allowlist could ever be missed. The walk is
+depth- and size-bounded (10 levels, 200 items) against pathological payloads — a subtree beyond
+the depth limit is replaced with a `"[scrubbed: too deep]"` marker rather than returned
+unscrubbed. `Date` values are preserved as ISO strings (not collapsed to `{}`); any other
+non-plain-object value (`RegExp`, `Map`, `Error`, a custom class instance) is passed through
+unchanged — a known, accepted limit of pattern-matching, not a guarantee such values never carry
+PII.
+
+Within that pattern-matching layer: dynamic ids in `/accept/<id>`, `/send/<id>` and
+`/api/qr-status/<id>` are replaced wherever a matching URL shape appears; known-sensitive
+query-parameter **values** (`dest`, `email`, `phone`, `phoneNumber`, `to`, `otp`) are replaced
+outright wherever that key appears in any URL/query string, regardless of path (not just
+`/onboarding/otp`); every other query value is percent-decoded before pattern-matching so
+`?note=jane%40example.com` is still caught, and percent-encoded PII outside of a `key=value` shape
+entirely is caught by a second, decode-and-rescan pass over the whole string. Phone-number
+matching uses two narrow patterns instead of one open-ended one (which used to match ISO-8601
+timestamps and version strings as "phone numbers"): a leading `+` (the E.164 format this app
+actually stores/logs numbers in) anchors a loose international pattern, and a human-typed local
+number needs the exact 3-3-4 digit grouping (`555-123-4567`, `(555) 123-4567`) — neither an ISO
+date (4-2-2) nor a UUID segment produces either shape. This is still pattern matching, not parsing
+a phone number properly — an unusual format can still slip through, and a non-phone number that
+happens to fit one of these two shapes can still be redacted unnecessarily; both are accepted
+trade-offs.
+
+This covers: the generic navigation/fetch breadcrumbs session replay records (`replayIntegration`'s
 `networkDetailAllowUrls` is left at its default empty list, so replay never records network
-request/response bodies or headers for any URL in the first place), span descriptions,
-`extra`/`tags`/`contexts` (recursively, with a bounded depth/size walk), exception
-`type`/`value`, stack-frame local variables, the top-level `message`/`logentry`, and the
-`Referer` header. `user` is reduced to an opaque `id` only (dropping `email`/`username`/
-`ip_address`, and anything else a custom `setUser()` call might attach) — if there's no `id`,
-`user` is dropped entirely. `request.cookies` and `request.data` (the request body — which, for an
-OTP send/verify request, is itself the phone number/email/code) are **stripped entirely, not
-redacted**, as are the `Cookie` and `Authorization` request headers; this is fixed at the source
-too, not just scrubbed after the fact — `src/instrumentation.server.ts` explicitly configures
-Sentry's `requestDataIntegration` (a _default_ integration for `@sentry/bun`/`@sentry/node` that
-otherwise attaches request cookies and body to every server-side event) with
-`include: { cookies: false, data: false }`, so that data never reaches an event in the first
-place. `sendDefaultPii` is never set anywhere in this app (keeping IP addresses off by default).
+request/response bodies or headers for any URL in the first place); exception `type`/`value`
+(deliberately NOT in the structural allowlist above — `type` can carry a custom, PII-bearing error
+message); and the `Referer` header. `user` is reduced to an opaque `id` only (dropping
+`email`/`username`/`ip_address`, and anything else a custom `setUser()` call might attach) — if
+there's no `id`, `user` is dropped entirely; this is a structural replacement, not pattern
+matching, so it's a guarantee, not best-effort. Likewise `request.cookies` and `request.data` (the
+request body — which, for an OTP send/verify request, is itself the phone number/email/code) are
+**stripped entirely, not redacted**, as are the `Cookie` and `Authorization` request headers; this
+is fixed at the source too, not just scrubbed after the fact — `src/instrumentation.server.ts`
+explicitly configures Sentry's `requestDataIntegration` (a _default_ integration for
+`@sentry/bun`/`@sentry/node` that otherwise attaches request cookies and body to every
+server-side event) with `include: { cookies: false, data: false }`, so that data never reaches an
+event in the first place. `sendDefaultPii` is never set anywhere in this app (keeping IP addresses
+off by default).
 Session replay masks all text and inputs and blocks media outright. **The feedback widget
 (`Sentry.feedbackIntegration`) is deliberately not registered at all** — verified in a real
 browser, not assumed: it injects its own `<style>` elements via plain DOM APIs
