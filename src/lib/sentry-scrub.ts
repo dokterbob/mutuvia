@@ -39,12 +39,16 @@
 // Exemptions are now PATH-SCOPED (`isExemptField`, below): a field is only
 // exempt at its real structural location — top-level Event fields, the
 // `contexts.trace` correlation fields, per-span correlation fields,
-// per-breadcrumb structural fields, and stack-frame file/line info (matched
-// by a path SUFFIX of `.../frames/<index>/<key>`, covering both
-// `exception.values[].stacktrace.frames[]` and `threads[].stacktrace.frames[]`
-// without needing to enumerate every possible parent chain). Everything
-// under `extra`, `tags`, any custom `contexts.<name>`, breadcrumb `data`,
-// span `data`, and `user` gets NO exemptions at all — every string there is
+// per-breadcrumb structural fields, and stack-frame file/line info. The
+// stack-frame check (`isRootStackFrame`) matches the path EXACTLY from the
+// event root — `exception.values[<i>].stacktrace.frames[<j>]` or
+// `threads.values[<i>].stacktrace.frames[<j>]`, the only two real locations
+// a frame lives at — not by a path SUFFIX; a suffix match would be
+// spoofable by any attacker- or user-controlled value shaped like
+// `{ frames: [{ function: '...' }] }` anywhere else in the tree (e.g. under
+// `extra`). Everything under `extra`, `tags`, any custom `contexts.<name>`,
+// breadcrumb `data`, span `data`, and `user` gets NO exemptions at all —
+// every string there is
 // scrubbed. Stack-frame `filename`/`abs_path` are deliberately NOT exempt
 // either (unlike `function`/`module`/`lineno`/`colno`/`in_app`): a frame's
 // URL can itself be a request URL carrying a route id or query string, and
@@ -284,17 +288,45 @@ const SPAN_EXEMPT = new Set([
 const BREADCRUMB_EXEMPT = new Set(['timestamp', 'type', 'category', 'level']);
 
 /**
- * Stack-frame fields — matched by PATH SUFFIX (`.../frames/<index>/<key>`)
- * rather than by full path from the root, so this covers both
- * `exception.values[].stacktrace.frames[]` and `threads[].stacktrace.frames[]`
- * (and `raw_stacktrace`, if ever present) without enumerating every possible
- * parent chain. Deliberately does NOT include `filename`/`abs_path` — a
- * frame's URL can itself carry a route id or query string worth redacting,
- * and doing so doesn't harm symbolication of a bundle path. `pre_context`/
- * `context_line`/`post_context` (source lines) and local `vars` are also NOT
- * here, and so go through the normal walk like everything else.
+ * Stack-frame fields. Deliberately does NOT include `filename`/`abs_path` —
+ * a frame's URL can itself carry a route id or query string worth
+ * redacting, and doing so doesn't harm symbolication of a bundle path.
+ * `pre_context`/`context_line`/`post_context` (source lines) and local
+ * `vars` are also NOT here, and so go through the normal walk like
+ * everything else.
  */
 const STACK_FRAME_EXEMPT = new Set(['function', 'module', 'lineno', 'colno', 'in_app']);
+
+/**
+ * True when `path` is exactly `exception.values[<i>].stacktrace.frames[<j>]`
+ * or `threads.values[<i>].stacktrace.frames[<j>]` — the only two real
+ * locations a Sentry stack frame lives at (per `@sentry/core`'s `Event`
+ * type: `exception?: { values?: Exception[] }` and
+ * `threads?: { values: Thread[] }`, each `Exception`/`Thread` carrying its
+ * own `stacktrace?: { frames?: StackFrame[] }`).
+ *
+ * Checked by matching the path from the EVENT ROOT exactly, not by a path
+ * SUFFIX (`.../frames/<n>`) — a suffix match is spoofable: an attacker- or
+ * user-controlled value anywhere in the tree need only be shaped like
+ * `{ frames: [{ function: '...' }] }` (e.g. under `extra`, or even under a
+ * genuine `exception.values[]` entry's own nested data) to have that
+ * `function`/`module`/etc. field wrongly exempted. Not reachable from any
+ * code in this app today (nothing calls `setExtra`/`setContext` with
+ * attacker-controlled data), but closed anyway rather than left as a latent
+ * footgun.
+ */
+function isRootStackFrame(path: readonly PathSegment[]): boolean {
+	if (path.length !== 6) return false;
+	const [root, valuesKey, index, stacktraceKey, framesKey, frameIndex] = path;
+	return (
+		(root === 'exception' || root === 'threads') &&
+		valuesKey === 'values' &&
+		typeof index === 'number' &&
+		stacktraceKey === 'stacktrace' &&
+		framesKey === 'frames' &&
+		typeof frameIndex === 'number'
+	);
+}
 
 /**
  * Decides whether `key`, found at `path` (the path of its PARENT object,
@@ -315,11 +347,7 @@ function isExemptField(path: readonly PathSegment[], key: string): boolean {
 	if (path.length === 2 && path[0] === 'breadcrumbs' && typeof path[1] === 'number') {
 		return BREADCRUMB_EXEMPT.has(key);
 	}
-	if (
-		path.length >= 2 &&
-		path[path.length - 2] === 'frames' &&
-		typeof path[path.length - 1] === 'number'
-	) {
+	if (isRootStackFrame(path)) {
 		return STACK_FRAME_EXEMPT.has(key);
 	}
 	return false;
@@ -333,17 +361,53 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Scrubs an object key (review round 3, finding 3: `extra: { 'jane@example.com': 1 }`
- * leaked the key itself). Collisions after scrubbing (two different keys
- * that redact to the same string) are resolved deterministically by
- * suffixing, so no data is silently dropped by being overwritten.
+ * Scrubs an object key (`extra: { 'jane@example.com': 1 }` leaked the key
+ * itself). Collisions after scrubbing (two different keys that redact to
+ * the same string) are resolved deterministically by suffixing, so no data
+ * is silently dropped by being overwritten. Checks OWN properties only
+ * (`Object.hasOwn`, not the `in` operator, which also matches inherited
+ * names like `toString` from `Object.prototype` and would otherwise
+ * needlessly suffix a legitimately-named key that happens to collide with
+ * one) — see `assignScrubbedProperty` below for why an input key can safely
+ * be the LITERAL string `__proto__` here without that ever being a problem.
  */
 function scrubKey(key: string, existing: Record<string, unknown>): string {
 	const scrubbed = scrubString(key);
-	if (!(scrubbed in existing)) return scrubbed;
+	if (!Object.hasOwn(existing, scrubbed)) return scrubbed;
 	let suffix = 2;
-	while (`${scrubbed}__${suffix}` in existing) suffix++;
+	while (Object.hasOwn(existing, `${scrubbed}__${suffix}`)) suffix++;
 	return `${scrubbed}__${suffix}`;
+}
+
+/**
+ * Sets `target[key] = value` WITHOUT ever risking prototype pollution, no
+ * matter what `key` is (including the literal strings `__proto__` or
+ * `constructor`) and independent of how `scrubKey`'s collision check above
+ * is implemented. A plain bracket/dot assignment (`target[key] = value`)
+ * for `key === '__proto__'` on an ordinary `{}`-based object does NOT create
+ * an own property named "__proto__" — it invokes `Object.prototype`'s
+ * inherited `__proto__` ACCESSOR and actually changes `target`'s prototype
+ * to `value`. `Object.defineProperty` never goes through that accessor: it
+ * always creates/overwrites a genuine own data property, exactly like
+ * `JSON.parse` itself does for a literal `"__proto__"` key in JSON text
+ * (which is why `JSON.parse('{"__proto__":{"polluted":true}}')` is itself
+ * safe — the vulnerability was only ever in OUR re-assignment of an
+ * already-safe parsed key, not in receiving one). The result stays a
+ * perfectly ordinary, JSON-serialisable plain object for Sentry's SDK —
+ * `JSON.stringify` only cares about own enumerable properties, which this
+ * still produces.
+ */
+function assignScrubbedProperty(
+	target: Record<string, unknown>,
+	key: string,
+	value: unknown
+): void {
+	Object.defineProperty(target, key, {
+		value,
+		writable: true,
+		enumerable: true,
+		configurable: true
+	});
 }
 
 /**
@@ -374,7 +438,7 @@ function scrubValueDeep(value: unknown, depth: number, path: readonly PathSegmen
 			const exempt = isExemptField(path, key);
 			const scrubbedValue = exempt ? item : scrubValueDeep(item, depth + 1, [...path, key]);
 			const finalKey = exempt ? key : scrubKey(key, result);
-			result[finalKey] = scrubbedValue;
+			assignScrubbedProperty(result, finalKey, scrubbedValue);
 		}
 		return result;
 	}
