@@ -58,7 +58,10 @@ services:
     environment:
       POSTGRES_DB: mutuvia
       POSTGRES_USER: mutuvia
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mutuvia}
+      # No default: a committed/example password would otherwise ship into
+      # real deployments that forget to set it. Required — compose refuses
+      # to start without it.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (must match DATABASE_URL's password)}
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -75,7 +78,10 @@ services:
     profiles: ['dev']
     image: postgres:17-alpine
     ports:
-      - '5432:5432'
+      # Bound to loopback only — this is a local-dev convenience container
+      # with a hardcoded password; it must never be reachable from the LAN
+      # or the internet.
+      - '127.0.0.1:5432:5432'
     environment:
       POSTGRES_DB: mutuvia
       POSTGRES_USER: mutuvia

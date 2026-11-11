@@ -31,7 +31,7 @@ Do this once for each deployment (each community has its own host).
 1. Set `APP_URL` to `https://<host>`, the same host as `mutuvia.host` in the app, so shared `/accept/…` and `/send/…` links match the app's intent filter.
 2. Set the two Android variables (see the README environment table):
    - `ANDROID_PACKAGE_NAME` - the app's `applicationId` (default `org.mutuvia.app`)
-   - `ANDROID_SHA256_FINGERPRINTS` - comma-separated SHA-256 fingerprints of the signing certificate(s), e.g. the release key and, while testing, the debug key
+   - `ANDROID_SHA256_FINGERPRINTS` - comma-separated SHA-256 fingerprints of the signing certificate(s). **Production should list the release key only.** A developer's local debug-keystore fingerprint can be added temporarily while testing a debug build against the deployment (see "Building locally" below) — remove it again afterwards; left in place, it means any APK signed with that same debug key (anyone who built one locally with the matching debug keystore) is treated as verified by this deployment too.
 3. Check that the file is served correctly (must be `200`, `Content-Type: application/json`, no redirect):
 
    ```bash
@@ -106,15 +106,17 @@ Create the release keystore (keep the passwords somewhere safe):
 keytool -genkeypair -v -keystore release.keystore -alias mutuvia -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-Add these GitHub Actions secrets and variable (Settings > Secrets and variables > Actions):
+The `release` job in `.github/workflows/android.yml` runs under the `android-release` GitHub Environment, so it only reads secrets stored on that environment (not plain repository secrets) and a run only proceeds once any required reviewers for that environment approve it. One-time repo setup (Settings > Environments): create an environment named `android-release`, add required reviewers if you want human approval before every signing run, then add the four `ANDROID_KEY*` secrets below **to that environment**, not to repository-level secrets — a repository secret of the same name is simply never read by this job once the environment exists, so moving them (not just adding the environment) is what actually protects them. `MUTUVIA_HOST` stays a plain repository variable (it isn't sensitive).
 
-| Name                        | Kind     | Value                                           |
-| --------------------------- | -------- | ----------------------------------------------- |
-| `ANDROID_KEYSTORE_BASE64`   | secret   | `base64 -w0 release.keystore`                   |
-| `ANDROID_KEYSTORE_PASSWORD` | secret   | Keystore password                               |
-| `ANDROID_KEY_ALIAS`         | secret   | `mutuvia` (the alias used above)                |
-| `ANDROID_KEY_PASSWORD`      | secret   | Key password                                    |
-| `MUTUVIA_HOST`              | variable | Deployment hostname, e.g. `mutuvia.example.org` |
+Add these to the `android-release` environment / repository (Settings > Secrets and variables > Actions):
+
+| Name                        | Kind                | Value                                           |
+| --------------------------- | ------------------- | ----------------------------------------------- |
+| `ANDROID_KEYSTORE_BASE64`   | environment secret  | `base64 -w0 release.keystore`                   |
+| `ANDROID_KEYSTORE_PASSWORD` | environment secret  | Keystore password                               |
+| `ANDROID_KEY_ALIAS`         | environment secret  | `mutuvia` (the alias used above)                |
+| `ANDROID_KEY_PASSWORD`      | environment secret  | Key password                                    |
+| `MUTUVIA_HOST`              | repository variable | Deployment hostname, e.g. `mutuvia.example.org` |
 
 > **Key custody warning.** The release keystore is the identity of your app. Android refuses to update an installed app with an APK signed by a different key, so **if you lose the keystore (or its passwords), every existing install can never be updated** and users must uninstall and reinstall. Back up `release.keystore` and its passwords outside GitHub (password manager, offline copy). GitHub secrets cannot be read back.
 
