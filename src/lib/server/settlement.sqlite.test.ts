@@ -309,6 +309,40 @@ describe('settleOneTimeAccept — real SQLite transaction', () => {
 			expect(rows).toHaveLength(1);
 		});
 	});
+
+	describe('Given the same pair of users settling twice (connection upsert)', () => {
+		// Exercises the in-transaction `insert(connections).onConflictDoNothing()`
+		// that production actually uses (settlement.sqlite.ts/settlement.pg.ts) —
+		// the standalone `upsertConnection()` helper this same hazard used to be
+		// tested through was removed as dead code (it was never called from
+		// production; see balance.ts's comment), so that coverage moved here.
+		//
+		// "Back-to-back" here, not truly concurrent: settleOneTimeAccept() is a
+		// synchronous call (db.transaction() on bun:sqlite runs its callback to
+		// completion before returning — see this file's/settlement.sqlite.ts's
+		// header comment), so there is no way to have two overlapping
+		// transactions in a single-threaded test even via Promise.all — each
+		// SQLite immediate transaction fully commits before the next call can
+		// start. Two settlements issued one right after the other is the
+		// closest real analogue, and is exactly what this file's "accepted
+		// twice (race)" test above also does for the same reason.
+		test('When settled back-to-back via two different payment requests → neither throws, both ledger rows are written, and exactly one connection row exists', () => {
+			seedOneTimePr('pr-conn-a');
+			seedOneTimePr('pr-conn-b');
+
+			// First call: no connection row exists yet for (INITIATOR, ACCEPTOR).
+			const first = settleOneTimeAccept('pr-conn-a', ACCEPTOR);
+			// Second call: the row from the first call already exists — this is
+			// the onConflictDoNothing() path that actually needs covering.
+			const second = settleOneTimeAccept('pr-conn-b', ACCEPTOR);
+
+			expect(first.ok).toBe(true);
+			expect(second.ok).toBe(true);
+			expect(countTransactions('pr-conn-a')).toBe(1);
+			expect(countTransactions('pr-conn-b')).toBe(1);
+			expect(liveDb.select().from(schema.connections).all()).toHaveLength(1);
+		});
+	});
 });
 
 describe('settleReusable — real SQLite transaction', () => {

@@ -446,6 +446,22 @@ rate limiter was considered and deferred, since the checks above already bound i
 | `bun run db:seed`            | Seed test data                           |
 | `bun run generate-secret`    | Generate a secure BETTER_AUTH_SECRET     |
 
+### Patched dependencies
+
+`package.json`'s `patchedDependencies` pins two packages to a patch tied to one exact version
+(`patches/svelte-adapter-bun@1.0.1.patch`, `patches/bun-git-hooks@0.3.1.patch`) — each patches a
+bug in that specific release's own source. `bun install` behaves differently when a patched
+dependency's installed version no longer matches the patch's pinned version: for most packages it
+fails outright, but for `bun-git-hooks` specifically it only **prints a warning** ("patch file ...
+no longer applies") and still **exits 0** — easy to miss in CI output, since the install step
+doesn't fail. `.github/dependabot.yml` excludes both packages from automatic bumps for exactly this
+reason (enforced against `patchedDependencies` by
+`scripts/check-dependabot-patches.test.ts`, so the two can't drift apart silently), so this should
+only come up if a patched dependency is bumped manually without re-checking the patch. **Follow-up,
+not yet implemented**: making CI treat that warning as a failure (e.g. `bun install 2>&1 | tee
+/tmp/install.log; ! grep -q 'no longer applies' /tmp/install.log`) would need a change to
+`.github/workflows/ci.yml`.
+
 ---
 
 ## Configuration
@@ -518,16 +534,40 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   to start (migrate.ts / the SQLite open itself errors out). Fix once, before the first restart on
   the new image:
 
+  Check current ownership first (anything other than `1000 1000` / `bun bun` needs the fix below —
+  on a named volume, `docker volume inspect sqlite-data` gives the host path to run `ls -lan`
+  against; on a bind mount, `ls -lan` the host path directly):
+
   ```bash
-  # SQLite deployments only. Stop the app first (`docker compose --profile sqlite stop app-sqlite`),
-  # then fix ownership on the existing volume:
+  ls -lan /var/lib/docker/volumes/sqlite-data/_data   # or your bind-mount host path
+  ```
+
+  **Named volume** (the default — `docker-compose.yml`'s `sqlite-data:/data`):
+
+  ```bash
+  # Stop the app first (`docker compose --profile sqlite stop app-sqlite`), then:
   docker run --rm -v sqlite-data:/data alpine chown -R 1000:1000 /data
   docker compose --profile sqlite up -d
   ```
 
-  A brand-new deployment (first-ever `sqlite-data` volume) is unaffected — Docker initialises a
-  fresh named volume from whatever already exists at the mount point in the image, which is
-  already owned by `bun`. PostgreSQL deployments are unaffected either way — the `postgres`/
+  **Bind mount** (if your own `docker-compose.override.yml` or deployment maps `/data` to a host
+  directory instead of the named volume): `chown` the host path directly — no container needed,
+  since it's already visible on the host:
+
+  ```bash
+  docker compose --profile sqlite stop app-sqlite
+  sudo chown -R 1000:1000 /path/on/host/mapped/to/data
+  docker compose --profile sqlite up -d
+  ```
+
+  A brand-new **named-volume** deployment (first-ever `sqlite-data` volume) is unaffected — Docker
+  initialises a fresh named volume from whatever already exists at the mount point in the image,
+  which is already owned by `bun`. A brand-new **bind-mount** deployment is NOT automatically fine
+  the same way: Docker does not copy the image's `/data` content (or its ownership) into a bind
+  mount at all, and if the host directory doesn't already exist, Docker creates it as root when the
+  container starts — so even a first-ever bind-mount deployment needs that directory pre-created
+  and `chown`'d to `1000:1000` before the first `up`, or it hits the same failure a root-owned
+  upgrade would. PostgreSQL deployments are unaffected either way — the `postgres`/
   `postgres-dev` containers are the official `postgres:17-alpine` image, unrelated to this app's
   own Dockerfile.
 
