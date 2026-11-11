@@ -8,7 +8,7 @@ import Prelude from '@prelude.so/sdk';
 import { db } from './db';
 import { config } from '$lib/config';
 import { sendOtpEmail } from './mailer';
-import { makePlaceholderEmail } from '$lib/placeholder-email';
+import { makePlaceholderEmail, isPlaceholderEmail } from '$lib/placeholder-email';
 import { closeSession } from './sse-registry';
 import { maskPhone } from './phone-mask';
 
@@ -283,6 +283,14 @@ export const auth = betterAuth({
 			if ((isPhoneCredentialChange || isEmailCredentialChange) && succeeded) {
 				await revokeOtherSessionsForCredentialChange(ctx.headers ?? new Headers());
 			}
+			// Review fix (PR #135 follow-up — see auth.test.ts's "stale
+			// placeholder email release" describe block): a phone number
+			// change must also refresh a phone-only user's placeholder
+			// email, or the OLD number stays reserved forever. See
+			// releaseStalePlaceholderEmail's own doc comment for why.
+			if (isPhoneCredentialChange && succeeded) {
+				await releaseStalePlaceholderEmail(ctx);
+			}
 		})
 	},
 	databaseHooks: {
@@ -322,5 +330,70 @@ export async function revokeOtherSessionsForCredentialChange(headers: Headers): 
 		// side effect is a lesser failure than surfacing a 500 on a request
 		// that otherwise succeeded.
 		console.error('Failed to revoke other sessions after credential change:', err);
+	}
+}
+
+/** The context object `hooks.after` handlers receive — reused here so this
+ * helper's parameter type always matches what's actually passed to it. */
+type AuthMiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+/**
+ * Refreshes a phone-only user's placeholder email after a successful phone
+ * number change (`/phone-number/verify` with `updatePhoneNumber: true`).
+ *
+ * Why this is needed: a phone-only sign-up gets a deterministic placeholder
+ * email from `getTempEmail` above (`<digits>@phone.placeholder`, see
+ * src/lib/placeholder-email.ts). Better Auth's own `updatePhoneNumber`
+ * branch (node_modules/better-auth/dist/plugins/phone-number/routes.mjs)
+ * only updates the `phoneNumber` column — nothing there touches `email`.
+ * Left alone, the user's OLD placeholder stays on their row forever, while
+ * the OLD phone number itself becomes free again (the unique
+ * `user_phone_number_idx` only constrains the CURRENT value). If a
+ * different person later verifies that released number,
+ * `signUpOnVerification`'s `createUser` call computes the SAME
+ * deterministic placeholder for them — with no lookup-by-temp-email guard
+ * beforehand — and the unique `user_email_idx` on the `user` table rejects
+ * the insert outright, even though their OTP verified correctly (confirmed
+ * live in auth.test.ts's "stale placeholder email release" describe block,
+ * on both SQLite and PostgreSQL since both engines enforce the same unique
+ * index — see schema.sqlite.ts / schema.pg.ts).
+ *
+ * Reusing `isPlaceholderEmail`/`makePlaceholderEmail` (the same helpers that
+ * already drive the settings UI, src/routes/(app)/settings/+page.svelte)
+ * keeps a phone-only user's placeholder always pointing at their CURRENT
+ * number, so the OLD number is released the moment the change succeeds. A
+ * real (non-placeholder) email is never touched.
+ *
+ * Edge case — the freshly computed placeholder for the NEW number already
+ * belongs to some OTHER row: only reachable from a placeholder that went
+ * stale before this fix existed (pre-existing deployed data — see README's
+ * "Upgrading" section for the detection query and repair hint), since this
+ * fix keeps every placeholder in sync with its owner's current number going
+ * forward and the unique `user_phone_number_idx` already prevents two users
+ * from sharing a `phoneNumber`. If it still happens, `updateUser` below
+ * throws on the same unique `user_email_idx`; we catch and log rather than
+ * rethrow. This runs in `hooks.after`, strictly after the phone-number
+ * change itself already committed and already returned success to the
+ * caller, so rethrowing here couldn't undo that write — it would only turn
+ * an already-successful request into a confusing 500. Worst case: the phone
+ * number change stands, the user's email stays the (now stale again) old
+ * placeholder, and the failure is logged for manual cleanup.
+ */
+async function releaseStalePlaceholderEmail(ctx: AuthMiddlewareContext): Promise<void> {
+	const returnedUser = (
+		ctx.context.returned as
+			| { user?: { id?: string; email?: string | null; phoneNumber?: string | null } }
+			| undefined
+	)?.user;
+	if (!returnedUser?.id || !returnedUser.phoneNumber) return;
+	if (!isPlaceholderEmail(returnedUser.email)) return;
+
+	const newPlaceholder = makePlaceholderEmail(returnedUser.phoneNumber);
+	if (returnedUser.email === newPlaceholder) return;
+
+	try {
+		await ctx.context.internalAdapter.updateUser(returnedUser.id, { email: newPlaceholder });
+	} catch (err) {
+		console.error('Failed to refresh placeholder email after phone change:', err);
 	}
 }
