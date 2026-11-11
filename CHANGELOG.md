@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `generate-secret` now documents and is used solely for generating `BETTER_AUTH_SECRET`; the stale `QR_JWT_SECRET` references in docs and scripts (dead since the v0.3.0 move to UUID-based QR links) are gone. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
+- `generate-secret` now documents and is used solely for generating `BETTER_AUTH_SECRET`; the stale `QR_JWT_SECRET` references (dead since the v0.3.0 move to UUID-based QR links) are gone from the README, `AGENTS.md`, the `.env*` example files, and `scripts/generate-secret.ts`. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
 
 ### Removed
 
@@ -43,8 +43,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database migrations now refuse to run if existing data violates the new rules — check first: non-positive-amount or self-payment transactions ([#131](https://github.com/dokterbob/mutuvia/pull/131)), and duplicate `user.email`/`user.phone_number` values ([#135](https://github.com/dokterbob/mutuvia/pull/135)). See [README's "Upgrading" checklist](README.md#upgrading) for the exact detection queries.
 - The Docker image now runs as a non-root user (uid/gid 1000). Before the first start on an existing SQLite volume or bind mount, `chown -R 1000:1000` its data directory — see the same "Upgrading" checklist for the exact commands. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
 - In production, the app now refuses to start with a weak, missing, or placeholder `BETTER_AUTH_SECRET`, or with neither Prelude nor SMTP configured for OTP delivery. `POSTGRES_PASSWORD` no longer has a default in `docker-compose.yml` — it must be set explicitly.
-- New environment variables: `MAX_TRANSACTION_AMOUNT`, `PUSH_ENDPOINT_EXTRA_HOSTS`, `DEV_LOG_OTP`, `TRUSTED_IP_HEADER`, `PHONE_COUNTRY_ALLOWLIST`, `REUSABLE_QR_TTL_SECONDS`, `QR_MAX_TTL_SECONDS`, `PUBLIC_SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_TUNNEL_MAX_BODY_BYTES`, `SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS`, `HSTS_MAX_AGE_SECONDS`, `HSTS_INCLUDE_SUBDOMAINS`. Behind a reverse proxy, also set `ADDRESS_HEADER`/`XFF_DEPTH` and either `ORIGIN` or `PROTOCOL_HEADER` — see [README's "Reverse proxy, TLS and NODE_ENV" section](README.md#reverse-proxy-tls-and-node_env).
-- Users with a legacy Android-Chrome push subscription (an `android.googleapis.com` endpoint) will stop receiving push notifications and need to re-enable them from Settings.
+- New environment variables:
+  - `MAX_TRANSACTION_AMOUNT` — sanity ceiling on a single transaction or payment-request amount, in minor units; default `100000000` (1,000,000.00). ([#131](https://github.com/dokterbob/mutuvia/pull/131))
+  - `PUSH_ENDPOINT_EXTRA_HOSTS` — extra push-endpoint hosts allowed beyond the built-in browser-vendor allowlist; default empty (none). ([#133](https://github.com/dokterbob/mutuvia/pull/133))
+  - `DEV_LOG_OTP` — prints OTP codes to the console when no real delivery channel is configured; default `false`. ([#134](https://github.com/dokterbob/mutuvia/pull/134))
+  - `TRUSTED_IP_HEADER` — header name the rate limiter reads the client IP from; default `x-mutuvia-client-ip`. ([#136](https://github.com/dokterbob/mutuvia/pull/136))
+  - `PHONE_COUNTRY_ALLOWLIST` — comma-separated ISO 3166-1 country codes allowed to sign up or request an OTP; default unset (no restriction). ([#136](https://github.com/dokterbob/mutuvia/pull/136))
+  - `REUSABLE_QR_TTL_SECONDS` — default expiry for a reusable QR; default unset ("never expire"). ([#137](https://github.com/dokterbob/mutuvia/pull/137))
+  - `QR_MAX_TTL_SECONDS` — optional upper bound on any QR's expiry; default unset (no bound). ([#137](https://github.com/dokterbob/mutuvia/pull/137))
+  - `PUBLIC_SENTRY_TRACES_SAMPLE_RATE` — fraction of transactions sampled for Sentry performance tracing; default `0.1` (10%). ([#138](https://github.com/dokterbob/mutuvia/pull/138))
+  - `SENTRY_TUNNEL_MAX_BODY_BYTES` — cap on a single `/sentry-tunnel` request body, in bytes; default `5000000` (5 MB). ([#138](https://github.com/dokterbob/mutuvia/pull/138))
+  - `SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS` — timeout on the `/sentry-tunnel` → Sentry ingest upstream fetch, in milliseconds; default `5000` (5s). ([#138](https://github.com/dokterbob/mutuvia/pull/138))
+  - `HSTS_MAX_AGE_SECONDS` — HSTS max-age, in seconds; default `15552000` (180 days). ([#138](https://github.com/dokterbob/mutuvia/pull/138))
+  - `HSTS_INCLUDE_SUBDOMAINS` — whether HSTS applies to subdomains; default `false`. ([#138](https://github.com/dokterbob/mutuvia/pull/138))
+- Behind a reverse proxy, also set `ADDRESS_HEADER`/`XFF_DEPTH` and either `ORIGIN` or `PROTOCOL_HEADER` — see [README's "Reverse proxy, TLS and NODE_ENV" section](README.md#reverse-proxy-tls-and-node_env).
+- Users with a legacy Android-Chrome push subscription (an `android.googleapis.com` endpoint) will stop receiving push notifications until they next create a send or receive QR code — `subscribeToPush()` runs automatically at that point (from `receive/+page.svelte` and `send/+page.svelte`), reusing the notification permission they already granted and registering a fresh subscription with the server.
 
 ## [0.4.0] - 2026-10-27
 
