@@ -5,12 +5,22 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const REQUEST_STATE_ERROR =
 	'No request state found. Please make sure you are calling this function within a `runWithRequestState` callback.';
 
-const { getSessionMock, svelteKitHandlerMock } = vi.hoisted(() => ({
+const { getSessionMock, svelteKitHandlerMock, configMock } = vi.hoisted(() => ({
 	getSessionMock: vi.fn(),
 	svelteKitHandlerMock: vi.fn(
 		async (input: { event: unknown; resolve: (event: unknown) => Response | Promise<Response> }) =>
 			input.resolve(input.event)
-	)
+	),
+	// Mutable (unlike the other mocks below) so tests can flip `appUrl` per
+	// case — see the HSTS-vs-appUrl describe block, which needs both an
+	// https and an http APP_URL.
+	configMock: {
+		dbProvider: 'sqlite',
+		trustedIpHeader: 'x-mutuvia-client-ip',
+		appUrl: 'https://example.test',
+		hstsMaxAgeSeconds: 15552000,
+		hstsIncludeSubdomains: false
+	}
 }));
 
 vi.mock('@sentry/sveltekit', () => ({
@@ -50,12 +60,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 vi.mock('$lib/config', () => ({
-	config: {
-		dbProvider: 'sqlite',
-		trustedIpHeader: 'x-mutuvia-client-ip',
-		hstsMaxAgeSeconds: 15552000,
-		hstsIncludeSubdomains: false
-	}
+	config: configMock
 }));
 
 vi.mock('$lib/paraglide/server', () => ({
@@ -209,7 +214,10 @@ describe('handle — protocol-relative path guard (GHSA-pfhg-q3qv-9q6r)', () => 
 });
 
 describe('handle — security headers (src/lib/server/security-headers.ts)', () => {
-	beforeEach(() => getSessionMock.mockReset());
+	beforeEach(() => {
+		getSessionMock.mockReset();
+		configMock.appUrl = 'https://example.test';
+	});
 
 	function makeEvent(url: string, { user }: { user?: unknown } = {}) {
 		const resolve = vi.fn(async () => new Response('ok'));
@@ -258,6 +266,46 @@ describe('handle — security headers (src/lib/server/security-headers.ts)', () 
 			const result = await handle(input);
 
 			expect(result.headers.get('strict-transport-security')).toBeNull();
+		});
+	});
+
+	// Regression (review round 1, finding 2): svelte-adapter-bun defaults a
+	// request's protocol to 'https' whenever neither ORIGIN nor
+	// PROTOCOL_HEADER is set — so `event.url.protocol` can read 'https:' even
+	// on an all-http deployment with no TLS anywhere. HSTS must also require
+	// the operator's own declared APP_URL to be https.
+	describe('given an https-looking request but an http APP_URL (the adapter-default-guess case)', () => {
+		test('does not set Strict-Transport-Security', async () => {
+			configMock.appUrl = 'http://example.test';
+			getSessionMock.mockResolvedValueOnce(null);
+			const input = makeEvent('https://example.test/api/events');
+
+			const result = await handle(input);
+
+			expect(result.headers.get('strict-transport-security')).toBeNull();
+		});
+	});
+
+	// Regression (review round 1, finding 4): the response that CREATES a
+	// session judges "authenticated" from the session that existed BEFORE
+	// the request (there isn't one yet), so it needs its own path-based
+	// (isAuthApiPath, see src/lib/server/security-headers.test.ts for the
+	// pure-function cases covering real /api/auth/* paths — a real
+	// /api/auth/* URL goes through mainSequence(), which needs SvelteKit's
+	// internal request store and can't run in this unit test) and
+	// Set-Cookie-based catch-alls — the latter IS reachable here via the
+	// streaming-endpoint shortcut, regardless of path:
+	describe('given an unauthenticated, non-sensitive-path response that sets a cookie', () => {
+		test('sets Cache-Control: private, no-store', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			const input = makeEvent('https://example.test/api/events');
+			input.resolve = vi.fn(
+				async () => new Response('ok', { headers: { 'set-cookie': 'session=abc; Path=/' } })
+			);
+
+			const result = await handle(input);
+
+			expect(result.headers.get('cache-control')).toBe('private, no-store');
 		});
 	});
 

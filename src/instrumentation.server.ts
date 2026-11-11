@@ -14,6 +14,26 @@ const dsn = process.env.PUBLIC_SENTRY_DSN;
 if (dsn) {
 	Sentry.init({
 		dsn,
+		// @sentry/bun's DEFAULT integrations include requestDataIntegration()
+		// with DEFAULT_INCLUDE = { cookies: true, data: true, headers: true,
+		// query_string: true, url: true } — see
+		// node_modules/@sentry/core/build/esm/integrations/requestdata.js —
+		// meaning every server-side event otherwise gets the request's
+		// cookies (the Better Auth session cookie) AND body (which, for an
+		// OTP send/verify request, is the phone number/email/code itself)
+		// attached by default. Re-declaring it here with `include` set
+		// overrides the default instance (Sentry dedupes integrations by
+		// name, user-provided wins — see filterDuplicates in
+		// @sentry/core/build/esm/integration.js) so that data is never
+		// collected in the first place. `ip: false` is already the default
+		// here (gated on `sendDefaultPii`, which this app never sets), kept
+		// explicit for clarity. src/lib/sentry-scrub.ts's scrubRequest()
+		// also strips cookies/data/Cookie/Authorization defensively, in case
+		// any other code path (a future SDK change, a manually attached
+		// extra) ever populates them.
+		integrations: [
+			Sentry.requestDataIntegration({ include: { cookies: false, data: false, ip: false } })
+		],
 		// Shared parser/default with src/hooks.client.ts and $lib/config's
 		// sentryTracesSampleRate (used there only for the boot-time
 		// validateConfig() check) — see src/lib/sentry-config.ts.

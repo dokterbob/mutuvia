@@ -44,6 +44,18 @@ const config = {
 				// securitypolicyviolation listener; without it, WASM
 				// instantiation is blocked and scanning never starts.
 				'script-src': ['self', 'wasm-unsafe-eval'],
+				// Svelte never renders inline event-handler attributes
+				// (onclick="..." etc — compiled components use
+				// addEventListener, not markup attributes), so this directive
+				// has nothing legitimate to allow. Unlike style-src-attr,
+				// SvelteKit's Csp class doesn't manage script-src-attr at all
+				// (see runtime/server/page/csp.js — it only ever reads/writes
+				// script-src, script-src-elem, style-src, style-src-attr and
+				// style-src-elem), so setting it is purely our own choice, not
+				// something SvelteKit needs an escape hatch for. Verified the
+				// full E2E suite (including every bits-ui portal/dialog and
+				// the Sentry feedback widget) stays green with this set.
+				'script-src-attr': ['none'],
 				// Plain `style-src` deliberately omits 'unsafe-inline' so
 				// SvelteKit nonces Svelte's compiled component <style> tags
 				// automatically (Csp#add_style). Inline `style="..."`

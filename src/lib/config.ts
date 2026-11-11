@@ -357,6 +357,17 @@ export const config = {
 			'SENTRY_TUNNEL_MAX_BODY_BYTES',
 			env.SENTRY_TUNNEL_MAX_BODY_BYTES || '5000000'
 		);
+	},
+	// Timeout on the /sentry-tunnel -> Sentry ingest upstream fetch, in
+	// milliseconds. Without one, a slow/unresponsive upstream would hold this
+	// unauthenticated-by-nature endpoint's connection open indefinitely.
+	// Default 5s: generous for a small envelope POST, short enough that a
+	// client isn't left waiting on a hung upstream.
+	get sentryTunnelUpstreamTimeoutMs() {
+		return parsePositiveInt(
+			'SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS',
+			env.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS || '5000'
+		);
 	}
 };
 
@@ -386,6 +397,7 @@ export function validateConfig(): void {
 	void config.hstsMaxAgeSeconds;
 	void config.sentryTracesSampleRate;
 	void config.sentryTunnelMaxBodyBytes;
+	void config.sentryTunnelUpstreamTimeoutMs;
 
 	// An operator default that QR_MAX_TTL_SECONDS itself forbids is a
 	// deployment misconfiguration, not something to clamp silently (which
@@ -500,6 +512,29 @@ export function validateConfig(): void {
 			`[WARNING] APP_URL "${config.appUrl}" is not https in production — the Better Auth ` +
 				'session cookie will NOT get the Secure attribute (see advanced.useSecureCookies in ' +
 				'auth.ts), and QR links will be built as http.'
+		);
+	} else if (!env.ORIGIN && !env.PROTOCOL_HEADER) {
+		// HSTS (src/lib/server/security-headers.ts) is only sent when BOTH
+		// APP_URL is https (checked above — true here) AND the current
+		// request is itself seen as https via `event.url.protocol`. That
+		// second check is only trustworthy once svelte-adapter-bun is told
+		// how to determine it: its own `get_origin()` (dist/files/
+		// handler.js) defaults the protocol to 'https' whenever neither
+		// `ORIGIN` nor `PROTOCOL_HEADER` is set — regardless of whether real
+		// traffic is actually arriving over https. With neither set, every
+		// request will be treated as https (matching this https APP_URL) even
+		// if TLS termination in front of this server is missing or
+		// misconfigured, silently sending HSTS to browsers that connected
+		// over plain http. Set `ORIGIN` (fixed, e.g.
+		// "https://example.com") or `PROTOCOL_HEADER` (e.g.
+		// "x-forwarded-proto", read from the real incoming request) so the
+		// adapter's answer is actually trustworthy.
+		console.warn(
+			'[WARNING] APP_URL is https but neither ORIGIN nor PROTOCOL_HEADER is set — ' +
+				"svelte-adapter-bun cannot determine each request's real protocol and defaults to " +
+				'assuming https for all of them, which can send Strict-Transport-Security even if a ' +
+				'request actually arrived over plain http (e.g. TLS termination in front of this ' +
+				'server is missing or misconfigured). Set ORIGIN or PROTOCOL_HEADER.'
 		);
 	}
 }

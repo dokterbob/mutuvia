@@ -156,4 +156,141 @@ describe('scrubSentryEvent', () => {
 		const event = scrubSentryEvent({ level: 'error' });
 		expect(event).toEqual({ level: 'error' });
 	});
+
+	// ── Reviewer's findings (round 1): fields scrubSentryEvent previously left untouched ──
+
+	describe('exception.values', () => {
+		test('scrubs .value and .type', () => {
+			const event = scrubSentryEvent({
+				exception: {
+					values: [
+						{
+							type: 'Error contacting +31612345678',
+							value: 'Failed for jane@example.com at /accept/abc123'
+						}
+					]
+				}
+			});
+			const value = event.exception?.values?.[0];
+			expect(value?.type).toBe('Error contacting [redacted-phone]');
+			expect(value?.value).toBe('Failed for [redacted-email] at /accept/[id]');
+		});
+
+		test('scrubs stacktrace.frames[].vars', () => {
+			const event = scrubSentryEvent({
+				exception: {
+					values: [
+						{
+							stacktrace: {
+								frames: [{ filename: 'app.js', vars: { email: 'jane@example.com', count: 3 } }]
+							}
+						}
+					]
+				}
+			});
+			const frame = event.exception?.values?.[0]?.stacktrace?.frames?.[0];
+			expect(frame?.vars).toEqual({ email: '[redacted-email]', count: 3 });
+			expect(frame?.filename).toBe('app.js'); // untouched, non-string-PII fields survive
+		});
+	});
+
+	test('scrubs the top-level message', () => {
+		const event = scrubSentryEvent({ message: 'OTP send failed for +31612345678' });
+		expect(event.message).toBe('OTP send failed for [redacted-phone]');
+	});
+
+	describe('logentry', () => {
+		test('scrubs message and string params', () => {
+			const event = scrubSentryEvent({
+				logentry: { message: 'send failed for %s', params: ['jane@example.com', 3] }
+			});
+			expect(event.logentry?.message).toBe('send failed for %s');
+			expect(event.logentry?.params).toEqual(['[redacted-email]', 3]);
+		});
+	});
+
+	test('scrubs string values nested inside contexts', () => {
+		const event = scrubSentryEvent({
+			contexts: { custom: { lastDest: 'jane@example.com', retry: 2 } }
+		});
+		expect(event.contexts).toEqual({ custom: { lastDest: '[redacted-email]', retry: 2 } });
+	});
+
+	describe('user', () => {
+		test('keeps only an opaque id when one is set, dropping email/username/ip_address', () => {
+			const event = scrubSentryEvent({
+				user: { id: 'user-123', email: 'jane@example.com', username: 'jane', ip_address: '1.2.3.4' }
+			});
+			expect(event.user).toEqual({ id: 'user-123' });
+		});
+
+		test('drops user entirely when there is no id', () => {
+			const event = scrubSentryEvent({ user: { email: 'jane@example.com' } });
+			expect(event.user).toBeUndefined();
+			expect('user' in event).toBe(false);
+		});
+	});
+
+	describe('request.cookies / request.data / sensitive headers', () => {
+		test('strips cookies and data entirely, not just redacts them', () => {
+			const event = scrubSentryEvent({
+				request: {
+					url: 'https://app.test/api/auth/sign-in/email-otp',
+					cookies: { 'better-auth.session_token': 'abc.def.ghi' },
+					data: { email: 'jane@example.com', otp: '123456' }
+				}
+			});
+			expect(event.request?.cookies).toBeUndefined();
+			expect(event.request?.data).toBeUndefined();
+			expect('cookies' in (event.request ?? {})).toBe(false);
+			expect('data' in (event.request ?? {})).toBe(false);
+		});
+
+		test('drops the Cookie and Authorization headers entirely (case-insensitive)', () => {
+			const event = scrubSentryEvent({
+				request: {
+					headers: {
+						Cookie: 'better-auth.session_token=abc.def.ghi',
+						authorization: 'Bearer secret-token',
+						'User-Agent': 'TestAgent/1.0'
+					}
+				}
+			});
+			expect(event.request?.headers).toEqual({ 'User-Agent': 'TestAgent/1.0' });
+		});
+	});
+
+	test('reviewer regression: a synthetic event with PII in every newly-covered field comes back fully scrubbed', () => {
+		const event = scrubSentryEvent({
+			message: 'top-level jane@example.com',
+			logentry: { message: 'logentry +31612345678', params: ['jane@example.com'] },
+			exception: {
+				values: [
+					{
+						type: 'ContactError jane@example.com',
+						value: 'value +31612345678',
+						stacktrace: { frames: [{ vars: { phone: '+31612345678' } }] }
+					}
+				]
+			},
+			contexts: { custom: { email: 'jane@example.com' } },
+			user: { id: 'u1', email: 'jane@example.com', username: 'jane', ip_address: '1.2.3.4' },
+			request: {
+				url: 'https://app.test/send/abc123',
+				cookies: { session: 'secret' },
+				data: { email: 'jane@example.com' },
+				headers: { Cookie: 'secret', Authorization: 'Bearer x' }
+			}
+		});
+
+		const serialized = JSON.stringify(event);
+		expect(serialized).not.toContain('jane@example.com');
+		expect(serialized).not.toContain('31612345678');
+		expect(serialized).not.toContain('abc123');
+		expect(serialized).not.toContain('secret');
+		expect(event.user).toEqual({ id: 'u1' });
+		expect(event.request?.cookies).toBeUndefined();
+		expect(event.request?.data).toBeUndefined();
+		expect(event.request?.headers).toEqual({});
+	});
 });

@@ -6,11 +6,46 @@
 // between the two, and so it's table-driven-testable without constructing a
 // full Sentry Event/Transaction object.
 //
-// Scope, per the security-hardening plan: ids in /accept/<id>, /send/<id> and
-// /api/qr-status/<id>; the `dest` query param on /onboarding/otp (a phone
-// number or email); and phone numbers/emails appearing anywhere else in free
-// text (URLs, transaction names, breadcrumb data, span descriptions,
-// extra/tags, the Referer header).
+// IMPORTANT: this is best-effort PATTERN MATCHING, not a guarantee. It
+// redacts things that LOOK like emails/phone numbers/known dynamic-id URL
+// shapes wherever this module was told to look — it cannot find PII in a
+// shape nobody anticipated (e.g. a free-text error message that happens to
+// contain someone's name, or a phone number formatted in a way the regex
+// below doesn't recognise). Treat Sentry data as "reduced risk", not "safe to
+// treat as public".
+//
+// Scope: ids in /accept/<id>, /send/<id> and /api/qr-status/<id>; the `dest`
+// query param on /onboarding/otp (a phone number or email); phone
+// numbers/emails anywhere else in free text (URLs, transaction names,
+// breadcrumb data, span descriptions, extra/tags/contexts, exception
+// messages, stack frame local variables, the top-level message/logentry,
+// the Referer header); and request data that should never reach Sentry at
+// all regardless of content — `request.cookies`, `request.data` (body), and
+// the `Cookie`/`Authorization` request headers are stripped entirely, not
+// just redacted. `user` is reduced to an opaque `id` only (email/username/
+// ip_address dropped) — see scrubUser.
+//
+// Fixed at the source too, not just here: src/instrumentation.server.ts
+// explicitly configures Sentry's `requestDataIntegration` (a DEFAULT
+// integration for @sentry/bun/@sentry/node — see
+// node_modules/@sentry/core/build/esm/integrations/requestdata.js's
+// DEFAULT_INCLUDE, which has `cookies: true, data: true, headers: true` —
+// i.e. request cookies and body are attached to every server-side event
+// UNLESS explicitly turned off) with `include: { cookies: false, data: false
+// }`, so that data never reaches an Event in the first place. The stripping
+// here is defense-in-depth for any other path (e.g. manually attached data,
+// or a future SDK/integration change) that might still populate those
+// fields. `sendDefaultPii` is not set anywhere in this app (confirmed by
+// grep) — it defaults to false, which is what keeps IP addresses off
+// `user.ip_address` by default; `user` is reduced further still, below.
+//
+// Session replay: `networkDetailAllowUrls` (replayIntegration's own option)
+// is left at its default of `[]` — see
+// node_modules/@sentry-internal/replay/build/npm/esm/index.js — meaning
+// replay never records network request/response bodies or headers for any
+// URL. The generic navigation/fetch breadcrumbs replay DOES record (method,
+// url, status, timing) go through the same scrubBreadcrumb as every other
+// breadcrumb, below.
 
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 // Loosely formatted phone numbers: optional leading '+', then digits with
@@ -69,16 +104,27 @@ export function scrubString(text: string): string {
 	return redactContactInfo(redactDynamicIds(stripOtpDestParam(text)));
 }
 
+// Bounds on the recursive walk below: depth guarantees termination even on a
+// circular object (depth is a monotonic counter, independent of object
+// identity, so a cycle just hits the depth cap rather than looping forever);
+// the key/item caps bound the cost of an unexpectedly huge extra/tags/
+// contexts payload or stack-frame `vars` object.
 const MAX_SCRUB_DEPTH = 4;
+const MAX_SCRUB_ITEMS = 200;
 
-/** Recursively scrubs string leaves in an arbitrary JSON-ish value (extra/tags payloads). */
+/** Recursively scrubs string leaves in an arbitrary JSON-ish value (extra/tags/contexts/vars payloads). */
 function scrubUnknownDeep(value: unknown, depth = 0): unknown {
 	if (depth > MAX_SCRUB_DEPTH) return value;
 	if (typeof value === 'string') return scrubString(value);
-	if (Array.isArray(value)) return value.map((item) => scrubUnknownDeep(item, depth + 1));
+	if (Array.isArray(value)) {
+		return value.slice(0, MAX_SCRUB_ITEMS).map((item) => scrubUnknownDeep(item, depth + 1));
+	}
 	if (value && typeof value === 'object') {
 		const result: Record<string, unknown> = {};
-		for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+		for (const [key, item] of Object.entries(value as Record<string, unknown>).slice(
+			0,
+			MAX_SCRUB_ITEMS
+		)) {
 			result[key] = scrubUnknownDeep(item, depth + 1);
 		}
 		return result;
@@ -109,6 +155,79 @@ function scrubBreadcrumb(breadcrumb: ScrubbableBreadcrumb): ScrubbableBreadcrumb
 	return result;
 }
 
+interface ScrubbableStackFrame {
+	vars?: Record<string, unknown>;
+	[key: string]: unknown;
+}
+
+interface ScrubbableExceptionValue {
+	type?: string;
+	value?: string;
+	stacktrace?: { frames?: ScrubbableStackFrame[]; [key: string]: unknown };
+	[key: string]: unknown;
+}
+
+function scrubExceptionValue(value: ScrubbableExceptionValue): ScrubbableExceptionValue {
+	const result: ScrubbableExceptionValue = { ...value };
+	if (typeof result.type === 'string') result.type = scrubString(result.type);
+	if (typeof result.value === 'string') result.value = scrubString(result.value);
+	if (result.stacktrace?.frames) {
+		result.stacktrace = {
+			...result.stacktrace,
+			frames: result.stacktrace.frames.map((frame) =>
+				frame?.vars
+					? { ...frame, vars: scrubUnknownDeep(frame.vars) as Record<string, unknown> }
+					: frame
+			)
+		};
+	}
+	return result;
+}
+
+/**
+ * Reduces a Sentry `user` object to an opaque id only — drops email,
+ * username, ip_address, and any other field a custom `setUser()` call might
+ * have attached. Returns `undefined` when there's no usable id, signalling
+ * the caller to drop `user` entirely rather than send an empty-but-present
+ * object (which some Sentry UI surfaces render as "Unknown User" either
+ * way, so dropping it is no loss).
+ */
+function scrubUser(user: Record<string, unknown>): Record<string, unknown> | undefined {
+	const id = user.id;
+	if (typeof id === 'string' || typeof id === 'number') {
+		return { id };
+	}
+	return undefined;
+}
+
+const SENSITIVE_HEADER_NAMES = new Set(['cookie', 'authorization']);
+
+interface ScrubbableRequest {
+	url?: string;
+	headers?: Record<string, string>;
+	cookies?: unknown;
+	data?: unknown;
+	[key: string]: unknown;
+}
+
+function scrubRequest(request: ScrubbableRequest): ScrubbableRequest {
+	const result: ScrubbableRequest = { ...request };
+	// Never sent to Sentry at all, regardless of content — not just redacted.
+	delete result.cookies;
+	delete result.data;
+	if (result.url) result.url = scrubString(result.url);
+	if (result.headers) {
+		const headers: Record<string, string> = {};
+		for (const [key, value] of Object.entries(result.headers)) {
+			const lower = key.toLowerCase();
+			if (SENSITIVE_HEADER_NAMES.has(lower)) continue; // dropped, not scrubbed
+			headers[key] = lower === 'referer' || lower === 'referrer' ? scrubString(value) : value;
+		}
+		result.headers = headers;
+	}
+	return result;
+}
+
 /**
  * Minimal shape of the fields this module touches on a Sentry
  * ErrorEvent/TransactionEvent — kept loose (rather than importing the full
@@ -118,8 +237,13 @@ function scrubBreadcrumb(breadcrumb: ScrubbableBreadcrumb): ScrubbableBreadcrumb
  * for both ErrorEvent and TransactionEvent.
  */
 export interface ScrubbableSentryEvent {
-	request?: { url?: string; headers?: Record<string, string> };
+	request?: ScrubbableRequest;
 	transaction?: string;
+	message?: string;
+	logentry?: { message?: string; params?: unknown[]; [key: string]: unknown };
+	exception?: { values?: ScrubbableExceptionValue[] };
+	contexts?: Record<string, unknown>;
+	user?: Record<string, unknown>;
 	breadcrumbs?: ScrubbableBreadcrumb[];
 	spans?: Array<{ description?: string; [key: string]: unknown }>;
 	extra?: Record<string, unknown>;
@@ -134,18 +258,41 @@ export interface ScrubbableSentryEvent {
  * "less redacted" being caught by other layers, not to losing the report.
  */
 export function scrubSentryEvent<T extends ScrubbableSentryEvent>(event: T): T {
-	if (event.request?.url) {
-		event.request.url = scrubString(event.request.url);
-	}
-	if (event.request?.headers) {
-		for (const key of Object.keys(event.request.headers)) {
-			if (key.toLowerCase() === 'referer' || key.toLowerCase() === 'referrer') {
-				event.request.headers[key] = scrubString(event.request.headers[key]);
-			}
-		}
+	if (event.request) {
+		event.request = scrubRequest(event.request);
 	}
 	if (typeof event.transaction === 'string') {
 		event.transaction = scrubString(event.transaction);
+	}
+	if (typeof event.message === 'string') {
+		event.message = scrubString(event.message);
+	}
+	if (event.logentry) {
+		const logentry = { ...event.logentry };
+		if (typeof logentry.message === 'string') logentry.message = scrubString(logentry.message);
+		if (Array.isArray(logentry.params)) {
+			logentry.params = logentry.params.map((param) =>
+				typeof param === 'string' ? scrubString(param) : param
+			);
+		}
+		event.logentry = logentry;
+	}
+	if (event.exception?.values) {
+		event.exception = {
+			...event.exception,
+			values: event.exception.values.map(scrubExceptionValue)
+		};
+	}
+	if (event.contexts) {
+		event.contexts = scrubUnknownDeep(event.contexts) as Record<string, unknown>;
+	}
+	if (event.user) {
+		const scrubbed = scrubUser(event.user);
+		if (scrubbed) {
+			event.user = scrubbed;
+		} else {
+			delete event.user;
+		}
 	}
 	if (Array.isArray(event.breadcrumbs)) {
 		event.breadcrumbs = event.breadcrumbs.map(scrubBreadcrumb);
