@@ -373,8 +373,17 @@ describe('settleReusable — real SQLite transaction', () => {
 		// really is). Proven here by disabling the pre-read's own check — if
 		// the claim's WHERE didn't also have `notExpiredCondition()`, this
 		// would settle anyway, because `status` stays 'active' regardless of
-		// expiry. Before the fix, this test failed (ok:true, a ledger row
+		// expiry. Before that fix, this test failed (ok:true, a ledger row
 		// written) with exactly this setup.
+		//
+		// Status is 409 ("not active"), not 410 ("expired"): the claim's own
+		// zero-rows branch always reports 409 now, because with a real
+		// (unmocked) `isExpired()` the pre-read and the claim share one `now`
+		// and can never disagree — reaching the claim at all means the
+		// pre-read saw it as not expired, so expiry is never the real reason
+		// the claim fails. This test only reaches the claim's expiry rejection
+		// by artificially bypassing the pre-read; a genuine caller would
+		// simply get rejected by the pre-read's 410, before ever reaching here.
 		test('When the pre-read check is bypassed → the claim itself still rejects it, with no ledger row', () => {
 			const isExpiredSpy = vi.spyOn(qrExpiry, 'isExpired').mockReturnValue(false);
 			try {
@@ -383,7 +392,7 @@ describe('settleReusable — real SQLite transaction', () => {
 				const result = settleReusable('rpr-bypass', ACCEPTOR, 1000);
 
 				expect(isExpiredSpy).toHaveBeenCalled();
-				expect(result).toMatchObject({ ok: false, status: 410 });
+				expect(result).toMatchObject({ ok: false, status: 409 });
 				expect(countTransactions('rpr-bypass')).toBe(0);
 				expect(getPr('rpr-bypass')?.totalReceived).toBe(0);
 				expect(getPr('rpr-bypass')?.paymentCount).toBe(0);
