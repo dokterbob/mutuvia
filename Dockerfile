@@ -46,9 +46,8 @@ RUN bun install --frozen-lockfile
 # SENTRY_RELEASE threaded back in here as ARGs/ENV, with a real BuildKit
 # `RUN --mount=type=secret` for the token, not a plain ARG.
 COPY . .
-RUN bun run build
-
-# Delete the *.map files in THIS stage, before the runtime stage's
+# Delete the *.map files in THIS stage (same RUN as the build, so hadolint
+# doesn't flag consecutive RUNs), before the runtime stage's
 # COPY --from=builder below — deleting them only in the runtime stage (as an
 # earlier version of this Dockerfile did) leaves them sitting in the
 # COPY --from=builder layer of the pushed image, fully extractable by
@@ -56,7 +55,7 @@ RUN bun run build
 # Nothing at runtime reads build/**/*.map (grepped: no sourceMappingURL
 # reference, no code path opens a .map file) — they're build-time-only
 # artifacts for a local `bun run build` developer, not this image.
-RUN find ./build -name '*.map' -type f -delete
+RUN bun run build && find ./build -name '*.map' -type f -delete
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a
