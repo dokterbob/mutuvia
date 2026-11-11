@@ -12,6 +12,11 @@ updates:
       bun-minor-patch:
         update-types: ['minor', 'patch']
     ignore:
+      # Every entry here must match a key in package.json's
+      # patchedDependencies (minus its @version suffix) — enforced by
+      # scripts/check-dependabot-patches.test.ts so this list and
+      # patchedDependencies cannot drift apart silently.
+      #
       # patches/svelte-adapter-bun@1.0.1.patch is pinned to this exact
       # version (it patches a bug in 1.0.1's own source) — a Dependabot PR
       # bumping svelte-adapter-bun would apply a stale patch to a different
@@ -19,6 +24,13 @@ updates:
       # See AGENTS.md / README's patch note. Bump manually and re-check the
       # patch when a new svelte-adapter-bun release is actually wanted.
       - dependency-name: 'svelte-adapter-bun'
+      # patches/bun-git-hooks@0.3.1.patch — same hazard as above. Unlike a
+      # version mismatch on a real dependency, a stale patch here doesn't
+      # fail `bun install` (it prints "patch file ... no longer applies" and
+      # exits 0 — confirmed), so a Dependabot bump landing unreviewed would
+      # silently stop applying the patch rather than erroring. See the
+      # README's patches note for the "make CI fail on that warning" follow-up.
+      - dependency-name: 'bun-git-hooks'
 
   # GitHub Actions used in .github/workflows/*.yml — all pinned by commit
   # SHA (see the "pin actions by SHA" comment style in android.yml/ci.yml);

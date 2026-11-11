@@ -3,9 +3,9 @@
 # chosen to match the Bun used locally and in CI (.github/workflows/ci.yml) —
 # keep all three (here, the runtime stage below, and ci.yml's BUN_VERSION) in
 # sync on a Bun bump. Re-resolve the digest with:
-#   curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:oven/bun:pull" \
-#     | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])" > /tmp/t
-#   curl -s -H "Authorization: Bearer $(cat /tmp/t)" \
+#   TOKEN=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:oven/bun:pull" \
+#     | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+#   curl -s -H "Authorization: Bearer $TOKEN" \
 #     -H "Accept: application/vnd.oci.image.index.v1+json" \
 #     "https://registry-1.docker.io/v2/oven/bun/manifests/<version>-alpine" -D - -o /dev/null \
 #     | grep docker-content-digest
@@ -48,6 +48,16 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
+# Delete the *.map files in THIS stage, before the runtime stage's
+# COPY --from=builder below — deleting them only in the runtime stage (as an
+# earlier version of this Dockerfile did) leaves them sitting in the
+# COPY --from=builder layer of the pushed image, fully extractable by
+# `docker save`/`docker history` regardless of what a later layer deletes.
+# Nothing at runtime reads build/**/*.map (grepped: no sourceMappingURL
+# reference, no code path opens a .map file) — they're build-time-only
+# artifacts for a local `bun run build` developer, not this image.
+RUN find ./build -name '*.map' -type f -delete
+
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM oven/bun:1.4.4-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a
 WORKDIR /app
@@ -87,12 +97,10 @@ USER bun
 
 RUN bun install --production --frozen-lockfile
 
-# Bundled SvelteKit server. The build also emits build/server/**/*.map —
-# useful for symbolicating a local stack trace, but nothing uploads them to
-# Sentry (see the builder stage's comment) and they're not needed to run the
-# server, so they're stripped rather than shipped into the runtime image.
+# Bundled SvelteKit server. build/**/*.map files were already deleted in the
+# builder stage above (before this COPY --from=builder), so none of them
+# land in this image's layers at all.
 COPY --from=builder --chown=bun:bun /app/build ./build
-RUN find ./build -name '*.map' -type f -delete
 
 # Drizzle migration SQL files (both dialects) + runner script.
 # migrate.ts imports db-url.ts (log scrubbing) by relative path — it's a
