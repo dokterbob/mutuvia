@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { betterAuth } from 'better-auth';
-import { createAuthMiddleware, APIError } from 'better-auth/api';
+import { createAuthMiddleware, APIError, isAPIError } from 'better-auth/api';
 import { phoneNumber, emailOTP } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import Prelude from '@prelude.so/sdk';
@@ -201,7 +201,29 @@ export const auth = betterAuth({
 		'/list-sessions',
 		'/revoke-session',
 		'/revoke-sessions',
-		'/revoke-other-sessions'
+		'/revoke-other-sessions',
+		// Review fix (PR #135, nit): found via an exhaustive enumeration of
+		// every route the live Better Auth instance registers (see
+		// auth.test.ts's "every registered route is accounted for" test) —
+		// all live, parameterless, and unused by this app (no social
+		// provider is configured; no password is ever set; this app's own
+		// `authClient.emailOtp.*` calls never use the `email-verification`
+		// OTP type `/email-otp/verify-email` needs).
+		'/change-email',
+		'/send-verification-email',
+		'/verify-email',
+		'/verify-password',
+		'/update-session',
+		'/account-info',
+		'/get-access-token',
+		'/link-social',
+		'/list-accounts',
+		'/refresh-token',
+		'/sign-in/social',
+		'/unlink-account',
+		'/request-password-reset',
+		'/delete-user/callback',
+		'/email-otp/verify-email'
 	],
 	hooks: {
 		before: createAuthMiddleware(async (ctx) => {
@@ -227,8 +249,21 @@ export const auth = betterAuth({
 		// successful credential change — confirmed in routes.mjs for both),
 		// so `auth.api.revokeOtherSessions` — which excludes the session
 		// matching the request's own cookie — is exactly the right primitive.
-		// `hooks.after` only runs once the endpoint itself has already
-		// succeeded, so a failed OTP verification never triggers this.
+		//
+		// IMPORTANT — `hooks.after` runs on FAILED requests too, not just
+		// successful ones (verified against the installed source,
+		// node_modules/better-auth/dist/api/to-auth-endpoints.mjs: a thrown
+		// `APIError` is caught, stored as `internalContext.context.returned`,
+		// and `runAfterHooks` still runs — using that same `ctx.context` —
+		// BEFORE the error is re-thrown to the caller). An earlier version of
+		// this comment claimed the opposite; it was wrong, and so was the
+		// code: a WRONG OTP on `/phone-number/verify`
+		// (`updatePhoneNumber: true`) or `/email-otp/change-email` changed
+		// nothing, yet still revoked every other session for the user
+		// (confirmed live: 2 sessions → 1, on both paths — see
+		// auth.test.ts). Gated below on `!isAPIError(ctx.context.returned)`
+		// — `returned` holds the endpoint's normal return value on success,
+		// or the thrown `APIError` instance itself on failure (same source).
 		//
 		// Only two endpoints actually change a *verified* credential on an
 		// existing account:
@@ -244,7 +279,8 @@ export const auth = betterAuth({
 			const isPhoneCredentialChange =
 				ctx.path === '/phone-number/verify' && ctx.body?.updatePhoneNumber === true;
 			const isEmailCredentialChange = ctx.path === '/email-otp/change-email';
-			if (isPhoneCredentialChange || isEmailCredentialChange) {
+			const succeeded = !isAPIError(ctx.context.returned);
+			if ((isPhoneCredentialChange || isEmailCredentialChange) && succeeded) {
 				await revokeOtherSessionsForCredentialChange(ctx.headers ?? new Headers());
 			}
 		})

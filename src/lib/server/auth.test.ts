@@ -185,7 +185,24 @@ describe('disabledPaths — real HTTP router', () => {
 		'/list-sessions',
 		'/revoke-session',
 		'/revoke-sessions',
-		'/revoke-other-sessions'
+		'/revoke-other-sessions',
+		// Review fix (PR #135): live, unused, parameterless — same reasoning
+		// as every other entry above.
+		'/change-email',
+		'/send-verification-email',
+		'/verify-email',
+		'/verify-password',
+		'/update-session',
+		'/account-info',
+		'/get-access-token',
+		'/link-social',
+		'/list-accounts',
+		'/refresh-token',
+		'/sign-in/social',
+		'/unlink-account',
+		'/request-password-reset',
+		'/delete-user/callback',
+		'/email-otp/verify-email'
 	];
 
 	test.each(disabled)(
@@ -217,6 +234,77 @@ describe('disabledPaths — real HTTP router', () => {
 			expect(response.status).not.toBe(404);
 		}
 	);
+});
+
+// Review fix (PR #135, nit): rather than hand-maintaining a list of every
+// endpoint Better Auth happens to register today, enumerate the REAL,
+// currently-registered routes straight off the live `auth` instance (every
+// wrapped function in `auth.api` carries its own `.path`, set by
+// better-auth's to-auth-endpoints.mjs — `api[key].path = endpoint.path`) and
+// check each one is accounted for. This is the thing that notices a future
+// Better Auth upgrade adding a new live route we haven't looked at.
+describe('every registered route is accounted for — real Better Auth instance', () => {
+	// get-session and sign-out are core, always-needed; the rest are the six
+	// endpoints the client actually calls (see src/routes/onboarding/** and
+	// src/routes/(app)/settings/+page.svelte).
+	const USED_PATHS = new Set([
+		'/get-session',
+		'/sign-out',
+		'/phone-number/send-otp',
+		'/phone-number/verify',
+		'/email-otp/send-verification-otp',
+		'/sign-in/email-otp',
+		'/email-otp/request-email-change',
+		'/email-otp/change-email'
+	]);
+
+	// Parameterized routes can't be disabled via `disabledPaths`, which
+	// matches the literal, already-resolved incoming request path —
+	// `/callback/:id` in that array would never match a real request like
+	// `/callback/google`, so there is no way to disable a parameterized
+	// route by exact-path matching. Both of the ones Better Auth registers
+	// are inert regardless: no social provider is configured (so
+	// `/callback/:id` never matches a real provider id), and nothing in
+	// this app ever generates a `/request-password-reset` email containing
+	// a `/reset-password/:token` link (no password is ever set). Recorded
+	// here, rather than silently ignored, so this test still catches any
+	// OTHER unaccounted-for route.
+	const KNOWN_LIVE_PARAMETERIZED_PATHS = new Set(['/callback/:id', '/reset-password/:token']);
+
+	// Core, always-on infrastructure routes — not auth-sensitive. `/ok`
+	// (GET) returns `{ok: true}` with no data access; `/error` (GET)
+	// renders a generic, non-data-leaking HTML error page. Both are
+	// intended to always stay live regardless of which plugins are
+	// configured (they're hidden from Better Auth's own generated OpenAPI
+	// docs — HIDE_METADATA — rather than something apps are expected to
+	// disable).
+	const ALWAYS_LIVE_INFRA_PATHS = new Set(['/ok', '/error']);
+
+	test('Given the real Better Auth instance, when every registered route is checked, then each one is either used, explicitly disabled, infra, or a documented parameterized exception', async () => {
+		const { auth } = await import('./auth');
+
+		const registeredPaths = new Set(
+			Object.values(auth.api)
+				.map((fn) => (fn as unknown as { path?: string }).path)
+				.filter((p): p is string => typeof p === 'string')
+		);
+		// Sanity check on the enumeration mechanism itself — if this comes
+		// back empty or tiny, `.path` stopped being attached and the rest of
+		// this test would pass vacuously.
+		expect(registeredPaths.size).toBeGreaterThan(20);
+
+		const disabledPaths = new Set(auth.options.disabledPaths ?? []);
+
+		const unaccountedFor = [...registeredPaths].filter(
+			(path) =>
+				!USED_PATHS.has(path) &&
+				!disabledPaths.has(path) &&
+				!KNOWN_LIVE_PARAMETERIZED_PATHS.has(path) &&
+				!ALWAYS_LIVE_INFRA_PATHS.has(path)
+		);
+
+		expect(unaccountedFor).toEqual([]);
+	});
 });
 
 describe('session revocation on credential change — real Better Auth instance', () => {
@@ -307,5 +395,84 @@ describe('session revocation on credential change — real Better Auth instance'
 
 		const stillValid = await auth.api.getSession({ headers: new Headers({ cookie: cookieA }) });
 		expect(stillValid?.user.email).toBe(newEmail);
+	});
+
+	// Review fix (PR #135): `hooks.after` runs even when the endpoint (or an
+	// earlier `hooks.before` check) throws — Better Auth's own
+	// to-auth-endpoints.mjs catches a thrown APIError, stores it as
+	// `ctx.context.returned`, and still runs `runAfterHooks` before
+	// re-throwing. The session-revocation hook didn't check for this: a
+	// WRONG OTP on `/phone-number/verify` (updatePhoneNumber:true) or
+	// `/email-otp/change-email` changed nothing, yet still revoked every
+	// other session for the user — confirmed live (2 sessions → 1) before
+	// this fix.
+	test('Given a WRONG OTP on /phone-number/verify (updatePhoneNumber:true), when the request fails, then the other session is NOT revoked', async () => {
+		const phone = '+15552221111';
+
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: phone } });
+		const { headers: headersA } = await auth.api.verifyPhoneNumber({
+			body: { phoneNumber: phone, code: readOtp(phone) },
+			returnHeaders: true
+		});
+		const cookieA = cookieHeaderFrom(headersA.get('set-cookie')!);
+
+		// Session B: a second device.
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: phone } });
+		await auth.api.verifyPhoneNumber({ body: { phoneNumber: phone, code: readOtp(phone) } });
+		expect(sessionTokens()).toHaveLength(2);
+
+		const newPhone = '+15559997777';
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: newPhone } });
+		await expect(
+			auth.api.verifyPhoneNumber({
+				body: { phoneNumber: newPhone, code: '000000', updatePhoneNumber: true },
+				headers: new Headers({ cookie: cookieA })
+			})
+		).rejects.toThrow();
+
+		expect(sessionTokens()).toHaveLength(2);
+	});
+
+	test('Given a WRONG OTP on /email-otp/change-email, when the request fails, then the other session is NOT revoked', async () => {
+		const email = 'owner3@example.com';
+
+		await auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } });
+		const { headers: headersA } = await auth.api.signInEmailOTP({
+			body: { email, otp: readOtp(`sign-in-otp-${email}`) },
+			returnHeaders: true
+		});
+		const cookieA = cookieHeaderFrom(headersA.get('set-cookie')!);
+
+		await auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } });
+		await auth.api.signInEmailOTP({ body: { email, otp: readOtp(`sign-in-otp-${email}`) } });
+		expect(sessionTokens()).toHaveLength(2);
+
+		const newEmail = 'owner3-new@example.com';
+		await auth.api.requestEmailChangeEmailOTP({
+			body: { newEmail },
+			headers: new Headers({ cookie: cookieA })
+		});
+		await expect(
+			auth.api.changeEmailEmailOTP({
+				body: { newEmail, otp: '000000' },
+				headers: new Headers({ cookie: cookieA })
+			})
+		).rejects.toThrow();
+
+		expect(sessionTokens()).toHaveLength(2);
+	});
+
+	test('Given a plain sign-in via /phone-number/verify (no updatePhoneNumber), when it succeeds, then no OTHER session is revoked — only an actual credential change does that', async () => {
+		const phone = '+15552224444';
+
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: phone } });
+		await auth.api.verifyPhoneNumber({ body: { phoneNumber: phone, code: readOtp(phone) } });
+
+		// Second device, same already-verified number — an ordinary sign-in,
+		// not a credential change.
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: phone } });
+		await auth.api.verifyPhoneNumber({ body: { phoneNumber: phone, code: readOtp(phone) } });
+
+		expect(sessionTokens()).toHaveLength(2);
 	});
 });
