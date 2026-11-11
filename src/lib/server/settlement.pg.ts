@@ -98,7 +98,12 @@ export async function settleOneTimeAccept(
 	});
 }
 
-/** See settlement.sqlite.ts#settleReusable for the claim-then-write rationale. */
+/**
+ * See settlement.sqlite.ts#settleReusable for the claim-then-write
+ * rationale, the claim's `notExpiredCondition()` (matching
+ * `settleOneTimeAccept()`), and why the pre-read and the claim share one
+ * `now` taken at the top of the transaction.
+ */
 export async function settleReusable(
 	paymentRequestId: string,
 	scannerId: string,
@@ -116,6 +121,8 @@ export async function settleReusable(
 	}
 
 	return db.transaction(async (tx) => {
+		const now = new Date();
+
 		const [pr] = await tx
 			.select()
 			.from(paymentRequests)
@@ -130,10 +137,8 @@ export async function settleReusable(
 			return { ok: false, status: 400, error: 'Cannot pay yourself' };
 		if (pr.amount !== null && pr.amount !== amount)
 			return { ok: false, status: 400, error: 'Amount does not match the required amount' };
-		if (isExpired(pr.expiresAt))
+		if (isExpired(pr.expiresAt, now))
 			return { ok: false, status: 410, error: 'Payment request has expired' };
-
-		const now = new Date();
 
 		const claimed = await tx
 			.update(paymentRequests)
@@ -142,11 +147,21 @@ export async function settleReusable(
 				paymentCount: sql`${paymentRequests.paymentCount} + 1`,
 				updatedAt: now
 			})
-			.where(and(eq(paymentRequests.id, paymentRequestId), eq(paymentRequests.status, 'active')))
+			.where(
+				and(
+					eq(paymentRequests.id, paymentRequestId),
+					eq(paymentRequests.status, 'active'),
+					notExpiredCondition(paymentRequests.expiresAt, now)
+				)
+			)
 			.returning();
 
 		if (claimed.length !== 1) {
-			return { ok: false, status: 409, error: 'Payment request is not active' };
+			// Zero rows: the status or expiry condition failed the claim — in
+			// practice, expired in the gap between the pre-read and the claim (a
+			// concurrent pause/archive/decline is also possible). No ledger row
+			// has been written yet, so there is nothing to roll back.
+			return { ok: false, status: 410, error: 'Payment request has expired' };
 		}
 
 		const txId = crypto.randomUUID();

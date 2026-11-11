@@ -201,6 +201,33 @@ describe('config (qrTtlSeconds / expiredQrRetentionSeconds)', () => {
 		privateEnv.EXPIRED_QR_RETENTION_SECONDS = 'abc';
 		expect(() => config.expiredQrRetentionSeconds).toThrow();
 	});
+
+	// Review fix (PR #137 follow-up): without a ceiling, a value like
+	// 99999999999999 passed parsePositiveInt fine and only blew up as an
+	// `Invalid Date` the first time a QR was created with it — fail at
+	// config-read time instead.
+	test('given a value above the 10-year ceiling, when read, then throws naming the ceiling', () => {
+		privateEnv.QR_TTL_SECONDS = '99999999999999';
+		expect(() => config.qrTtlSeconds).toThrow(/QR_TTL_SECONDS/);
+		expect(() => config.qrTtlSeconds).toThrow(/315360000/);
+	});
+
+	test('given exactly the 10-year ceiling, when read, then returns it', () => {
+		privateEnv.QR_TTL_SECONDS = '315360000';
+		expect(config.qrTtlSeconds).toBe(315_360_000);
+	});
+
+	test('given one second above the 10-year ceiling, when read, then throws', () => {
+		privateEnv.QR_TTL_SECONDS = '315360001';
+		expect(() => config.qrTtlSeconds).toThrow();
+	});
+
+	// EXPIRED_QR_RETENTION_SECONDS is a retention window, not a QR lifetime —
+	// it deliberately has no ceiling.
+	test('given EXPIRED_QR_RETENTION_SECONDS above the QR ceiling, when read, then does not throw', () => {
+		privateEnv.EXPIRED_QR_RETENTION_SECONDS = '999999999999';
+		expect(() => config.expiredQrRetentionSeconds).not.toThrow();
+	});
 });
 
 describe('config (reusableQrTtlSeconds / qrMaxTtlSeconds)', () => {
@@ -240,6 +267,15 @@ describe('config (reusableQrTtlSeconds / qrMaxTtlSeconds)', () => {
 		expect(() => config.reusableQrTtlSeconds).toThrow();
 		privateEnv.QR_MAX_TTL_SECONDS = 'abc';
 		expect(() => config.qrMaxTtlSeconds).toThrow();
+	});
+
+	// Same 10-year ceiling as QR_TTL_SECONDS — see that describe block's
+	// comment for why (overflowing `new Date(Date.now() + seconds * 1000)`).
+	test('given a value above the 10-year ceiling, when read, then both throw naming the ceiling', () => {
+		privateEnv.REUSABLE_QR_TTL_SECONDS = '99999999999999';
+		expect(() => config.reusableQrTtlSeconds).toThrow(/REUSABLE_QR_TTL_SECONDS/);
+		privateEnv.QR_MAX_TTL_SECONDS = '99999999999999';
+		expect(() => config.qrMaxTtlSeconds).toThrow(/QR_MAX_TTL_SECONDS/);
 	});
 });
 
@@ -332,6 +368,16 @@ describe('validateConfig', () => {
 			privateEnv.NODE_ENV = 'test';
 			privateEnv.QR_TTL_SECONDS = 'abc';
 			expect(() => validateConfig()).toThrow(/QR_TTL_SECONDS/);
+		});
+
+		// Review fix (PR #137 follow-up): 99999999999999 used to pass
+		// validateConfig() fine and only surface as an `Invalid Date`
+		// `expiresAt` on the first QR ever created.
+		test('when validated with an absurdly large QR_TTL_SECONDS, then still throws naming the 10-year ceiling', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.QR_TTL_SECONDS = '99999999999999';
+			expect(() => validateConfig()).toThrow(/QR_TTL_SECONDS/);
+			expect(() => validateConfig()).toThrow(/315360000/);
 		});
 
 		test('when validated with an invalid PHONE_COUNTRY_ALLOWLIST, then still throws — that check is unconditional too', () => {
