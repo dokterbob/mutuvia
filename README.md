@@ -269,6 +269,35 @@ its data via `app_users`/`connections`/`transactions`, then null out or
 change the losing account's duplicate credential) before running
 `bun run db:migrate`.
 
+### Stale placeholder emails from phone number changes
+
+Phone-only sign-ups get a deterministic placeholder email
+(`<digits>@phone.placeholder`, see `src/lib/placeholder-email.ts`). Before
+the fix shipped alongside the unique indexes above, changing phone number
+from Settings updated only `phone_number` — the OLD placeholder stayed on
+the row, silently reserving the OLD number forever (anyone who later
+verified that released number would collide with it on the unique
+`user_email_idx`). The settings phone-change feature predates the unique
+indexes, so **any database that had the phone-change feature before this
+fix can already have stale rows** — check with the detection query below.
+The fix itself keeps every placeholder in sync going forward; this is only
+needed to clean up rows that went stale before it existed.
+
+```sql
+-- Same SQL on SQLite and PostgreSQL — phone numbers are stored in E.164
+-- format (a leading "+" then digits only), so stripping the "+" is
+-- equivalent to makePlaceholderEmail's digit-stripping.
+SELECT id, email, phone_number FROM "user"
+WHERE email LIKE '%@phone.placeholder'
+  AND (phone_number IS NULL OR email <> (substr(phone_number, 2) || '@phone.placeholder'));
+```
+
+Repair each returned row by setting
+`email = substr(phone_number, 2) || '@phone.placeholder'` (or, if
+`phone_number` is now `NULL`, resolving it the same manual way as a
+duplicate credential above) — checking first that the target value isn't
+already in use by another row, since that would just move the collision.
+
 ---
 
 ## Project Structure
