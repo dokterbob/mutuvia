@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    Belt-and-suspenders alongside android:allowBackup="false" in
+    AndroidManifest.xml. allowBackup="false" already opts this app out of
+    both the legacy Auto Backup mechanism and Android 12+'s cloud backup /
+    device-to-device transfer, so these rules have no effect today — but if
+    allowBackup is ever flipped on (e.g. a future TWA helper default), this
+    keeps cloud backup and device transfer from extracting this app's data
+    (which is close to nothing: the TWA shell itself holds no user data —
+    everything the user sees lives in Chrome's own profile, not this app's).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+    </device-transfer>
+</data-extraction-rules>

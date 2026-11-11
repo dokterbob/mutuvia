@@ -32,7 +32,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **ORM**: Drizzle ORM — SQLite (`bun:sqlite`, WAL mode, foreign keys ON) or PostgreSQL (`bun:sql`), selected via `DB_PROVIDER`
 - **Database**: SQLite (default) or PostgreSQL — `better-sqlite3` as devDependency for Drizzle Kit SQLite migrations; local PG via `docker compose up -d`
 - **i18n**: Paraglide JS v2 (EN, PT, NL, DE, ES) — translation files in `messages/`, generated output in `src/lib/paraglide/` (gitignored)
-- **QR**: jose (JWT HS256) + qrcode (client-side generation)
+- **QR**: `qrcode` (client-side generation). QR/accept/send links carry a plain `crypto.randomUUID()` — the `payment_requests` primary key, not a signed token; amount/direction/note/name are read from the DB, never the URL.
 
 ## Key Conventions
 
@@ -85,7 +85,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 | `bun run db:push:pg`         | Push schema to local PG (no migration)        |
 | `bun run db:seed`            | Seed test data (3 users, 2 transactions)      |
 | `docker compose up -d`       | Start local PostgreSQL container              |
-| `bun run generate-secret`    | Generate secure QR_JWT_SECRET                 |
+| `bun run generate-secret`    | Generate a secure BETTER_AUTH_SECRET          |
 
 ## Testing
 
@@ -118,7 +118,7 @@ Run with: `bunx playwright test` (starts dev server automatically).
 
 - `src/lib/config.ts` — All env-var configuration (lazy getters), including `dbProvider`
 - `src/lib/server/schema.ts` — Re-exports the active schema (delegates to `schema.sqlite.ts` or `schema.pg.ts`)
-- `src/lib/server/schema.sqlite.ts` — Drizzle schema for SQLite (user, session, account, verification, appUsers, transactions, pendingQr, connections)
+- `src/lib/server/schema.sqlite.ts` — Drizzle schema for SQLite (user, session, account, verification, appUsers, transactions, payment_requests, connections)
 - `src/lib/server/schema.pg.ts` — Drizzle schema for PostgreSQL (same tables, PG types)
 - `src/lib/server/db.ts` — Drizzle db instance (delegates to `db.sqlite.ts` or `db.pg.ts` based on `DB_PROVIDER`)
 - `src/lib/server/db.sqlite.ts` — SQLite driver setup (`bun:sqlite`, WAL mode)
@@ -126,8 +126,15 @@ Run with: `bunx playwright test` (starts dev server automatically).
 - `drizzle.config.sqlite.ts` / `drizzle.config.pg.ts` — Drizzle Kit configs per provider
 - `docker-compose.yml` — Local PostgreSQL container
 - `src/lib/server/auth.ts` — Better Auth server setup
-- `src/lib/server/balance.ts` — `getBalance`, `formatAmount`, `getConnections`, `upsertConnection`
-- `src/lib/server/qr.ts` — JWT sign/verify/buildUrl with jose
+- `src/lib/server/balance.ts` — `getBalance`, `formatAmount`, `getConnections`
+- `src/lib/server/settlement.ts` — Delegates to `settlement.sqlite.ts`/`settlement.pg.ts`: atomic insert transaction + update `payment_requests` status + upsert connection, one DB transaction
+- `src/lib/server/amount.ts` — `parseAmount()`: strict amount parsing + `MAX_TRANSACTION_AMOUNT` bound
+- `src/lib/server/qr.ts` — `buildPaymentRequestUrl`/`buildReusableUrl`: plain `/accept/{id}` and `/send/{id}` URL builders (`id` is a `crypto.randomUUID()`, not a signed token — no JWT since v0.3.0)
+- `src/lib/server/qr-expiry.ts` — QR expiry preset validation (`QR_TTL_SECONDS`/`REUSABLE_QR_TTL_SECONDS`/`QR_MAX_TTL_SECONDS`)
+- `src/lib/server/push-endpoint.ts` — Push endpoint/keys validation + host allowlist (SSRF guard)
+- `src/lib/server/otp-throttle.ts` — Per-destination OTP send throttle (phone/email), independent of Better Auth's own rate limiter
+- `src/lib/server/security-headers.ts` — CSP/HSTS/cache-control headers applied in `hooks.server.ts`
+- `src/lib/sentry-scrub.ts` — Shared PII scrubber for Sentry `beforeSend`/`beforeSendTransaction` (client + server)
 - `src/lib/notifications.ts` — Typed `NotificationEvent` union, `SeenEventIds` dedup, `handleNotificationEvent` dispatcher
 - `src/lib/sse-client.ts` — `SseManager` singleton: SSE connection + SW message bridge
 - `src/lib/sw-router.ts` — Push routing: focused window → postMessage, else → OS notification
