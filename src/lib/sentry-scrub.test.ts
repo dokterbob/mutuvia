@@ -593,7 +593,7 @@ describe('scrubSentryEvent', () => {
 			expect(frame?.in_app).toBe(true);
 		});
 
-		test('also applies inside threads[].stacktrace.frames[] (same suffix match, no exception wrapper)', () => {
+		test('also applies inside threads.values[].stacktrace.frames[] (the real root-anchored path, no exception wrapper)', () => {
 			const event = scrubSentryEvent({
 				threads: {
 					values: [
@@ -615,6 +615,63 @@ describe('scrubSentryEvent', () => {
 		});
 	});
 
+	// ── Fix round 4, finding 1: the stack-frame exemption must be anchored
+	// to the real root paths (exception.values[i].stacktrace.frames[j] /
+	// threads.values[k].stacktrace.frames[j]), not matched by a path SUFFIX
+	// — a suffix match is spoofable by shaping ANY value in the tree like
+	// `{ frames: [{ function: '...' }] }`.
+	describe('stack-frame exemption is root-anchored, not suffix-matched (spoof resistance)', () => {
+		test('does NOT exempt a spoofed frames[] shape nested under extra', () => {
+			const event = scrubSentryEvent({
+				extra: { something: { frames: [{ function: 'leak jane@example.com' }] } }
+			});
+			const spoofedFrame = (
+				event.extra as { something: { frames: Array<Record<string, unknown>> } }
+			).something.frames[0];
+			expect(spoofedFrame.function).toBe('leak [redacted-email]');
+		});
+
+		test("does NOT exempt a frames[] shape under exception.values[] that isn't the exact stacktrace.frames[] path", () => {
+			// Same path LENGTH and shape as the real
+			// exception.values[i].stacktrace.frames[j] anchor, but with
+			// "stacktrace" swapped for an arbitrary key — must not match.
+			const event = scrubSentryEvent({
+				exception: {
+					values: [{ somethingElse: { frames: [{ function: 'leak jane@example.com' }] } }]
+				}
+			});
+			const spoofedFrame = (
+				event.exception?.values?.[0] as unknown as {
+					somethingElse: { frames: Array<Record<string, unknown>> };
+				}
+			).somethingElse.frames[0];
+			expect(spoofedFrame.function).toBe('leak [redacted-email]');
+		});
+
+		test('STILL exempts the legitimate exception.values[i].stacktrace.frames[j] shape', () => {
+			const event = scrubSentryEvent({
+				exception: {
+					values: [{ stacktrace: { frames: [{ function: 'legitimateHandler' }] } }]
+				}
+			});
+			expect(event.exception?.values?.[0]?.stacktrace?.frames?.[0]?.function).toBe(
+				'legitimateHandler'
+			);
+		});
+
+		test('STILL exempts the legitimate threads.values[k].stacktrace.frames[j] shape', () => {
+			const event = scrubSentryEvent({
+				threads: { values: [{ stacktrace: { frames: [{ function: 'legitimateHandler' }] } }] }
+			});
+			const frame = (
+				event.threads as {
+					values: Array<{ stacktrace: { frames: Array<Record<string, unknown>> } }>;
+				}
+			).values[0].stacktrace.frames[0];
+			expect(frame.function).toBe('legitimateHandler');
+		});
+	});
+
 	// ── Review round 3, finding 3: object KEYS are scrubbed too.
 	describe('object keys are scrubbed', () => {
 		test('scrubs a PII-bearing key in extra', () => {
@@ -632,6 +689,48 @@ describe('scrubSentryEvent', () => {
 		test('leaves an ordinary, non-PII key unchanged', () => {
 			const event = scrubSentryEvent({ extra: { count: 1 } });
 			expect(event.extra).toEqual({ count: 1 });
+		});
+	});
+
+	// ── Fix round 4, finding 2: key scrubbing/assignment must be
+	// DELIBERATELY prototype-pollution-safe, not safe by accident of how
+	// the collision check happens to be written.
+	describe('key scrubbing is prototype-pollution-safe', () => {
+		test('a literal __proto__ key under extra never pollutes Object.prototype', () => {
+			// JSON.parse itself never triggers the __proto__ setter (it always
+			// creates a genuine own data property) — this reproduces the
+			// reviewer's exact case: the DANGER was only ever in re-assigning
+			// an already-safe parsed key via plain bracket assignment.
+			const planted = JSON.parse('{"__proto__":{"polluted":true},"constructor":"x"}');
+			const event = scrubSentryEvent({ extra: planted });
+
+			expect(Object.getPrototypeOf({})).not.toHaveProperty('polluted');
+			expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined();
+
+			const extra = event.extra as Record<string, unknown>;
+			// The literal "__proto__" key must survive as an ORDINARY own
+			// property (its value scrubbed like anything else — scrubString
+			// leaves a plain object value untouched structurally since
+			// scrubbing recurses into it rather than stringifying it, so the
+			// nested `polluted: true` survives unscrubbed, which is correct:
+			// `polluted` isn't PII-shaped).
+			expect(Object.hasOwn(extra, '__proto__')).toBe(true);
+			expect(extra.__proto__).toEqual({ polluted: true });
+			expect(Object.hasOwn(extra, 'constructor')).toBe(true);
+			expect(extra.constructor).toBe('x');
+			// Still a normal, JSON-serialisable plain object.
+			expect(() => JSON.stringify(event)).not.toThrow();
+			expect(Object.getPrototypeOf(extra)).toBe(Object.prototype);
+		});
+
+		test('a __proto__ key deeper in the tree also never pollutes Object.prototype', () => {
+			const planted = JSON.parse(
+				'{"nested":{"__proto__":{"polluted":true}},"other":{"__proto__":{"alsoPolluted":true}}}'
+			);
+			scrubSentryEvent({ extra: planted });
+
+			expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined();
+			expect((Object.prototype as Record<string, unknown>).alsoPolluted).toBeUndefined();
 		});
 	});
 
