@@ -5,6 +5,7 @@ import { paymentRequests } from '$lib/server/schema';
 import { formatAmount } from '$lib/server/currency';
 import { eq, and, desc, gt, isNull, or, inArray } from 'drizzle-orm';
 import { config } from '$lib/config';
+import { isExpired } from './qr-expiry';
 
 export { settleOneTimeAccept, settleReusable } from './settlement';
 
@@ -51,7 +52,7 @@ export async function getPendingItems(userId: string, limit?: number) {
 		totalReceived: qr.totalReceived,
 		createdAt: qr.createdAt,
 		expiresAt: qr.expiresAt,
-		isExpired: qr.expiresAt ? qr.expiresAt <= new Date() : false
+		isExpired: isExpired(qr.expiresAt)
 	}));
 }
 
@@ -77,7 +78,7 @@ export async function getPendingItemById(id: string, userId: string) {
 		createdAt: qr.createdAt,
 		expiresAt: qr.expiresAt,
 		status: qr.status,
-		isExpired: qr.expiresAt ? qr.expiresAt <= new Date() : false
+		isExpired: isExpired(qr.expiresAt)
 	};
 }
 

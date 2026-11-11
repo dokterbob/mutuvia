@@ -144,7 +144,26 @@
 		<div class="mb-4 space-y-0">
 			{#each data.pendingItems as item (item.id)}
 				{#if item.reusable}
-					{#if item.isPaused}
+					{#if item.isExpired}
+						<!-- A reusable QR can now have a real expiry (see PR #137) and
+						     expire while still `status: 'active'` in the DB — show it
+						     the same way as an expired one-time QR instead of a live link. -->
+						<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
+							<div>
+								<p class="text-sm font-medium">
+									{item.direction === 'send'
+										? m.home_pending_send({ amount: item.formattedAmount ?? m.home_open_amount() })
+										: m.home_pending_receive({
+												amount: item.formattedAmount ?? m.home_open_amount()
+											})}
+								</p>
+								{#if item.note}
+									<p class="text-xs text-muted-foreground">{item.note}</p>
+								{/if}
+							</div>
+							<p class="text-xs text-red-600">{m.home_pending_expired()}</p>
+						</div>
+					{:else if item.isPaused}
 						<div class="flex items-center justify-between border-b py-3 last:border-b-0">
 							<div>
 								<p class="text-sm font-medium">

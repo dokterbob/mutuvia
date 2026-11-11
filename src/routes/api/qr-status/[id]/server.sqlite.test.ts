@@ -259,4 +259,48 @@ describe('GET /api/qr-status/[id] — authorization [security]', () => {
 			expect(res.status).toBe(200);
 		});
 	});
+
+	// PR #137: a reusable QR can now have a real `expiresAt` (previously
+	// always null). An expired reusable QR must report `status: 'expired'`
+	// here too, even though its DB `status` column stays 'active' until the
+	// owner pauses/archives it — this is the "treat it as expired everywhere
+	// it's listed or opened" requirement.
+	describe('Given a reusable request whose expiresAt is in the past', () => {
+		beforeEach(() => {
+			seedReusablePr('pr-6', { expiresAt: new Date(Date.now() - 1000) });
+		});
+
+		test("When the initiator polls it → reports status 'expired', not 'active'", async () => {
+			const res = await GET(makeEvent('pr-6', { id: INITIATOR }));
+			const body = await res.json();
+
+			expect(res.status).toBe(200);
+			expect(body.status).toBe('expired');
+		});
+	});
+
+	// Boundary: expiresAt exactly equal to "now" counts as expired (`<=`,
+	// not `<`) — see $lib/server/qr-expiry's isExpired().
+	describe('Given a one-time request whose expiresAt is exactly now', () => {
+		test("When the initiator polls it → reports status 'expired'", async () => {
+			const now = new Date();
+			seedOneTimePr('pr-7', { expiresAt: now });
+
+			const res = await GET(makeEvent('pr-7', { id: INITIATOR }));
+			const body = await res.json();
+
+			expect(body.status).toBe('expired');
+		});
+	});
+
+	describe('Given a one-time request whose expiresAt is in the future', () => {
+		test("When the initiator polls it → reports status 'active', not 'expired'", async () => {
+			seedOneTimePr('pr-8', { expiresAt: new Date(Date.now() + 300_000) });
+
+			const res = await GET(makeEvent('pr-8', { id: INITIATOR }));
+			const body = await res.json();
+
+			expect(body.status).toBe('active');
+		});
+	});
 });

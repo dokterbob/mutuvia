@@ -11,12 +11,14 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
 	import { formatTimeRemaining } from '$lib/format-time';
+	import { qrExpiryLabel } from '$lib/qr-expiry-labels';
 	import { sseManager } from '$lib/sse-client';
 	import { subscribeToPush } from '$lib/push-subscribe';
 
@@ -27,6 +29,12 @@
 
 	let amount = $state('');
 	let note = $state('');
+	let expiryPreset = $state('');
+	$effect(() => {
+		if (!expiryPreset) {
+			expiryPreset = data.expiryOptions.find((o) => o.isDefault)?.key ?? '';
+		}
+	});
 	let qrDataUrl = $state('');
 	let qrId = $state('');
 	let secondsLeft = $state(0);
@@ -216,7 +224,21 @@
 				class="mb-1 w-full rounded-lg border bg-background px-3 py-2.5 text-sm outline-none focus:border-[#2D4A32]"
 				rows="2"
 			></textarea>
-			<p class="mb-6 text-right text-xs text-muted-foreground">{note.length}/120</p>
+			<p class="mb-1 text-right text-xs text-muted-foreground">{note.length}/120</p>
+
+			<Label class="mb-2 block text-sm text-muted-foreground">{m.qr_expiry_label()}</Label>
+			<Select.Root type="single" name="expiryPreset" bind:value={expiryPreset}>
+				<Select.Trigger class="mb-6 w-full">
+					{expiryPreset ? qrExpiryLabel(expiryPreset) : ''}
+				</Select.Trigger>
+				<Select.Content>
+					{#each data.expiryOptions as option (option.key)}
+						<Select.Item value={option.key} label={qrExpiryLabel(option.key)}>
+							{qrExpiryLabel(option.key)}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 
 			{#if form?.error}
 				<p class="mb-3 text-sm text-red-600">{form.error}</p>

@@ -55,13 +55,23 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	cancel_confirm_title: () => 'Cancel?',
 	cancel_confirm_body: () => 'The QR code will be invalidated.',
 	cancel_confirm_dismiss: () => 'Keep waiting',
-	cancel_confirm_yes: () => 'Yes, cancel'
+	cancel_confirm_yes: () => 'Yes, cancel',
+	qr_expiry_label: () => 'Expires',
+	qr_expiry_1h: () => '1 hour',
+	qr_expiry_1d: () => '1 day',
+	qr_expiry_3d: () => '3 days',
+	qr_expiry_1w: () => '1 week',
+	qr_expiry_30d: () => '30 days',
+	qr_expiry_never: () => 'Never',
+	qr_expiry_default: () => 'Default'
 }));
 
 const mockData = {
 	unitCode: 'EUR',
 	appName: 'Mutuvia',
 	qrTtlSeconds: 600,
+	expiryOptionsOneTime: [{ key: '3d', seconds: 259_200, isDefault: true }],
+	expiryOptionsReusable: [{ key: 'never', seconds: null, isDefault: true }],
 	resumeQr: null
 };
 

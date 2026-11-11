@@ -30,7 +30,13 @@ vi.mock('$lib/server/qr', () => ({
 	buildPaymentRequestUrl: vi.fn((id: string) => `https://example.test/send/${id}`)
 }));
 vi.mock('$lib/config', () => ({
-	config: { qrTtlSeconds: 300, maxTransactionAmount: 100_000_000, appName: 'Mutuvia' }
+	config: {
+		qrTtlSeconds: 300,
+		reusableQrTtlSeconds: null,
+		qrMaxTtlSeconds: null,
+		maxTransactionAmount: 100_000_000,
+		appName: 'Mutuvia'
+	}
 }));
 vi.mock('$lib/server/currency', () => ({
 	currencyFractionDigits: vi.fn(() => 2)
@@ -46,10 +52,11 @@ vi.mock('@sveltejs/kit', () => ({
 
 const { actions } = await import('./+page.server');
 
-function formDataWith(amount: string | null, note = ''): FormData {
+function formDataWith(amount: string | null, note = '', expiryPreset?: string): FormData {
 	const fd = new FormData();
 	if (amount !== null) fd.set('amount', amount);
 	fd.set('note', note);
+	if (expiryPreset !== undefined) fd.set('expiryPreset', expiryPreset);
 	return fd;
 }
 
@@ -106,5 +113,49 @@ describe('send createQr — amount validation', () => {
 			expect(insertValuesFn).toHaveBeenCalledWith(expect.objectContaining({ amount: 100_000_000 }));
 			expect(result).toMatchObject({ qrUrl: expect.any(String) });
 		});
+	});
+});
+
+describe('send createQr — expiry preset validation', () => {
+	test('Given an unknown expiry preset key, When createQr is submitted → rejects with a 400 and does not write anything', async () => {
+		const request = { formData: () => Promise.resolve(formDataWith('10.50', '', 'bogus')) };
+
+		const result = await actions.createQr({ request, locals } as never);
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(dbInsertMock).not.toHaveBeenCalled();
+	});
+
+	test('Given "never" (reusable-only), When createQr is submitted for a send QR → rejects with a 400', async () => {
+		const request = { formData: () => Promise.resolve(formDataWith('10.50', '', 'never')) };
+
+		const result = await actions.createQr({ request, locals } as never);
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(dbInsertMock).not.toHaveBeenCalled();
+	});
+
+	test('Given the "1w" preset, When createQr is submitted → inserts with an expiresAt ~1 week out', async () => {
+		const before = Date.now();
+		const request = { formData: () => Promise.resolve(formDataWith('10.50', '', '1w')) };
+
+		await actions.createQr({ request, locals } as never);
+
+		const inserted = insertValuesFn.mock.calls[0][0] as { expiresAt: Date };
+		const delta = inserted.expiresAt.getTime() - before;
+		expect(delta).toBeGreaterThan(604_800_000 - 2000);
+		expect(delta).toBeLessThanOrEqual(604_800_000 + 2000);
+	});
+
+	test('Given no expiry preset submitted, When createQr is submitted → falls back to the operator default (qrTtlSeconds)', async () => {
+		const before = Date.now();
+		const request = { formData: () => Promise.resolve(formDataWith('10.50')) };
+
+		await actions.createQr({ request, locals } as never);
+
+		const inserted = insertValuesFn.mock.calls[0][0] as { expiresAt: Date };
+		// Mocked config.qrTtlSeconds is 300.
+		expect(inserted.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 300_000 - 1000);
+		expect(inserted.expiresAt.getTime()).toBeLessThanOrEqual(before + 300_000 + 1000);
 	});
 });
