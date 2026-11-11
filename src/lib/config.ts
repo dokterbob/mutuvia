@@ -5,6 +5,7 @@ import { env as publicEnv } from '$env/dynamic/public';
 import { dev } from '$app/environment';
 import { isValidHostPattern } from '$lib/server/push-endpoint';
 import { getCountries, type CountryCode } from 'libphonenumber-js';
+import { parseSentryTracesSampleRate } from '$lib/sentry-config';
 
 const VALID_HEADER_NAME = /^[a-z0-9-]+$/;
 
@@ -312,6 +313,50 @@ export const config = {
 	},
 	get appVersion(): string {
 		return __APP_VERSION__;
+	},
+	// ── Security headers (src/lib/server/security-headers.ts) ──
+	//
+	// HSTS max-age, in seconds. Default: 180 days (15552000) — long enough to
+	// be meaningful, short enough that a deployment which later needs to roll
+	// back to plain http (or move off a domain) isn't stuck for the full
+	// browser-cached duration. `includeSubDomains` and `preload` are
+	// deliberately left out of this app's own defaults (see below) — an
+	// operator who wants Chrome's HSTS preload list needs max-age >= 1 year
+	// AND includeSubDomains, which only they can decide is safe for every
+	// subdomain they control.
+	get hstsMaxAgeSeconds() {
+		return parsePositiveInt('HSTS_MAX_AGE_SECONDS', env.HSTS_MAX_AGE_SECONDS || '15552000');
+	},
+	// Off by default: this app doesn't control every subdomain an operator
+	// might run (e.g. a separate marketing site on the same apex domain), and
+	// HSTS with includeSubDomains is effectively irreversible for the
+	// max-age window across ALL of them, not just this deployment.
+	get hstsIncludeSubdomains() {
+		return env.HSTS_INCLUDE_SUBDOMAINS === 'true';
+	},
+	// ── Sentry (src/hooks.client.ts, src/instrumentation.server.ts) ──
+	//
+	// Public (not secret) — read identically by client and server code, so it
+	// uses the PUBLIC_ prefix like PUBLIC_SENTRY_DSN. Shared parser with
+	// instrumentation.server.ts (which reads process.env directly — see that
+	// file's comment on why) and hooks.client.ts, so all three agree on the
+	// same default and validation. Default 0.1 (10% of transactions) — down
+	// from the previous hardcoded 1.0 (100%), which is costly at any real
+	// traffic volume and was never actually tunable.
+	get sentryTracesSampleRate() {
+		return parseSentryTracesSampleRate(publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE);
+	},
+	// Cap on a single /sentry-tunnel request body, read as actual bytes
+	// streamed off the request (never trusting the client-supplied
+	// Content-Length) — see src/routes/sentry-tunnel/+server.ts. Default 5 MB:
+	// generous enough for a feedback envelope with a screenshot attachment,
+	// small enough to bound the cost of an abusive POST to this
+	// unauthenticated-by-nature endpoint.
+	get sentryTunnelMaxBodyBytes() {
+		return parsePositiveInt(
+			'SENTRY_TUNNEL_MAX_BODY_BYTES',
+			env.SENTRY_TUNNEL_MAX_BODY_BYTES || '5000000'
+		);
 	}
 };
 
@@ -338,6 +383,9 @@ export function validateConfig(): void {
 	// phone OTP send tried to read it — long after startup, possibly in
 	// production.
 	void config.phoneCountryAllowlist;
+	void config.hstsMaxAgeSeconds;
+	void config.sentryTracesSampleRate;
+	void config.sentryTunnelMaxBodyBytes;
 
 	// An operator default that QR_MAX_TTL_SECONDS itself forbids is a
 	// deployment misconfiguration, not something to clamp silently (which

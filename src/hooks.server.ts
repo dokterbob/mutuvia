@@ -5,7 +5,7 @@ import { auth } from '$lib/server/auth';
 import { db, sqlite } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
+import { isRedirect, redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { config, validateConfig } from '$lib/config';
 import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
@@ -15,6 +15,7 @@ import { getSessionUnlessSentryTunnel } from '$lib/server/sentry';
 import { isStreamingEndpoint } from '$lib/server/sse-middleware';
 import { extractAcceptUrl } from '$lib/share-url';
 import { applyTrustedIpHeader } from '$lib/server/trusted-ip';
+import { applySecurityHeaders } from '$lib/server/security-headers';
 
 /**
  * Run Drizzle migrations once at server startup, before any request is served.
@@ -129,6 +130,62 @@ export const authHandle: Handle = async ({ event, resolve }) => {
 
 const mainSequence = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, authHandle);
 
+/**
+ * Applies the security-headers.ts header set to whatever Response `handle`
+ * below is about to return, using the request/session info already on
+ * `event` by that point (authHandle runs first in every path that reaches
+ * here, so `event.locals.user`/`event.url` are populated).
+ *
+ * Why this is the one place that covers every response path — see the PR
+ * description for the full byte-by-byte trace through
+ * @sveltejs/kit/src/runtime/server/respond.js and
+ * svelte-adapter-bun/dist/files/handler.js; summary:
+ *
+ * - Static assets (`/_app/immutable/*`, everything under `static/`,
+ *   prerendered fallbacks) are served by the adapter's own sirv-based static
+ *   handler BEFORE the request ever reaches SvelteKit's SSR server — they
+ *   never call this `handle` hook at all, by design (that's also why their
+ *   own Cache-Control, notably the adapter's own
+ *   `public,max-age=31536000,immutable` on `/_app/immutable/*`, is never
+ *   touched by the logic below).
+ * - Everything that DOES reach the SSR server funnels through exactly one
+ *   call to this file's exported `handle` (`options.hooks.handle` in
+ *   respond.js) — pages, form actions, data requests, our own `+server.ts`
+ *   endpoints, the SSE stream, and Better Auth's `/api/auth/*` routes
+ *   (svelteKitHandler either calls Better Auth's own handler or falls back
+ *   to `resolve()`; either way its return value flows back up through
+ *   authHandle -> mainSequence -> here).
+ * - A thrown `Redirect` from deep inside a `load`/action/endpoint (not from
+ *   our own hooks) is caught by respond.js's OWN internal `resolve()` and
+ *   converted to a Response *before* control returns to us — so it's a
+ *   normal Response by the time we see it, headers included.
+ * - The one case that is NOT caught there is our own authHandle calling the
+ *   `redirect()` helper directly (for the `/(app)` route guard) — that
+ *   throws past `resolve()` entirely. The try/catch below catches exactly
+ *   that `Redirect` and builds the equivalent Response ourselves so it still
+ *   gets headers, matching what `src/hooks.server.test.ts`'s existing
+ *   `authHandle` tests already assert the redirect looks like.
+ * - NOT covered, and accepted: a handful of pre-`handle` framework-internal
+ *   paths in respond.js itself — a malformed-URI 400, a `reroute` hook
+ *   error, the `/${app_dir}/env.js`/`/${app_dir}/*` 404s, and the canonical
+ *   trailing-slash 308 redirect. None carry cookies or page content; the
+ *   final response once a trailing-slash redirect lands on its canonical
+ *   path IS covered. An uncaught non-Redirect throw from one of OUR OWN
+ *   hook functions (not currently possible — none of them can throw besides
+ *   the one redirect() case above) would also escape unheadered; this is a
+ *   latent gap, not an active one.
+ */
+function finalizeResponse(event: Parameters<Handle>[0]['event'], response: Response): Response {
+	applySecurityHeaders(response, {
+		pathname: event.url.pathname,
+		isHttps: event.url.protocol === 'https:',
+		authenticated: !!event.locals.user,
+		hstsMaxAgeSeconds: config.hstsMaxAgeSeconds,
+		hstsIncludeSubdomains: config.hstsIncludeSubdomains
+	});
+	return response;
+}
+
 // SSE streaming responses must bypass Sentry.sentryHandle(), which buffers response
 // bodies for performance tracing and breaks chunked SSE delivery. Auth is still needed
 // to identify the user, so we route directly to authHandle for streaming endpoints.
@@ -136,12 +193,27 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Reject protocol-relative-looking paths (`//evil.com`) before routing.
 	// Workaround for GHSA-pfhg-q3qv-9q6r until we can move to SvelteKit 3.
 	if (event.url.pathname.startsWith('//')) {
-		return new Response('Not Found', { status: 404 });
+		return finalizeResponse(event, new Response('Not Found', { status: 404 }));
 	}
-	if (isStreamingEndpoint(event.url.pathname)) {
-		return authHandle({ event, resolve });
+
+	try {
+		const response = isStreamingEndpoint(event.url.pathname)
+			? await authHandle({ event, resolve })
+			: await mainSequence({ event, resolve });
+		return finalizeResponse(event, response);
+	} catch (e) {
+		// authHandle's `/(app)` route guard throws SvelteKit's `redirect()`
+		// directly, before ever calling `resolve()` — see finalizeResponse's
+		// doc comment above for why that's the one case this try/catch must
+		// handle itself rather than relying on respond.js's own conversion.
+		if (isRedirect(e)) {
+			return finalizeResponse(
+				event,
+				new Response(null, { status: e.status, headers: { location: e.location } })
+			);
+		}
+		throw e;
 	}
-	return mainSequence({ event, resolve });
 };
 
 export const handleError = Sentry.handleErrorWithSentry();

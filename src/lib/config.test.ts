@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 
-const { privateEnv, devFlag } = vi.hoisted(() => ({
+const { privateEnv, publicEnv, devFlag } = vi.hoisted(() => ({
 	privateEnv: {} as Record<string, string | undefined>,
+	publicEnv: {} as Record<string, string | undefined>,
 	// Mutable wrapper so tests can flip `dev` ($app/environment) per case —
 	// a plain exported boolean would be snapshotted once at mock-setup time.
 	devFlag: { value: false }
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: privateEnv }));
-vi.mock('$env/dynamic/public', () => ({ env: {} }));
+vi.mock('$env/dynamic/public', () => ({ env: publicEnv }));
 vi.mock('$app/environment', () => ({
 	get dev() {
 		return devFlag.value;
@@ -651,5 +652,77 @@ describe('config (phoneCountryAllowlist)', () => {
 	test('given an invalid country code, when read, then throws naming the entry', () => {
 		privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
 		expect(() => config.phoneCountryAllowlist).toThrow(/ZZ/);
+	});
+});
+
+describe('config (hstsMaxAgeSeconds / hstsIncludeSubdomains)', () => {
+	beforeEach(() => {
+		delete privateEnv.HSTS_MAX_AGE_SECONDS;
+		delete privateEnv.HSTS_INCLUDE_SUBDOMAINS;
+	});
+
+	test('given no env vars, when read, then defaults to 180 days and includeSubDomains off', () => {
+		expect(config.hstsMaxAgeSeconds).toBe(15552000);
+		expect(config.hstsIncludeSubdomains).toBe(false);
+	});
+
+	test('given HSTS_MAX_AGE_SECONDS, when read, then uses it', () => {
+		privateEnv.HSTS_MAX_AGE_SECONDS = '3600';
+		expect(config.hstsMaxAgeSeconds).toBe(3600);
+	});
+
+	test('given a non-numeric HSTS_MAX_AGE_SECONDS, when read, then throws', () => {
+		privateEnv.HSTS_MAX_AGE_SECONDS = 'forever';
+		expect(() => config.hstsMaxAgeSeconds).toThrow(/HSTS_MAX_AGE_SECONDS/);
+	});
+
+	test('given HSTS_INCLUDE_SUBDOMAINS=true, when read, then is true', () => {
+		privateEnv.HSTS_INCLUDE_SUBDOMAINS = 'true';
+		expect(config.hstsIncludeSubdomains).toBe(true);
+	});
+
+	test('given any other HSTS_INCLUDE_SUBDOMAINS value, when read, then is false (fail closed)', () => {
+		privateEnv.HSTS_INCLUDE_SUBDOMAINS = 'yes';
+		expect(config.hstsIncludeSubdomains).toBe(false);
+	});
+});
+
+describe('config (sentryTracesSampleRate)', () => {
+	beforeEach(() => {
+		delete publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE;
+	});
+
+	test('given no env var, when read, then defaults to 0.1', () => {
+		expect(config.sentryTracesSampleRate).toBe(0.1);
+	});
+
+	test('given a valid rate, when read, then uses it', () => {
+		publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE = '0.5';
+		expect(config.sentryTracesSampleRate).toBe(0.5);
+	});
+
+	test('given an out-of-range rate, when read, then throws', () => {
+		publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE = '2';
+		expect(() => config.sentryTracesSampleRate).toThrow(/PUBLIC_SENTRY_TRACES_SAMPLE_RATE/);
+	});
+});
+
+describe('config (sentryTunnelMaxBodyBytes)', () => {
+	beforeEach(() => {
+		delete privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES;
+	});
+
+	test('given no env var, when read, then defaults to 5 MB', () => {
+		expect(config.sentryTunnelMaxBodyBytes).toBe(5_000_000);
+	});
+
+	test('given a custom value, when read, then uses it', () => {
+		privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES = '1000';
+		expect(config.sentryTunnelMaxBodyBytes).toBe(1000);
+	});
+
+	test('given a non-positive value, when read, then throws', () => {
+		privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES = '0';
+		expect(() => config.sentryTunnelMaxBodyBytes).toThrow(/SENTRY_TUNNEL_MAX_BODY_BYTES/);
 	});
 });
