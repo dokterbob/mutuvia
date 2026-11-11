@@ -6,7 +6,7 @@
 	import { onDestroy } from 'svelte';
 	import { authClient } from '$lib/auth-client';
 	import { isPlaceholderEmail } from '$lib/placeholder-email';
-	import { otpSendErrorMessage } from '$lib/otp-error';
+	import { otpSendErrorMessage, otpVerifyErrorMessage } from '$lib/otp-error';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -79,7 +79,7 @@
 				otp: code
 			});
 			if (error) {
-				emailError = error.message || m.otp_invalid_code();
+				emailError = otpVerifyErrorMessage(error);
 			} else {
 				emailState = 'success';
 				await invalidateAll();
@@ -140,7 +140,7 @@
 				updatePhoneNumber: true
 			});
 			if (error) {
-				phoneError = error.message || m.otp_invalid_code();
+				phoneError = otpVerifyErrorMessage(error);
 			} else {
 				phoneState = 'success';
 				await invalidateAll();

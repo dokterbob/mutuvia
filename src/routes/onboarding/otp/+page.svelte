@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import * as m from '$lib/paraglide/messages.js';
 	import { authClient } from '$lib/auth-client';
-	import { otpSendErrorMessage } from '$lib/otp-error';
+	import { otpSendErrorMessage, otpVerifyErrorMessage } from '$lib/otp-error';
 	import { Button } from '$lib/components/ui/button';
 	import { OtpInput } from '$lib/components/ui/otp-input';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -25,7 +25,7 @@
 						})
 					: await authClient.signIn.emailOtp({ email: data.otpDestination, otp: code });
 			if (result.error) {
-				authError = result.error.message || m.otp_invalid_code();
+				authError = otpVerifyErrorMessage(result.error);
 			} else {
 				goto('/onboarding/verified', { invalidateAll: true });
 			}

@@ -215,6 +215,7 @@ describe('validateConfig', () => {
 		delete privateEnv.DEV_LOG_OTP;
 		delete privateEnv.QR_TTL_SECONDS;
 		delete privateEnv.EXPIRED_QR_RETENTION_SECONDS;
+		delete privateEnv.PHONE_COUNTRY_ALLOWLIST;
 		// Baseline: a built server (Docker, Playwright's webServer, a bare
 		// `bun build/index.js`) — NOT `bun run dev`.
 		devFlag.value = false;
@@ -289,6 +290,12 @@ describe('validateConfig', () => {
 			privateEnv.NODE_ENV = 'test';
 			privateEnv.QR_TTL_SECONDS = 'abc';
 			expect(() => validateConfig()).toThrow(/QR_TTL_SECONDS/);
+		});
+
+		test('when validated with an invalid PHONE_COUNTRY_ALLOWLIST, then still throws — that check is unconditional too', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
+			expect(() => validateConfig()).toThrow(/ZZ/);
 		});
 	});
 
@@ -366,6 +373,17 @@ describe('validateConfig', () => {
 		test('when validated with a malformed EXPIRED_QR_RETENTION_SECONDS, then throws even before reaching the secret checks', () => {
 			privateEnv.EXPIRED_QR_RETENTION_SECONDS = '-5';
 			expect(() => validateConfig()).toThrow(/EXPIRED_QR_RETENTION_SECONDS/);
+		});
+
+		// Review fix (PR #136): validateConfig() never read
+		// config.phoneCountryAllowlist, so a bad value (e.g. a typo'd country
+		// code) only surfaced the first time someone actually sent a phone
+		// OTP — long after startup, and potentially in production. Read it
+		// eagerly, in the same unconditional "fail fast on nonsense values"
+		// block as qrTtlSeconds/expiredQrRetentionSeconds above.
+		test('when validated with an invalid PHONE_COUNTRY_ALLOWLIST entry, then throws naming the entry, even before reaching the secret checks', () => {
+			privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
+			expect(() => validateConfig()).toThrow(/ZZ/);
 		});
 
 		test('when validated with no ADDRESS_HEADER set, then warns about untrustworthy client IPs but does not throw', () => {

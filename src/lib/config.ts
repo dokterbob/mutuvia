@@ -290,6 +290,11 @@ export function validateConfig(): void {
 	// getters triggers their own validation.
 	void config.qrTtlSeconds;
 	void config.expiredQrRetentionSeconds;
+	// Review fix (PR #136): without this, a bad PHONE_COUNTRY_ALLOWLIST value
+	// (e.g. a typo'd country code) wouldn't surface until the first real
+	// phone OTP send tried to read it — long after startup, possibly in
+	// production.
+	void config.phoneCountryAllowlist;
 
 	if (config.rateLimitDisableForTesting) {
 		// Always worth a loud, visible line — even under `bun run dev` — since

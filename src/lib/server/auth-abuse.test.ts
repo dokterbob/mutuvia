@@ -255,4 +255,181 @@ describe('per-destination OTP throttle, wired end-to-end — real Better Auth in
 
 		expect(fourth.status).toBe(429);
 	});
+
+	// Review fix (PR #136): the throttle key used to be only `.trim()`ed, so
+	// "+15550001111" and "+1 5550001111" landed in different buckets — an
+	// attacker could spend unlimited distinct buckets against the same real
+	// number just by varying whitespace. Non-canonical phone input is now
+	// rejected outright (400) before it ever reaches the throttle or Prelude.
+	test('Given 5 whitespace-variant forms of the same phone number, when each is attempted, then all 5 are rejected as invalid — none reaches the throttle or Prelude', async () => {
+		const { auth } = await import('./auth');
+		const variants = [
+			'+1 5550005555',
+			'+1  5550005555',
+			' +15550005555',
+			'+15550005555 ',
+			'+1 555 000 5555'
+		];
+
+		for (const variant of variants) {
+			const r = await auth.handler(
+				new Request('http://localhost:5173/api/auth/phone-number/send-otp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ phoneNumber: variant })
+				})
+			);
+			expect(r.status).toBe(400);
+		}
+		expect(preludeCreateMock).not.toHaveBeenCalled();
+
+		// None of the rejected attempts consumed any throttle budget: the
+		// canonical form still has its full 3-send allowance.
+		for (let i = 0; i < 3; i++) {
+			const r = await auth.handler(
+				new Request('http://localhost:5173/api/auth/phone-number/send-otp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ phoneNumber: '+15550005555' })
+				})
+			);
+			expect(r.status).toBe(200);
+		}
+	});
+
+	test('Given a phone number that cannot possibly be a real number, when sent, then it is rejected before reaching the throttle or Prelude', async () => {
+		const { auth } = await import('./auth');
+
+		const r = await auth.handler(
+			new Request('http://localhost:5173/api/auth/phone-number/send-otp', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ phoneNumber: 'not-a-phone-number' })
+			})
+		);
+
+		expect(r.status).toBe(400);
+		expect(preludeCreateMock).not.toHaveBeenCalled();
+	});
+
+	test('Given a fictional-but-structurally-plausible NANP test number, when sent, then it is accepted (isPossible, not isValid, is the predicate)', async () => {
+		const { auth } = await import('./auth');
+
+		const r = await auth.handler(
+			new Request('http://localhost:5173/api/auth/phone-number/send-otp', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ phoneNumber: '+15550009999' })
+			})
+		);
+
+		expect(r.status).toBe(200);
+	});
+
+	// Same input-canonicalization requirement applies to /phone-number/verify
+	// — not just send-otp — since it's the endpoint that actually writes
+	// `user.phone_number` (directly from the request body) when it creates or
+	// updates a user. A non-canonical phoneNumber there would sidestep the
+	// unique index added in PR #135.
+	test('Given a whitespace-variant phone number, when /phone-number/verify is called, then it is rejected for its FORMAT — not generically for a missing/wrong OTP', async () => {
+		const { auth } = await import('./auth');
+
+		// A real OTP was actually sent to the canonical form — if the format
+		// check didn't run before Better Auth's own OTP lookup, this request
+		// would instead fail with "OTP not found" (a different, confounding
+		// 400), not prove the format check ran at all.
+		await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: '+15550007777' } });
+		const [verRow] = liveDb
+			.select()
+			.from(schema.verification)
+			.where(eq(schema.verification.identifier, '+15550007777'))
+			.all();
+		const code = verRow.value.split(':')[0];
+
+		const r = await auth.handler(
+			new Request('http://localhost:5173/api/auth/phone-number/verify', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ phoneNumber: '+1 5550007777', code })
+			})
+		);
+
+		expect(r.status).toBe(400);
+		const body = await r.json();
+		expect(body.message).toBe('Invalid phone number');
+	});
+
+	// Review fix (PR #136): the email throttle key only lowercased+trimmed,
+	// so plus-addressing and Gmail dot variants each got their own bucket —
+	// an attacker could again spend unlimited distinct buckets against the
+	// same real mailbox. Both are now folded into one key for throttling
+	// purposes (the delivered/stored address is never altered).
+	test('Given 3 Gmail plus-addressing/dot variants of the same mailbox, when a 4th variant is attempted, then it is throttled as the same destination', async () => {
+		const { auth } = await import('./auth');
+		const variants = ['victim+a@gmail.com', 'vic.tim@gmail.com', 'VICTIM+b@GMAIL.COM'];
+
+		for (const email of variants) {
+			const r = await auth.handler(
+				new Request('http://localhost:5173/api/auth/email-otp/send-verification-otp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ email, type: 'sign-in' })
+				})
+			);
+			expect(r.status).toBe(200);
+		}
+
+		const fourth = await auth.handler(
+			new Request('http://localhost:5173/api/auth/email-otp/send-verification-otp', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ email: 'victim+c@googlemail.com', type: 'sign-in' })
+			})
+		);
+
+		expect(fourth.status).toBe(429);
+	});
+
+	test('Given plus-addressing on a non-Gmail domain, when 3 variants are sent, then a 4th is throttled as the same destination', async () => {
+		const { auth } = await import('./auth');
+		const variants = ['buyer+a@example.com', 'buyer+b@example.com', 'buyer+c@example.com'];
+
+		for (const email of variants) {
+			const r = await auth.handler(
+				new Request('http://localhost:5173/api/auth/email-otp/send-verification-otp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ email, type: 'sign-in' })
+				})
+			);
+			expect(r.status).toBe(200);
+		}
+
+		const fourth = await auth.handler(
+			new Request('http://localhost:5173/api/auth/email-otp/send-verification-otp', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ email: 'buyer+d@example.com', type: 'sign-in' })
+			})
+		);
+
+		expect(fourth.status).toBe(429);
+	});
+
+	test('Given Gmail plus/dot variants, when a real OTP send happens, then the DELIVERED/STORED address is never altered by the throttle normalization', async () => {
+		const { auth } = await import('./auth');
+		const email = 'vic.tim+tag@gmail.com';
+
+		await auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } });
+
+		const [verRow] = liveDb
+			.select()
+			.from(schema.verification)
+			.where(eq(schema.verification.identifier, `sign-in-otp-${email.toLowerCase()}`))
+			.all();
+		// The verification row (and therefore the address the OTP is actually
+		// sent to) still uses the exact address the caller gave, untouched by
+		// the throttle's alias-folding.
+		expect(verRow).toBeTruthy();
+	});
 });
