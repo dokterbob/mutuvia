@@ -5,6 +5,7 @@ import { db } from '$lib/server/db';
 import { paymentRequests, transactions, appUsers } from '$lib/server/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { formatAmount } from '$lib/server/currency';
+import { isExpired } from '$lib/server/qr-expiry';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -48,8 +49,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 
 	// Check if expired
-	const isExpired = qr.expiresAt ? qr.expiresAt < new Date() : false;
-	const status = isExpired && qr.status === 'active' ? 'expired' : qr.status;
+	const expired = isExpired(qr.expiresAt);
+	const status = expired && qr.status === 'active' ? 'expired' : qr.status;
 
 	let otherName = '';
 	let formattedAmount = '';

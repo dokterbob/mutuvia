@@ -108,8 +108,10 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 | `UNIT_CODE`                        | No       | `EUR`                              | ISO 4217 code or custom unit identifier.                                                                                                                                                                                                                                               |
 | `PUBLIC_UNIT_SYMBOL`               | No       | `€`                                | Displayed unit symbol.                                                                                                                                                                                                                                                                 |
 | `PUBLIC_UNIT_DISPLAY_NAME`         | No       | `euro`                             | Lowercase singular name for the unit.                                                                                                                                                                                                                                                  |
-| `QR_TTL_SECONDS`                   | No       | `259200`                           | QR token validity window in seconds (default: 3 days).                                                                                                                                                                                                                                 |
-| `EXPIRED_QR_RETENTION_SECONDS`     | No       | `259200`                           | How long expired QR records are kept before cleanup (default: 3 days).                                                                                                                                                                                                                 |
+| `QR_TTL_SECONDS`                   | No       | `259200`                           | Default expiry for a **one-time** QR, in seconds (default: 3 days). The creator can pick a different preset (1h/1d/3d/1w/30d) in the app; this is only the default selection.                                                                                                          |
+| `REUSABLE_QR_TTL_SECONDS`          | No       | — (never)                          | Default expiry for a **reusable** QR, in seconds. Unset/empty means "never expire" — the historical behavior. See "QR expiry" below.                                                                                                                                                   |
+| `QR_MAX_TTL_SECONDS`               | No       | — (unbounded)                      | Optional upper bound, in seconds, on any QR's expiry. Removes every preset above it, and removes "never" entirely (even for reusable QRs). The app refuses to start if `QR_TTL_SECONDS` or `REUSABLE_QR_TTL_SECONDS` would exceed it — see "QR expiry" below.                          |
+| `EXPIRED_QR_RETENTION_SECONDS`     | No       | `259200`                           | How long expired QR records stay in the pending list before being hidden (default: 3 days). Display-only today — there is no background deletion job.                                                                                                                                  |
 | `MAX_TRANSACTION_AMOUNT`           | No       | `100000000`                        | Sanity bound on a single transaction's amount, in minor units (cents). Not a credit limit — only rejects fat-fingered or malicious amounts before they reach the ledger. Must not exceed `2147483647` (PostgreSQL `integer` max; ledger columns are `integer` on both providers).      |
 | `DEV_LOG_OTP`                      | No       | `false`                            | Prints OTPs to the console instead of sending them. Defaults off; set to `true` for local dev. Allowed in production (e.g. temporary debugging) but logs a loud startup warning and does **not** count as a configured delivery channel below.                                         |
 | `TRUSTED_IP_HEADER`                | No       | `x-mutuvia-client-ip`              | Header Better Auth's rate limiter reads the client IP from. The app manages this header itself on every request — see "Reverse proxy / client IP" above. Only change this if you have a specific reason to rename it.                                                                  |
@@ -195,6 +197,30 @@ Key settings for rebranding:
 - `PUBLIC_APP_NAME` — Display name (default: `Mutuvia`)
 - `PUBLIC_APP_TAGLINE` — Displayed tagline fallback (localized via i18n)
 - `PUBLIC_UNIT_SYMBOL` / `UNIT_CODE` / `PUBLIC_UNIT_DISPLAY_NAME` — Currency unit
+
+### QR expiry
+
+The creator chooses an expiry for each QR from a fixed set of presets — 1 hour, 1 day, 3 days,
+1 week, 30 days, or "never" (reusable QRs only). The server accepts only these preset keys, never
+a raw number of seconds.
+
+- `QR_TTL_SECONDS` / `REUSABLE_QR_TTL_SECONDS` set the **default** selection for one-time and
+  reusable QRs respectively. If an operator's default doesn't exactly match one of the presets
+  above, the app offers it as an extra "Default" option rather than silently rounding to the
+  nearest preset.
+- `QR_MAX_TTL_SECONDS` caps how long any QR — one-time or reusable — can be made to last. Setting
+  it removes every preset above the cap, and removes "never" entirely, even for reusable QRs. If
+  either `QR_TTL_SECONDS` or `REUSABLE_QR_TTL_SECONDS` would then exceed the cap (including
+  `REUSABLE_QR_TTL_SECONDS` left unset, i.e. "never"), the app refuses to start rather than
+  silently clamping — fix the conflicting env vars.
+- Existing reusable QRs created before this feature (or before `QR_MAX_TTL_SECONDS` was set) have
+  `expires_at IS NULL` in the database and are **not** retroactively expired — "never" means never,
+  for QRs that were already created that way. `QR_MAX_TTL_SECONDS` only applies going forward, to
+  new QRs.
+- An expired reusable QR is treated as expired everywhere it's listed or opened, even though its
+  database `status` stays `'active'` until the owner pauses or archives it — the pending list, the
+  scan-to-pay landing page, and `/api/qr-status/[id]` all derive "expired" from `expires_at` rather
+  than trusting `status` alone.
 
 ### Database provider
 

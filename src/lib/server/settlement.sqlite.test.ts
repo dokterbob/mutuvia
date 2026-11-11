@@ -240,6 +240,19 @@ describe('settleOneTimeAccept — real SQLite transaction', () => {
 			expect(result.ok).toBe(false);
 			expect(countTransactions('pr-5')).toBe(0);
 		});
+
+		// Boundary: expiresAt exactly equal to "now" counts as expired (the
+		// claim's SQL condition is `expiresAt IS NULL OR expiresAt > now`, so
+		// equality fails the claim) — see $lib/server/qr-expiry's isExpired(),
+		// which every other expiry check in the app now shares.
+		test('When expiresAt is exactly now → still fails (the <= boundary, not <)', () => {
+			seedOneTimePr('pr-5b', { expiresAt: new Date() });
+
+			const result = settleOneTimeAccept('pr-5b', ACCEPTOR);
+
+			expect(result.ok).toBe(false);
+			expect(countTransactions('pr-5b')).toBe(0);
+		});
 	});
 
 	describe('Given the accepting user is the initiator (self-payment)', () => {
@@ -333,6 +346,22 @@ describe('settleReusable — real SQLite transaction', () => {
 			expect(result.ok).toBe(false);
 			expect(countTransactions('rpr-3')).toBe(0);
 			expect(getPr('rpr-3')?.totalReceived).toBe(0);
+		});
+	});
+
+	// Reusable QRs can now have a real `expiresAt` (previously always null)
+	// — see $lib/server/qr-expiry. `status` on the row stays 'active' even
+	// after it expires (nothing auto-transitions it), so this must come from
+	// the `isExpired()` check, not the `status` column.
+	describe('Given an expired reusable payment request', () => {
+		test('When settled → fails with 410 and touches no counters or ledger', () => {
+			seedReusablePr('rpr-expired', { expiresAt: new Date(Date.now() - 1000) });
+
+			const result = settleReusable('rpr-expired', ACCEPTOR, 1000);
+
+			expect(result).toMatchObject({ ok: false, status: 410 });
+			expect(countTransactions('rpr-expired')).toBe(0);
+			expect(getPr('rpr-expired')?.totalReceived).toBe(0);
 		});
 	});
 

@@ -203,6 +203,46 @@ describe('config (qrTtlSeconds / expiredQrRetentionSeconds)', () => {
 	});
 });
 
+describe('config (reusableQrTtlSeconds / qrMaxTtlSeconds)', () => {
+	beforeEach(() => {
+		delete privateEnv.REUSABLE_QR_TTL_SECONDS;
+		delete privateEnv.QR_MAX_TTL_SECONDS;
+	});
+
+	test('given no env vars, when read, then reusableQrTtlSeconds is null (never) and qrMaxTtlSeconds is null (unbounded)', () => {
+		expect(config.reusableQrTtlSeconds).toBeNull();
+		expect(config.qrMaxTtlSeconds).toBeNull();
+	});
+
+	test('given valid custom values, when read, then both return them', () => {
+		privateEnv.REUSABLE_QR_TTL_SECONDS = '86400';
+		privateEnv.QR_MAX_TTL_SECONDS = '2592000';
+		expect(config.reusableQrTtlSeconds).toBe(86_400);
+		expect(config.qrMaxTtlSeconds).toBe(2_592_000);
+	});
+
+	test('given an empty string, when read, then both are null (same as unset)', () => {
+		privateEnv.REUSABLE_QR_TTL_SECONDS = '';
+		privateEnv.QR_MAX_TTL_SECONDS = '';
+		expect(config.reusableQrTtlSeconds).toBeNull();
+		expect(config.qrMaxTtlSeconds).toBeNull();
+	});
+
+	test('given zero, when read, then both throw naming the variable', () => {
+		privateEnv.REUSABLE_QR_TTL_SECONDS = '0';
+		expect(() => config.reusableQrTtlSeconds).toThrow(/REUSABLE_QR_TTL_SECONDS/);
+		privateEnv.QR_MAX_TTL_SECONDS = '0';
+		expect(() => config.qrMaxTtlSeconds).toThrow(/QR_MAX_TTL_SECONDS/);
+	});
+
+	test('given a non-numeric value, when read, then both throw', () => {
+		privateEnv.REUSABLE_QR_TTL_SECONDS = 'abc';
+		expect(() => config.reusableQrTtlSeconds).toThrow();
+		privateEnv.QR_MAX_TTL_SECONDS = 'abc';
+		expect(() => config.qrMaxTtlSeconds).toThrow();
+	});
+});
+
 describe('validateConfig', () => {
 	const VALID_SECRET = 'a'.repeat(32);
 
@@ -215,6 +255,8 @@ describe('validateConfig', () => {
 		delete privateEnv.DEV_LOG_OTP;
 		delete privateEnv.QR_TTL_SECONDS;
 		delete privateEnv.EXPIRED_QR_RETENTION_SECONDS;
+		delete privateEnv.REUSABLE_QR_TTL_SECONDS;
+		delete privateEnv.QR_MAX_TTL_SECONDS;
 		delete privateEnv.PHONE_COUNTRY_ALLOWLIST;
 		// Baseline: a built server (Docker, Playwright's webServer, a bare
 		// `bun build/index.js`) — NOT `bun run dev`.
@@ -296,6 +338,40 @@ describe('validateConfig', () => {
 			privateEnv.NODE_ENV = 'test';
 			privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
 			expect(() => validateConfig()).toThrow(/ZZ/);
+		});
+
+		// QR_MAX_TTL_SECONDS consistency with the two TTL defaults is also an
+		// unconditional "nonsense config" check — fail at boot, not a silent
+		// clamp, and not deferred until production.
+		test('when validated with QR_TTL_SECONDS above QR_MAX_TTL_SECONDS, then still throws', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.QR_TTL_SECONDS = '604800'; // 1 week
+			privateEnv.QR_MAX_TTL_SECONDS = '86400'; // 1 day
+			privateEnv.REUSABLE_QR_TTL_SECONDS = '3600';
+			expect(() => validateConfig()).toThrow(/QR_TTL_SECONDS.*QR_MAX_TTL_SECONDS/);
+		});
+
+		test('when validated with REUSABLE_QR_TTL_SECONDS above QR_MAX_TTL_SECONDS, then still throws', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.QR_TTL_SECONDS = '3600'; // within bounds, isolating the reusable check
+			privateEnv.QR_MAX_TTL_SECONDS = '86400'; // 1 day
+			privateEnv.REUSABLE_QR_TTL_SECONDS = '604800'; // 1 week
+			expect(() => validateConfig()).toThrow(/REUSABLE_QR_TTL_SECONDS.*QR_MAX_TTL_SECONDS/);
+		});
+
+		test('when validated with QR_MAX_TTL_SECONDS set but REUSABLE_QR_TTL_SECONDS left unset ("never"), then still throws — "never" is incompatible with a max', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.QR_TTL_SECONDS = '3600'; // within bounds, isolating the reusable check
+			privateEnv.QR_MAX_TTL_SECONDS = '86400';
+			expect(() => validateConfig()).toThrow(/REUSABLE_QR_TTL_SECONDS/);
+		});
+
+		test('when validated with QR_MAX_TTL_SECONDS set and both defaults within bounds, then does not throw', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.QR_TTL_SECONDS = '3600';
+			privateEnv.QR_MAX_TTL_SECONDS = '86400';
+			privateEnv.REUSABLE_QR_TTL_SECONDS = '3600';
+			expect(() => validateConfig()).not.toThrow();
 		});
 	});
 

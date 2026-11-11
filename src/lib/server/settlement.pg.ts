@@ -8,8 +8,9 @@
 import { db } from './db.pg';
 import { paymentRequests, transactions, connections } from './schema.pg';
 import { config } from '$lib/config';
-import { eq, and, or, isNull, gt, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { SettleResult } from './settlement-types';
+import { isExpired, notExpiredCondition } from './qr-expiry';
 
 function orderedPair(a: string, b: string): [string, string] {
 	return a < b ? [a, b] : [b, a];
@@ -59,7 +60,7 @@ export async function settleOneTimeAccept(
 					eq(paymentRequests.id, qrId),
 					eq(paymentRequests.status, 'active'),
 					eq(paymentRequests.reusable, false),
-					or(isNull(paymentRequests.expiresAt), gt(paymentRequests.expiresAt, now))
+					notExpiredCondition(paymentRequests.expiresAt, now)
 				)
 			)
 			.returning();
@@ -129,7 +130,7 @@ export async function settleReusable(
 			return { ok: false, status: 400, error: 'Cannot pay yourself' };
 		if (pr.amount !== null && pr.amount !== amount)
 			return { ok: false, status: 400, error: 'Amount does not match the required amount' };
-		if (pr.expiresAt && pr.expiresAt <= new Date())
+		if (isExpired(pr.expiresAt))
 			return { ok: false, status: 410, error: 'Payment request has expired' };
 
 		const now = new Date();
