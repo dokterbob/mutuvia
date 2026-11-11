@@ -101,8 +101,15 @@ export async function settleOneTimeAccept(
 /**
  * See settlement.sqlite.ts#settleReusable for the claim-then-write
  * rationale, the claim's `notExpiredCondition()` (matching
- * `settleOneTimeAccept()`), and why the pre-read and the claim share one
- * `now` taken at the top of the transaction.
+ * `settleOneTimeAccept()`), why the pre-read and the claim share one `now`
+ * taken at the top of the transaction, and why the claim's zero-rows branch
+ * reports 409 "not active" rather than 410 "expired" — expiry can't be the
+ * cause once both checks agree on `now`. That race (a concurrent
+ * pause/archive/decline landing between the pre-read and the claim) is
+ * also the more realistic one specifically on Postgres: under the default
+ * READ COMMITTED isolation, each statement in this transaction sees a fresh
+ * snapshot, so a concurrent transaction's committed status change becomes
+ * visible to the claim's own `WHERE` even though the pre-read didn't see it.
  */
 export async function settleReusable(
 	paymentRequestId: string,
@@ -157,11 +164,15 @@ export async function settleReusable(
 			.returning();
 
 		if (claimed.length !== 1) {
-			// Zero rows: the status or expiry condition failed the claim — in
-			// practice, expired in the gap between the pre-read and the claim (a
-			// concurrent pause/archive/decline is also possible). No ledger row
-			// has been written yet, so there is nothing to roll back.
-			return { ok: false, status: 410, error: 'Payment request has expired' };
+			// Zero rows: the claim's WHERE uses the exact same `now` as the
+			// pre-read's `isExpired()` check above, so expiry can't be *why* this
+			// failed — if the pre-read saw it as not expired, the claim's
+			// `notExpiredCondition()` agrees, by construction, every time. The
+			// only remaining way to land here is a concurrent status change
+			// (pause/archive/decline) between the pre-read and the claim —
+			// report that, not expiry. No ledger row has been written yet, so
+			// there is nothing to roll back.
+			return { ok: false, status: 409, error: 'Payment request is not active' };
 		}
 
 		const txId = crypto.randomUUID();
