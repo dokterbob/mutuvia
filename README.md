@@ -241,45 +241,68 @@ dependency bump can never silently leave a stale `.wasm` behind.
 Rather than enumerating fields to scrub one at a time (every review round found another one —
 `span.data`, `contexts.trace`, stack-frame `vars`, ... — because enumeration can only close the
 instance of a bug, not the class), it walks the **entire** event recursively and runs the pattern
-matcher over **every string value it finds, anywhere, at any depth**, with a short allowlist of
-structural fields (`event_id`, `trace_id`/`span_id`, timestamps, `release`/`environment`/`sdk`/
-`platform`, stack-frame `filename`/`function`/`module`/line numbers) left untouched so Sentry's
-own grouping/correlation UI keeps working. A field a future SDK version adds is covered
-automatically; only a name collision with that short allowlist could ever be missed. The walk is
-depth- and size-bounded (10 levels, 200 items) against pathological payloads — a subtree beyond
-the depth limit is replaced with a `"[scrubbed: too deep]"` marker rather than returned
-unscrubbed. `Date` values are preserved as ISO strings (not collapsed to `{}`); any other
-non-plain-object value (`RegExp`, `Map`, `Error`, a custom class instance) is passed through
-unchanged — a known, accepted limit of pattern-matching, not a guarantee such values never carry
-PII.
+matcher over **every string value AND every object key it finds, anywhere, at any depth**
+(`extra: { 'jane@example.com': 1 }` has its key redacted too; two keys that redact to the same
+string are de-duplicated deterministically by suffixing, so nothing is silently dropped). A short
+allowlist of structural fields is left untouched so Sentry's own grouping/correlation UI keeps
+working — but, critically, that allowlist is **path-scoped, not a bare key name matched anywhere**:
+`event_id`/`timestamp`/`release`/`environment`/`platform`/`sdk`/`modules`/... are exempt only
+directly on the event root; `trace_id`/`span_id`/`op`/`status` only under `contexts.trace`; a
+handful of correlation/timing fields only on a `spans[]`/`breadcrumbs[]` entry itself; and
+`function`/`module`/`lineno`/`colno`/`in_app` only on an actual stack frame (matched by path
+suffix, covering both exception and thread stacktraces). The exact same key name under
+`extra`/`tags`/a custom `contexts.<name>`/breadcrumb `data`/span `data` gets NO exemption and is
+scrubbed like anything else — an earlier version of this allowlist matched by bare key name
+anywhere in the tree, which meant `extra.release`, `breadcrumbs[].data.filename`, etc. ALSO
+survived untouched, leaking whatever PII had been placed under one of those names. Stack-frame
+`filename`/`abs_path` are deliberately NOT exempt either (unlike `function`/`module`/line
+numbers): a frame's URL can itself be a request URL carrying a route id or query string, and
+redacting that doesn't harm symbolication of a bundle path. A field a future SDK version adds is
+covered automatically; only a name collision at the SAME structural location as one of these
+allowlisted fields could ever be missed. The walk is depth- and size-bounded (10 levels, 200
+items) against pathological payloads — a subtree beyond the depth limit is replaced with a
+`"[scrubbed: too deep]"` marker rather than returned unscrubbed. `Date` values are preserved as
+ISO strings (not collapsed to `{}`); any other non-plain-object value (`RegExp`, `Map`, `Error`, a
+custom class instance) is passed through unchanged — a known, accepted limit of pattern-matching,
+not a guarantee such values never carry PII. If the scrubber itself throws for any reason, the
+event is **dropped** (`beforeSend`/`beforeSendTransaction` return `null`) rather than risking an
+unscrubbed event reaching Sentry — enforced in the app (`safeScrubSentryEvent`), not left to the
+SDK's own error handling.
 
 Within that pattern-matching layer: dynamic ids in `/accept/<id>`, `/send/<id>` and
 `/api/qr-status/<id>` are replaced wherever a matching URL shape appears; known-sensitive
 query-parameter **values** (`dest`, `email`, `phone`, `phoneNumber`, `to`, `otp`) are replaced
 outright wherever that key appears in any URL/query string, regardless of path (not just
-`/onboarding/otp`); every other query value is percent-decoded before pattern-matching so
-`?note=jane%40example.com` is still caught, and percent-encoded PII outside of a `key=value` shape
-entirely is caught by a second, decode-and-rescan pass over the whole string. Phone-number
-matching uses two narrow patterns instead of one open-ended one (which used to match ISO-8601
-timestamps and version strings as "phone numbers"): a leading `+` (the E.164 format this app
-actually stores/logs numbers in) anchors a loose international pattern, and a human-typed local
-number needs the exact 3-3-4 digit grouping (`555-123-4567`, `(555) 123-4567`) — neither an ISO
-date (4-2-2) nor a UUID segment produces either shape. This is still pattern matching, not parsing
-a phone number properly — an unusual format can still slip through, and a non-phone number that
-happens to fit one of these two shapes can still be redacted unnecessarily; both are accepted
-trade-offs.
+`/onboarding/otp`); every other query value — and, separately, any string overall, outside of a
+`key=value` shape entirely — is percent-decoded ITERATIVELY (up to 3 passes, enough to unwrap
+double-encoding like `jane%2540example.com`) before pattern-matching, so e.g.
+`?note=jane%40example.com` or a double-encoded value hidden in a path segment is still caught.
+Phone-number matching uses two narrow patterns instead of one open-ended one (which used to match
+ISO-8601 timestamps and version strings as "phone numbers"): a leading `+` (the E.164 format this
+app actually stores/logs numbers in — see `PHONE_COUNTRY_ALLOWLIST` and the phone-OTP flow above)
+anchors a loose international pattern, and a human-typed local number needs the exact 3-3-4 digit
+grouping (`555-123-4567`, `(555) 123-4567`) — neither an ISO date (4-2-2) nor a UUID segment
+produces either shape. **Phone shapes deliberately NOT redacted**: a national number with no
+leading `+` and no 3-3-4 grouping (e.g. a bare 10-digit run with no separators at all), or a
+`00`-prefixed international dialling form. This app only ever stores/sends phone numbers in
+canonical E.164 (always `+`-prefixed — enforced at the OTP/sign-in boundary, never accepted in any
+other shape), so none of this app's OWN data ever uses those other shapes; the gap is only reachable
+if a user types a number into FREE TEXT themselves (e.g. a support message) in one of those
+formats. This is still pattern matching, not parsing a phone number properly — an unusual format
+can still slip through either way, and a non-phone number that happens to fit one of the two
+redacted shapes can still be redacted unnecessarily; both are accepted trade-offs.
 
 This covers: the generic navigation/fetch breadcrumbs session replay records (`replayIntegration`'s
 `networkDetailAllowUrls` is left at its default empty list, so replay never records network
 request/response bodies or headers for any URL in the first place); exception `type`/`value`
-(deliberately NOT in the structural allowlist above — `type` can carry a custom, PII-bearing error
-message); and the `Referer` header. `user` is reduced to an opaque `id` only (dropping
-`email`/`username`/`ip_address`, and anything else a custom `setUser()` call might attach) — if
-there's no `id`, `user` is dropped entirely; this is a structural replacement, not pattern
-matching, so it's a guarantee, not best-effort. Likewise `request.cookies` and `request.data` (the
-request body — which, for an OTP send/verify request, is itself the phone number/email/code) are
-**stripped entirely, not redacted**, as are the `Cookie` and `Authorization` request headers; this
-is fixed at the source too, not just scrubbed after the fact — `src/instrumentation.server.ts`
+(deliberately NOT exempt — `type` can carry a custom, PII-bearing error message); and the
+`Referer` header. `user` is reduced to an opaque `id` only (dropping `email`/`username`/
+`ip_address`, and anything else a custom `setUser()` call might attach) — if there's no `id`,
+`user` is dropped entirely; this is a structural replacement, not pattern matching, so it's a
+guarantee, not best-effort. Likewise `request.cookies` and `request.data` (the request body —
+which, for an OTP send/verify request, is itself the phone number/email/code) are **stripped
+entirely, not redacted**, as are the `Cookie` and `Authorization` request headers; this is fixed
+at the source too, not just scrubbed after the fact — `src/instrumentation.server.ts`
 explicitly configures Sentry's `requestDataIntegration` (a _default_ integration for
 `@sentry/bun`/`@sentry/node` that otherwise attaches request cookies and body to every
 server-side event) with `include: { cookies: false, data: false }`, so that data never reaches an

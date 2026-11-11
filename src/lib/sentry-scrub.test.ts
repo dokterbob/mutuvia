@@ -5,6 +5,7 @@ import {
 	redactContactInfo,
 	redactDynamicIds,
 	redactQueryParams,
+	safeScrubSentryEvent,
 	scrubSentryEvent,
 	scrubString
 } from './sentry-scrub';
@@ -113,6 +114,13 @@ describe('redactQueryParams', () => {
 			'/onboarding/otp?dest=[redacted]&foo=bar'
 		);
 	});
+
+	// Review round 3, finding 4: a single decode pass left double-encoded PII
+	// readable-but-unredacted ("%2540" -> "%40" on pass 1, only becoming "@"
+	// on pass 2).
+	test('decodes a double-percent-encoded email before pattern-matching it', () => {
+		expect(redactQueryParams('/x?note=jane%2540example.com')).toBe('/x?note=[redacted-email]');
+	});
 });
 
 describe('scrubString', () => {
@@ -138,6 +146,22 @@ describe('scrubString', () => {
 	test('does not mangle an ISO timestamp', () => {
 		const ts = '2026-11-11T03:19:13.964Z';
 		expect(scrubString(ts)).toBe(ts);
+	});
+
+	// Review round 3, finding 4.
+	test('decodes a double-percent-encoded email hidden outside a key=value shape', () => {
+		expect(scrubString('/webhook/jane%2540example.com/confirm')).toBe(
+			'/webhook/[redacted-email]/confirm'
+		);
+	});
+
+	// Review round 3, finding 2: a realistic bundle path has nothing
+	// PII-shaped in it, so it passes through unchanged — not because the
+	// field is exempt (it isn't, for stack-frame filename/abs_path — see
+	// below), but because nothing in it matches a pattern.
+	test('leaves a realistic immutable bundle path unchanged', () => {
+		const path = '/_app/immutable/nodes/5.n5vnQSOu.js';
+		expect(scrubString(path)).toBe(path);
 	});
 });
 
@@ -413,6 +437,221 @@ describe('scrubSentryEvent', () => {
 				exception: { values: [{ type: 'ContactError for jane@example.com' }] }
 			});
 			expect(event.exception?.values?.[0]?.type).toBe('ContactError for [redacted-email]');
+		});
+	});
+
+	// ── Review round 3, finding 1: exemptions must be PATH-scoped, not
+	// bare-key-name-anywhere. The round 2 design matched `filename`,
+	// `release`, `environment`, `platform`, `timestamp`, `function`,
+	// `module` etc. by name wherever they occurred — so the SAME key under
+	// `extra`/`contexts.<custom>`/breadcrumb `data`/span `data` ALSO
+	// survived untouched, leaking PII placed there under one of those names.
+	describe('exemptions are path-scoped, not name-matched anywhere', () => {
+		test.each([
+			'filename',
+			'function',
+			'module',
+			'release',
+			'environment',
+			'platform',
+			'timestamp',
+			'type',
+			'level',
+			'dist',
+			'sdk'
+		])('scrubs extra.%s even though that key name is exempt at the top level', (key) => {
+			const event = scrubSentryEvent({ extra: { [key]: '/accept/abc123 jane@example.com' } });
+			const value = (event.extra as Record<string, unknown>)[key];
+			expect(value).toBe('/accept/[id] [redacted-email]');
+		});
+
+		test('scrubs contexts.custom.filename (not contexts.trace, which IS exempt)', () => {
+			const event = scrubSentryEvent({
+				contexts: { custom: { filename: 'contact jane@example.com' } }
+			});
+			expect((event.contexts as { custom: { filename: string } }).custom.filename).toBe(
+				'contact [redacted-email]'
+			);
+		});
+
+		test('scrubs breadcrumbs[].data.filename', () => {
+			const event = scrubSentryEvent({
+				breadcrumbs: [{ data: { filename: '/accept/abc123' } }]
+			});
+			expect((event.breadcrumbs?.[0] as { data: { filename: string } }).data.filename).toBe(
+				'/accept/[id]'
+			);
+		});
+
+		test('scrubs spans[].data.module', () => {
+			const event = scrubSentryEvent({
+				spans: [{ data: { module: 'contact jane@example.com' } }]
+			});
+			expect((event.spans?.[0] as { data: { module: string } }).data.module).toBe(
+				'contact [redacted-email]'
+			);
+		});
+
+		test('still leaves the REAL structural contexts.trace.{trace_id,span_id,op,status} untouched', () => {
+			const event = scrubSentryEvent({
+				contexts: {
+					trace: {
+						trace_id: 'deadbeefdeadbeefdeadbeefdeadbeef',
+						span_id: 'deadbeefdeadbeef',
+						op: 'http.server',
+						status: 'ok'
+					}
+				}
+			});
+			expect(event.contexts).toEqual({
+				trace: {
+					trace_id: 'deadbeefdeadbeefdeadbeefdeadbeef',
+					span_id: 'deadbeefdeadbeef',
+					op: 'http.server',
+					status: 'ok'
+				}
+			});
+		});
+
+		test('still leaves the REAL structural spans[].{span_id,op,status,timestamp} untouched', () => {
+			const event = scrubSentryEvent({
+				spans: [{ span_id: 'abcd1234abcd1234', op: 'http.client', status: 'ok', timestamp: 123 }]
+			});
+			expect(event.spans?.[0]).toMatchObject({
+				span_id: 'abcd1234abcd1234',
+				op: 'http.client',
+				status: 'ok',
+				timestamp: 123
+			});
+		});
+
+		test('still leaves the REAL structural breadcrumbs[].{timestamp,type,category,level} untouched', () => {
+			const event = scrubSentryEvent({
+				breadcrumbs: [{ timestamp: 123, type: 'default', category: 'navigation', level: 'info' }]
+			});
+			expect(event.breadcrumbs?.[0]).toMatchObject({
+				timestamp: 123,
+				type: 'default',
+				category: 'navigation',
+				level: 'info'
+			});
+		});
+	});
+
+	// ── Review round 3, finding 2: stack-frame filename/abs_path must NOT
+	// be exempt — a frame URL can itself carry a route id or query string.
+	describe('stack-frame filename/abs_path are scrubbed, not exempt', () => {
+		test('redacts PII in a stack frame filename (a full request URL)', () => {
+			const event = scrubSentryEvent({
+				exception: {
+					values: [
+						{
+							stacktrace: {
+								frames: [
+									{
+										filename: 'https://app.test/accept/abc123?debug=jane@example.com',
+										abs_path: 'https://app.test/accept/abc123?debug=jane@example.com'
+									}
+								]
+							}
+						}
+					]
+				}
+			});
+			const frame = event.exception?.values?.[0]?.stacktrace?.frames?.[0];
+			expect(frame?.filename).toBe('https://app.test/accept/[id]?debug=[redacted-email]');
+			expect(frame?.abs_path).toBe('https://app.test/accept/[id]?debug=[redacted-email]');
+		});
+
+		test('leaves a realistic bundle filename unchanged — nothing in it is PII-shaped', () => {
+			const event = scrubSentryEvent({
+				exception: {
+					values: [
+						{
+							stacktrace: {
+								frames: [
+									{
+										filename: '/_app/immutable/nodes/5.n5vnQSOu.js',
+										function: 'load',
+										module: 'nodes/5',
+										lineno: 42,
+										colno: 7,
+										in_app: true
+									}
+								]
+							}
+						}
+					]
+				}
+			});
+			const frame = event.exception?.values?.[0]?.stacktrace?.frames?.[0];
+			expect(frame?.filename).toBe('/_app/immutable/nodes/5.n5vnQSOu.js');
+			expect(frame?.function).toBe('load');
+			expect(frame?.module).toBe('nodes/5');
+			expect(frame?.lineno).toBe(42);
+			expect(frame?.colno).toBe(7);
+			expect(frame?.in_app).toBe(true);
+		});
+
+		test('also applies inside threads[].stacktrace.frames[] (same suffix match, no exception wrapper)', () => {
+			const event = scrubSentryEvent({
+				threads: {
+					values: [
+						{
+							stacktrace: {
+								frames: [{ filename: 'https://app.test/send/xyz123', function: 'worker' }]
+							}
+						}
+					]
+				}
+			});
+			const frame = (
+				event.threads as {
+					values: Array<{ stacktrace: { frames: Array<Record<string, unknown>> } }>;
+				}
+			).values[0].stacktrace.frames[0];
+			expect(frame.filename).toBe('https://app.test/send/[id]');
+			expect(frame.function).toBe('worker');
+		});
+	});
+
+	// ── Review round 3, finding 3: object KEYS are scrubbed too.
+	describe('object keys are scrubbed', () => {
+		test('scrubs a PII-bearing key in extra', () => {
+			const event = scrubSentryEvent({ extra: { 'jane@example.com': 1 } });
+			expect(event.extra).toEqual({ '[redacted-email]': 1 });
+		});
+
+		test('deterministically de-duplicates two keys that redact to the same string', () => {
+			const event = scrubSentryEvent({
+				extra: { 'jane@example.com': 1, 'john@example.com': 2 }
+			});
+			expect(event.extra).toEqual({ '[redacted-email]': 1, '[redacted-email]__2': 2 });
+		});
+
+		test('leaves an ordinary, non-PII key unchanged', () => {
+			const event = scrubSentryEvent({ extra: { count: 1 } });
+			expect(event.extra).toEqual({ count: 1 });
+		});
+	});
+
+	// ── Review round 3, finding 5: fail CLOSED if scrubbing itself throws.
+	describe('safeScrubSentryEvent — fails closed on an internal error', () => {
+		test('returns the scrubbed event normally when nothing throws', () => {
+			const result = safeScrubSentryEvent({ message: 'contact jane@example.com' });
+			expect(result?.message).toBe('contact [redacted-email]');
+		});
+
+		test('drops the event (returns null) when a property access throws mid-walk', () => {
+			const throwing = {
+				extra: {
+					get poison(): string {
+						throw new Error('boom');
+					}
+				}
+			};
+			const result = safeScrubSentryEvent(throwing);
+			expect(result).toBeNull();
 		});
 	});
 
