@@ -4,6 +4,14 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="theme-color" content="#2D4A32" />
+		<!-- Exposes this request's CSP nonce to client-side code that needs to
+		     set it on a DYNAMICALLY created <style> element (e.g. Sentry's
+		     feedback widget, which injects its own <style> tags via JS rather
+		     than through Svelte's compiled output — see src/hooks.client.ts's
+		     feedbackIntegration({ styleNonce }) call). SvelteKit substitutes
+		     %sveltekit.nonce% with the same per-request nonce sent in the
+		     Content-Security-Policy header (svelte.config.js's kit.csp). -->
+		<meta name="csp-nonce" content="%sveltekit.nonce%" />
 		<link rel="icon" href="/favicon.ico" sizes="48x48" />
 		<link rel="icon" href="/favicon.svg" sizes="any" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />

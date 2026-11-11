@@ -135,6 +135,10 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 | `SENTRY_AUTH_TOKEN`                | CI       | —                                  | Sentry auth token for source map uploads. Only needed in CI builds.                                                                                                                                                                                                                    |
 | `SENTRY_ORG`                       | CI       | —                                  | Sentry organisation slug. Only needed in CI builds.                                                                                                                                                                                                                                    |
 | `SENTRY_PROJECT`                   | CI       | —                                  | Sentry project slug. Only needed in CI builds.                                                                                                                                                                                                                                         |
+| `PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | No       | `0.1`                              | Fraction (0–1) of transactions sampled for Sentry performance tracing. Shared by client and server init — see "Security headers" below.                                                                                                                                                |
+| `SENTRY_TUNNEL_MAX_BODY_BYTES`     | No       | `5000000`                          | Cap on a single `/sentry-tunnel` request body, enforced against actual bytes streamed (never the client-supplied `Content-Length`).                                                                                                                                                    |
+| `HSTS_MAX_AGE_SECONDS`             | No       | `15552000`                         | `Strict-Transport-Security` max-age, in seconds (180 days). Only sent when the request is seen as https.                                                                                                                                                                               |
+| `HSTS_INCLUDE_SUBDOMAINS`          | No       | `false`                            | Adds `includeSubDomains` to the HSTS header. Off by default — see "Security headers" below for why.                                                                                                                                                                                    |
 
 ### Bun adapter patch
 
@@ -172,6 +176,73 @@ An Android app lives under [`android/`](android/): a Trusted Web Activity that o
 - **Per-community builds** (own host, name, signing key) are built with Gradle properties; the release workflow is `.github/workflows/android.yml`.
 
 Setup, release procedure, key custody and troubleshooting: [docs/android.md](docs/android.md).
+
+---
+
+## Security headers
+
+Every response from the SvelteKit server (pages, form actions, API endpoints, the SSE stream,
+Better Auth routes) carries a baseline set of security headers, applied in one place
+(`src/hooks.server.ts`'s `handle`, backed by `src/lib/server/security-headers.ts`):
+
+- **Content-Security-Policy** — set via `svelte.config.js`'s `kit.csp` (`mode: 'auto'`, nonce-based
+  — nothing in this app is prerendered). `default-src 'self'`; `script-src 'self' wasm-unsafe-eval`
+  (the QR scanner's self-hosted WASM module needs the latter); `style-src 'self'` with
+  `style-src-attr 'unsafe-inline'` (inline `style="..."` attributes only — bits-ui's floating-ui
+  positioning, Svelte transitions — not whole `<style>` blocks, which stay nonce-gated);
+  `img-src 'self' data: blob:`; `connect-src 'self'` (Sentry goes through the same-origin
+  `/sentry-tunnel`; Web Push delivery is the browser's own PushManager, not a page `fetch`);
+  `worker-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`;
+  `object-src 'none'`.
+- **`Strict-Transport-Security`** — only when the request is seen as https (see "Reverse proxy /
+  client IP" above for how that's determined behind a proxy). `HSTS_MAX_AGE_SECONDS` /
+  `HSTS_INCLUDE_SUBDOMAINS` control it; `includeSubDomains` and `preload` are off by default,
+  since this app can't know whether you control every subdomain of your deployment's domain.
+- **`X-Content-Type-Options: nosniff`**, **`Referrer-Policy: no-referrer`**,
+  **`Permissions-Policy: camera=(self), geolocation=(), microphone=()`** (camera is granted to
+  same-origin content for the QR scanner; geolocation/microphone are never used),
+  **`X-Frame-Options: DENY`** and **`Cross-Origin-Opener-Policy: same-origin`** (legacy/defense-in-
+  depth backups for `frame-ancestors`).
+- **`Cache-Control: private, no-store`** — on every response for a signed-in user, and on every
+  `/accept/*` / `/send/*` response regardless of auth state (these carry per-recipient QR/payment
+  data in the URL and must never be cached by a shared/intermediate cache). Never overrides a
+  `Cache-Control` a route already set itself (the SSE stream's `no-cache`, `/.well-known/
+assetlinks.json`'s `public, max-age=3600`). Hashed, immutable static assets
+  (`/_app/immutable/*`) are served directly by `svelte-adapter-bun`'s own static file handler,
+  which never reaches this logic at all — their own `public,max-age=31536000,immutable` is
+  untouched. A CDN/shared cache in front of this app should respect `Cache-Control` as given; no
+  additional `Vary` tuning was needed since nothing here varies by a header a cache would need to
+  key on beyond what SvelteKit already adds (`Vary: Accept` when a route serves both a page and an
+  endpoint).
+- **`X-Robots-Tag: noindex, nofollow`** — on `/accept/*` and `/send/*` only (header-based so it
+  reaches crawlers that don't render a `<meta>` tag). `robots.txt` otherwise allows crawling
+  everything — these two prefixes are excluded this way instead, so a direct visit still works
+  normally for people, just not for indexers.
+
+**QR scanner WASM**: `src/lib/components/qr-scanner.svelte` self-hosts `zxing-wasm`'s
+`zxing_reader.wasm` (via `barcode-detector`'s ponyfill) at `/wasm/zxing_reader.wasm`, instead of
+letting it load from `fastly.jsdelivr.net` at runtime — keeping `connect-src`/`script-src`
+same-origin and avoiding an unpinned third-party fetch. `vite.config.ts` copies the file from
+`node_modules/zxing-wasm` at config-load time (both `bun run dev` and `bun run build`) rather than
+committing a binary, and `src/lib/wasm-integrity.test.ts` asserts the served copy's sha256 still
+matches `node_modules` (and matches `barcode-detector`'s own exported `ZXING_WASM_SHA256`) — so a
+dependency bump can never silently leave a stale `.wasm` behind.
+
+**Sentry**: `src/lib/sentry-scrub.ts` is a shared, pure scrubber used by both
+`src/hooks.client.ts` and `src/instrumentation.server.ts`'s `beforeSend`/`beforeSendTransaction` —
+it replaces dynamic ids in `/accept/<id>`, `/send/<id>` and `/api/qr-status/<id>`, strips the
+`dest` query param from `/onboarding/otp` URLs, and redacts phone numbers/emails anywhere else in
+free text (URLs, transaction names, breadcrumb data, span descriptions, extra/tags, the `Referer`
+header). Session replay masks all text and inputs and blocks media outright; the feedback
+widget's JS-injected `<style>` tags get this request's own CSP nonce via `styleNonce` (sourced
+from a `<meta name="csp-nonce">` tag in `src/app.html`), since they bypass Svelte's own nonce
+handling entirely. `/sentry-tunnel`
+(`src/routes/sentry-tunnel/+server.ts`) only forwards an envelope whose DSN **host and project id**
+both match `PUBLIC_SENTRY_DSN` (host alone isn't enough — see the code comment for the open-proxy
+risk that closes), reads the body as a size-capped stream rather than trusting
+`Content-Length`, and rejects a mismatching `Origin`. It remains intentionally unauthenticated (it
+must work for a crash on the sign-in page itself); a dedicated rate limiter was considered and
+deferred, since the three checks above already bound its blast radius.
 
 ---
 

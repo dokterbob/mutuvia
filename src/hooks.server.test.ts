@@ -50,7 +50,12 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 vi.mock('$lib/config', () => ({
-	config: { dbProvider: 'sqlite', trustedIpHeader: 'x-mutuvia-client-ip' }
+	config: {
+		dbProvider: 'sqlite',
+		trustedIpHeader: 'x-mutuvia-client-ip',
+		hstsMaxAgeSeconds: 15552000,
+		hstsIncludeSubdomains: false
+	}
 }));
 
 vi.mock('$lib/paraglide/server', () => ({
@@ -199,6 +204,123 @@ describe('handle — protocol-relative path guard (GHSA-pfhg-q3qv-9q6r)', () => 
 
 			expect(result.status).toBe(200);
 			expect(resolve).toHaveBeenCalledOnce();
+		});
+	});
+});
+
+describe('handle — security headers (src/lib/server/security-headers.ts)', () => {
+	beforeEach(() => getSessionMock.mockReset());
+
+	function makeEvent(url: string, { user }: { user?: unknown } = {}) {
+		const resolve = vi.fn(async () => new Response('ok'));
+		const input = {
+			event: {
+				url: new URL(url),
+				request: new Request(url),
+				route: { id: null },
+				locals: { user: user ?? null },
+				getClientAddress: () => '203.0.113.1'
+			},
+			resolve
+		} as unknown as Parameters<typeof handle>[0];
+		return input;
+	}
+
+	// Uses the streaming endpoint (api/events) throughout — it skips
+	// sequence(), which needs SvelteKit's internal request store and can't
+	// run in a unit test — so `event.locals.user` is seeded directly instead
+	// of via a mocked session lookup for the authenticated-response case.
+	describe('given an unauthenticated https request to a non-sensitive path', () => {
+		test('sets nosniff/referrer-policy/permissions-policy/HSTS/COOP/X-Frame-Options but no Cache-Control', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			const input = makeEvent('https://example.test/api/events');
+
+			const result = await handle(input);
+
+			expect(result.headers.get('x-content-type-options')).toBe('nosniff');
+			expect(result.headers.get('referrer-policy')).toBe('no-referrer');
+			expect(result.headers.get('permissions-policy')).toBe(
+				'camera=(self), geolocation=(), microphone=()'
+			);
+			expect(result.headers.get('strict-transport-security')).toBe('max-age=15552000');
+			expect(result.headers.get('x-frame-options')).toBe('DENY');
+			expect(result.headers.get('cross-origin-opener-policy')).toBe('same-origin');
+			expect(result.headers.get('cache-control')).toBeNull();
+			expect(result.headers.get('x-robots-tag')).toBeNull();
+		});
+	});
+
+	describe('given a plain http request', () => {
+		test('does not set Strict-Transport-Security', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			const input = makeEvent('http://example.test/api/events');
+
+			const result = await handle(input);
+
+			expect(result.headers.get('strict-transport-security')).toBeNull();
+		});
+	});
+
+	describe('given an authenticated request', () => {
+		test('sets Cache-Control: private, no-store', async () => {
+			getSessionMock.mockResolvedValueOnce({
+				session: { id: 'sess1', userId: 'ba-user1', expiresAt: new Date() },
+				user: { id: 'ba-user1', email: 'test@example.com' }
+			});
+			const input = makeEvent('https://example.test/api/events');
+
+			const result = await handle(input);
+
+			expect(result.headers.get('cache-control')).toBe('private, no-store');
+		});
+	});
+
+	describe('given a response that already set its own Cache-Control', () => {
+		test('does not override it, even for an authenticated request', async () => {
+			getSessionMock.mockResolvedValueOnce({
+				session: { id: 'sess1', userId: 'ba-user1', expiresAt: new Date() },
+				user: { id: 'ba-user1', email: 'test@example.com' }
+			});
+			const input = makeEvent('https://example.test/api/events');
+			input.resolve = vi.fn(
+				async () => new Response('ok', { headers: { 'cache-control': 'no-cache' } })
+			);
+
+			const result = await handle(input);
+
+			expect(result.headers.get('cache-control')).toBe('no-cache');
+		});
+	});
+
+	describe('given the authHandle (app) route-guard redirect', () => {
+		// This redirect throws past resolve() entirely (see finalizeResponse's
+		// doc comment in hooks.server.ts) — the one path this suite can't
+		// reach through mainSequence(), which needs SvelteKit's internal
+		// request store and can't run in a unit test. Using the /api/events
+		// URL (so `handle` takes the streaming-endpoint shortcut straight to
+		// authHandle, skipping mainSequence) with route.id spoofed to an
+		// `/(app)` route exercises the exact authHandle throw this test
+		// targets, same trick as the "given a normal path" test above.
+		test('still carries the security headers', async () => {
+			getSessionMock.mockResolvedValueOnce(null);
+			const resolve = vi.fn();
+			const input = {
+				event: {
+					url: new URL('https://example.test/api/events'),
+					request: new Request('https://example.test/api/events'),
+					route: { id: '/(app)/home' },
+					locals: {},
+					getClientAddress: () => '203.0.113.1'
+				},
+				resolve
+			} as unknown as Parameters<typeof handle>[0];
+
+			const result = await handle(input);
+
+			expect(result.status).toBe(307);
+			expect(result.headers.get('location')).toBe('/onboarding');
+			expect(result.headers.get('x-content-type-options')).toBe('nosniff');
+			expect(result.headers.get('strict-transport-security')).toBe('max-age=15552000');
 		});
 	});
 });

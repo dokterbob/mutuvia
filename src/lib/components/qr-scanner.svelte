@@ -1,3 +1,27 @@
+<script module lang="ts">
+	import { setZXingModuleOverrides } from 'barcode-detector/ponyfill';
+
+	// By default the ponyfill's locateFile points at fastly.jsdelivr.net at
+	// runtime, which would force connect-src/script-src to allow a third-party
+	// CDN. We self-host the exact zxing_reader.wasm matching the installed
+	// zxing-wasm version instead — see vite.config.ts (copies it from
+	// node_modules at config-load time) and src/lib/wasm-integrity.test.ts
+	// (asserts the served copy never goes stale against node_modules or a
+	// dependency bump).
+	// `path` here is always "zxing_reader.wasm" for this ponyfill (it only
+	// ever loads the reader build); the prefix argument is ignored.
+	//
+	// Deliberately in `<script module>` (runs once when this module is first
+	// imported) rather than the per-instance `<script>` below: the ponyfill
+	// caches the instantiated WASM module keyed by reference-equality of the
+	// overrides object (see setZXingModuleOverrides -> prepareZXingModule in
+	// node_modules/barcode-detector/dist/es/ponyfill.js), so calling this
+	// again with a *new* object literal on every component mount would drop
+	// that cache and force a full WASM re-instantiation each time the user
+	// re-opens the scanner.
+	setZXingModuleOverrides({ locateFile: (path) => `/wasm/${path}` });
+</script>
+
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { BarcodeDetector } from 'barcode-detector/ponyfill';
