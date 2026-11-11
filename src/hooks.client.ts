@@ -4,7 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/public';
 import { parseSentryTracesSampleRate } from '$lib/sentry-config';
-import { scrubSentryEvent, type ScrubbableSentryEvent } from '$lib/sentry-scrub';
+import { safeScrubSentryEvent, type ScrubbableSentryEvent } from '$lib/sentry-scrub';
 
 // Register the service worker for offline support and PWA updates.
 // `immediate: false` defers registration until after the load event, avoiding a
@@ -76,11 +76,13 @@ if (dsn) {
 		// Shared with instrumentation.server.ts — see src/lib/sentry-scrub.ts
 		// for what this redacts and why (ids in /accept, /send,
 		// /api/qr-status; `dest` on /onboarding/otp; phone numbers/emails in
-		// free text).
+		// free text). Uses the fail-CLOSED wrapper: if scrubbing itself
+		// throws, the event is dropped rather than risking it reaching
+		// Sentry unscrubbed.
 		beforeSend: (event) =>
-			scrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event,
+			safeScrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event,
 		beforeSendTransaction: (event) =>
-			scrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event
+			safeScrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event
 	});
 }
 

@@ -10,24 +10,48 @@
 // redacts things that LOOK like emails/phone numbers/known dynamic-id URL
 // shapes/known sensitive query-param keys wherever a string appears in the
 // event — it cannot find PII in a shape nobody anticipated (e.g. a free-text
-// error message that happens to contain someone's name, or a phone number
-// formatted in a way the regexes below don't recognise). Treat Sentry data
-// as "reduced risk", not "safe to treat as public".
+// error message that happens to contain someone's name). Phone shapes NOT
+// redacted (deliberately — see README): a national number with no leading
+// '+', a '00…'-prefixed international dialling form, or bare ungrouped
+// digits with no separators at all. This app only ever stores/sends phone
+// numbers in canonical E.164 form (a leading '+'), so those other shapes
+// don't occur in this app's own data — but if a USER types one into free
+// text (e.g. a support message), it can still slip through. Treat Sentry
+// data as "reduced risk", not "safe to treat as public".
 //
-// DESIGN (review round 2): this module used to enumerate specific fields to
-// scrub (request.url, breadcrumbs, exception.value, ...) one at a time —
-// every round of review found another field (span.data, contexts.trace,
-// stack-frame vars, ...) that had been missed, because enumeration can only
-// ever close the INSTANCE of a bug, not the CLASS. It's inverted instead:
-// `scrubValueDeep` walks the ENTIRE event, recursively, and runs `scrubString`
-// over every string value it finds, anywhere, at any depth — with a short
-// EXEMPT_KEYS allowlist of structural fields that must survive byte-for-byte
-// (ids Sentry uses for grouping/correlation, timestamps, release/environment/
-// platform/sdk metadata, stack-frame file/line info) rather than a growing
-// list of fields to remember to scrub. A new field Sentry adds next month is
-// covered automatically; only a field that happens to share a name with
-// something in EXEMPT_KEYS could ever be missed, and that list is reviewed
-// deliberately, not accumulated by trial and error.
+// DESIGN: this module walks the ENTIRE event, recursively (`scrubValueDeep`),
+// and runs `scrubString` over every string value AND every object key it
+// finds, anywhere, at any depth. This replaced two earlier, narrower designs
+// in turn:
+//   - enumerating specific fields to scrub (request.url, breadcrumbs,
+//     exception.value, ...) one at a time — every review round found
+//     another field (span.data, contexts.trace, stack-frame vars, ...) that
+//     had been missed, because enumeration can only close the INSTANCE of a
+//     bug, not the CLASS;
+//   - a flat `EXEMPT_KEYS` allowlist matching by bare key name ANYWHERE in
+//     the tree — which meant `extra.filename`, `extra.release`,
+//     `breadcrumbs[].data.filename` etc. ALSO matched the allowlist and
+//     leaked verbatim, since a structural field name like `release` or
+//     `filename` is just as likely to appear (with attacker- or
+//     user-controlled content) under `extra`/`tags`/breadcrumb `data`/span
+//     `data` as in its real structural position.
+//
+// Exemptions are now PATH-SCOPED (`isExemptField`, below): a field is only
+// exempt at its real structural location — top-level Event fields, the
+// `contexts.trace` correlation fields, per-span correlation fields,
+// per-breadcrumb structural fields, and stack-frame file/line info (matched
+// by a path SUFFIX of `.../frames/<index>/<key>`, covering both
+// `exception.values[].stacktrace.frames[]` and `threads[].stacktrace.frames[]`
+// without needing to enumerate every possible parent chain). Everything
+// under `extra`, `tags`, any custom `contexts.<name>`, breadcrumb `data`,
+// span `data`, and `user` gets NO exemptions at all — every string there is
+// scrubbed. Stack-frame `filename`/`abs_path` are deliberately NOT exempt
+// either (unlike `function`/`module`/`lineno`/`colno`/`in_app`): a frame's
+// URL can itself be a request URL carrying a route id or query string, and
+// redacting that doesn't harm symbolication of a bundle path (see
+// sentry-scrub.test.ts's realistic `/_app/immutable/...js` case, which
+// passes through unchanged precisely because it has nothing PII-shaped in
+// it — not because the field is exempt).
 //
 // On top of that blanket pass, a few fields are handled structurally (not
 // just string-redacted, but DELETED or REPLACED) because partial redaction
@@ -55,12 +79,18 @@
 // replay never records network request/response bodies or headers for any
 // URL. The generic navigation/fetch breadcrumbs replay DOES record (method,
 // url, status, timing) go through the same blanket walk as everything else.
+//
+// Fail-closed: `safeScrubSentryEvent` (the function actually wired into
+// beforeSend/beforeSendTransaction) catches any exception from the scrubber
+// itself and drops the event (returns `null`) rather than ever risking an
+// unscrubbed event reaching Sentry because scrubbing crashed partway
+// through. This is enforced in THIS module, not left to the SDK.
 
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 
 // Two deliberately NARROW phone patterns, replacing a single loose one that
 // matched ISO-8601 date/time fragments and version strings as "phone
-// numbers" (e.g. "2026-11-11" or "10.46.0") — see review round 2, finding 4.
+// numbers" (e.g. "2026-11-11" or "10.46.0").
 //
 // 1. E.164 — the format this app actually stores/logs phone numbers in
 //    (see $lib/config's phoneCountryAllowlist / libphonenumber-js usage):
@@ -78,6 +108,12 @@ const E164_PHONE_PATTERN = /\+\d[\d().\- ]{5,}\d/g;
 //    when preceded by whitespace/another non-word character), while the
 //    unparenthesised form still needs `\b` on both ends to avoid matching
 //    the tail of a longer digit run.
+//
+// NOT redacted by either pattern (documented, deliberate — see README):
+// a national number with no leading '+' and no 3-3-4 grouping (e.g. a
+// 10-digit run with no separators), or a '00'-prefixed international
+// dialling form. This app only ever stores/sends E.164; these other shapes
+// would only ever appear if a user typed one into free text themselves.
 const GROUPED_PHONE_PATTERN = /\(\d{3}\)[-.\s]\d{3}[-.\s]\d{4}|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b/g;
 
 const DYNAMIC_ID_SEGMENTS: ReadonlyArray<{ pattern: RegExp; replacement: string }> = [
@@ -87,9 +123,7 @@ const DYNAMIC_ID_SEGMENTS: ReadonlyArray<{ pattern: RegExp; replacement: string 
 ];
 
 // Query-parameter keys whose VALUE is dropped entirely wherever they appear,
-// regardless of path — not just on /onboarding/otp (review round 2, finding
-// 3: the old `dest`-only, /onboarding/otp-only check missed `?dest=...` on
-// any other path).
+// regardless of path — not just on /onboarding/otp.
 const SENSITIVE_QUERY_PARAM_KEYS = new Set(['dest', 'email', 'phone', 'phonenumber', 'to', 'otp']);
 
 /** Replaces email addresses and phone-shaped numbers anywhere in free text. */
@@ -109,6 +143,14 @@ export function redactDynamicIds(text: string): string {
 	return result;
 }
 
+// Bound on iterative percent-decoding (review round 3, finding 4: a single
+// decode pass left double-encoded PII like "jane%2540example.com" —
+// %2540 -> %40 -> @ — one decode short of readable). Three passes covers
+// double-encoding with margin to spare; anything decoded that many times
+// over and still not exposing a recognisable pattern is treated as not
+// worth chasing further (bounded cost against adversarial input).
+const MAX_DECODE_PASSES = 3;
+
 /** `decodeURIComponent`, returning `null` instead of throwing on a malformed sequence. */
 function tryDecode(value: string): string | null {
 	try {
@@ -118,6 +160,17 @@ function tryDecode(value: string): string | null {
 	}
 }
 
+/** Repeatedly percent-decodes `value` until it stops changing or `MAX_DECODE_PASSES` is reached. */
+function decodeIteratively(value: string): string {
+	let result = value;
+	for (let pass = 0; pass < MAX_DECODE_PASSES; pass++) {
+		const decoded = tryDecode(result);
+		if (decoded === null || decoded === result) break;
+		result = decoded;
+	}
+	return result;
+}
+
 /**
  * Redacts query-parameter VALUES structurally wherever a `?key=value` or
  * `&key=value` shape appears in `text` (not just in a fully-parseable URL —
@@ -125,8 +178,8 @@ function tryDecode(value: string): string | null {
  * or a log line). Known-sensitive keys (`dest`, `email`, `phone`,
  * `phoneNumber`, `to`, `otp`) have their value replaced outright, regardless
  * of whether it happens to match the email/phone patterns. Every other key's
- * value is percent-decoded (when possible) before running the contact-info
- * patterns on it, so e.g. `?note=jane%40example.com` is still caught.
+ * value is percent-decoded (iteratively, to unwrap double-encoding) before
+ * running the contact-info patterns on it.
  */
 export function redactQueryParams(text: string): string {
 	return text.replace(
@@ -136,8 +189,8 @@ export function redactQueryParams(text: string): string {
 				return `${sep}${key}=[redacted]`;
 			}
 			if (!value) return match;
-			const decoded = tryDecode(value);
-			if (decoded === null) return match;
+			const decoded = decodeIteratively(value);
+			if (decoded === value) return match;
 			const scrubbed = redactContactInfo(decoded);
 			// No PII found in the decoded value — keep the original
 			// (still percent-encoded) form rather than needlessly rewriting
@@ -150,19 +203,20 @@ export function redactQueryParams(text: string): string {
 
 /**
  * Scrubs one arbitrary string value: URLs, transaction names, span
- * descriptions, free text. Applies dest/id/contact-info redaction to the raw
- * text, then — separately — percent-decodes the WHOLE string (when it
- * decodes cleanly) and re-checks for contact info there too, so PII hidden
- * behind percent-encoding outside of a `key=value` shape (e.g. embedded in a
- * path segment) is still caught (review round 2, finding 3).
+ * descriptions, object keys, free text. Applies id/query-param/contact-info
+ * redaction to the raw text, then — separately — percent-decodes the WHOLE
+ * string ITERATIVELY (to unwrap double-encoding; when it decodes cleanly)
+ * and re-checks for contact info there too, so PII hidden behind
+ * percent-encoding outside of a `key=value` shape (e.g. embedded in a path
+ * segment) is still caught.
  */
 export function scrubString(text: string): string {
 	let result = redactDynamicIds(text);
 	result = redactQueryParams(result);
 	result = redactContactInfo(result);
 
-	const decoded = tryDecode(result);
-	if (decoded !== null && decoded !== result) {
+	const decoded = decodeIteratively(result);
+	if (decoded !== result) {
 		const decodedScrubbed = redactContactInfo(decoded);
 		// Only adopt the decoded form if it actually surfaced new PII to
 		// redact — otherwise keep the original (still percent-encoded, which
@@ -178,46 +232,98 @@ export function scrubString(text: string): string {
 // Bounds on the deep walk below. Depth guarantees termination even on a
 // circular object (depth is a monotonic counter, independent of object
 // identity, so a cycle just hits the depth cap rather than looping forever).
-// Raised from 4 (review round 2, finding 2 — too shallow for a realistically
-// nested `extra`/`contexts` payload) to 10. Beyond the cap, the subtree is
-// replaced with a marker rather than returned unscrubbed — review round 2
-// found a 6-level-nested `extra` leaking an email verbatim past the old
-// depth limit, which failed OPEN; this fails closed instead.
+// Beyond the cap, the subtree is replaced with a marker rather than returned
+// unscrubbed — failing closed rather than open.
 const MAX_SCRUB_DEPTH = 10;
 const MAX_SCRUB_ITEMS = 200;
 const TOO_DEEP_MARKER = '[scrubbed: too deep]';
 
+type PathSegment = string | number;
+
 /**
- * Structural Sentry fields that must survive this walk byte-for-byte,
- * wherever they appear (matched by key name, not by path — these names are
- * specific enough that a collision with an unrelated, PII-bearing field in
- * `extra`/`tags`/`contexts` is an acceptable, deliberate trade-off):
- * correlation/grouping ids, timestamps, and release/environment/sdk/platform
- * metadata, plus stack-frame file/line info. Exception `type`/`value` are
- * deliberately NOT here — `type` in particular can carry a custom error
- * message (see sentry-scrub.test.ts), so it goes through the normal walk.
+ * Structural Sentry Event fields read directly off the event root (path
+ * length 0 — i.e. `event.<key>`) that must survive byte-for-byte: ids
+ * Sentry uses for grouping/correlation, timestamps, and release/
+ * environment/platform/sdk/modules metadata. `type` here is the event-level
+ * discriminator ("transaction"/"feedback"/"check_in"/...), NOT
+ * `exception.values[].type` (the error class name, which CAN carry a
+ * custom, PII-bearing message, and is NOT exempt — see
+ * sentry-scrub.test.ts).
  */
-const EXEMPT_KEYS = new Set([
+const TOP_LEVEL_EXEMPT = new Set([
 	'event_id',
-	'trace_id',
-	'span_id',
-	'parent_span_id',
-	'segment_id',
 	'timestamp',
 	'start_timestamp',
 	'release',
 	'environment',
-	'sdk',
 	'platform',
+	'level',
+	'type',
+	'dist',
+	'sdk',
+	'modules',
 	'debug_meta',
-	'filename',
-	'function',
-	'module',
-	'lineno',
-	'colno',
-	'abs_path',
-	'in_app'
+	'fingerprint'
 ]);
+
+/** `contexts.trace.<key>` — span/trace correlation fields, not free text. */
+const TRACE_CONTEXT_EXEMPT = new Set(['trace_id', 'span_id', 'parent_span_id', 'op', 'status']);
+
+/** `spans[<i>].<key>` — per-span correlation/timing/status fields. `description`/`data` are NOT here and go through the normal walk. */
+const SPAN_EXEMPT = new Set([
+	'span_id',
+	'parent_span_id',
+	'trace_id',
+	'start_timestamp',
+	'timestamp',
+	'op',
+	'status'
+]);
+
+/** `breadcrumbs[<i>].<key>` — structural breadcrumb fields. `message`/`data` are NOT here. */
+const BREADCRUMB_EXEMPT = new Set(['timestamp', 'type', 'category', 'level']);
+
+/**
+ * Stack-frame fields — matched by PATH SUFFIX (`.../frames/<index>/<key>`)
+ * rather than by full path from the root, so this covers both
+ * `exception.values[].stacktrace.frames[]` and `threads[].stacktrace.frames[]`
+ * (and `raw_stacktrace`, if ever present) without enumerating every possible
+ * parent chain. Deliberately does NOT include `filename`/`abs_path` — a
+ * frame's URL can itself carry a route id or query string worth redacting,
+ * and doing so doesn't harm symbolication of a bundle path. `pre_context`/
+ * `context_line`/`post_context` (source lines) and local `vars` are also NOT
+ * here, and so go through the normal walk like everything else.
+ */
+const STACK_FRAME_EXEMPT = new Set(['function', 'module', 'lineno', 'colno', 'in_app']);
+
+/**
+ * Decides whether `key`, found at `path` (the path of its PARENT object,
+ * i.e. not including `key` itself), must survive untouched. All exemptions
+ * are path-scoped: the same key name under `extra`, `tags`, a custom
+ * `contexts.<name>`, breadcrumb `data`, or span `data` is NEVER exempt.
+ */
+function isExemptField(path: readonly PathSegment[], key: string): boolean {
+	if (path.length === 0) {
+		return TOP_LEVEL_EXEMPT.has(key);
+	}
+	if (path.length === 2 && path[0] === 'contexts' && path[1] === 'trace') {
+		return TRACE_CONTEXT_EXEMPT.has(key);
+	}
+	if (path.length === 2 && path[0] === 'spans' && typeof path[1] === 'number') {
+		return SPAN_EXEMPT.has(key);
+	}
+	if (path.length === 2 && path[0] === 'breadcrumbs' && typeof path[1] === 'number') {
+		return BREADCRUMB_EXEMPT.has(key);
+	}
+	if (
+		path.length >= 2 &&
+		path[path.length - 2] === 'frames' &&
+		typeof path[path.length - 1] === 'number'
+	) {
+		return STACK_FRAME_EXEMPT.has(key);
+	}
+	return false;
+}
 
 /** True for `{}`-literal-shaped objects and `Object.create(null)` — i.e. safe to walk into and reconstruct as a plain record. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -227,31 +333,48 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Deep-scrubs every string value anywhere in `value`, except for
- * `EXEMPT_KEYS`. This is the primary scrubbing mechanism for the whole
- * event — see the module doc comment for why it replaced per-field
- * enumeration.
+ * Scrubs an object key (review round 3, finding 3: `extra: { 'jane@example.com': 1 }`
+ * leaked the key itself). Collisions after scrubbing (two different keys
+ * that redact to the same string) are resolved deterministically by
+ * suffixing, so no data is silently dropped by being overwritten.
  */
-function scrubValueDeep(value: unknown, depth: number): unknown {
+function scrubKey(key: string, existing: Record<string, unknown>): string {
+	const scrubbed = scrubString(key);
+	if (!(scrubbed in existing)) return scrubbed;
+	let suffix = 2;
+	while (`${scrubbed}__${suffix}` in existing) suffix++;
+	return `${scrubbed}__${suffix}`;
+}
+
+/**
+ * Deep-scrubs every string value AND every object key anywhere in `value`,
+ * except for the path-scoped exemptions above. This is the primary
+ * scrubbing mechanism for the whole event — see the module doc comment.
+ */
+function scrubValueDeep(value: unknown, depth: number, path: readonly PathSegment[]): unknown {
 	if (depth > MAX_SCRUB_DEPTH) return TOO_DEEP_MARKER;
 	if (typeof value === 'string') return scrubString(value);
 	// Dates have no enumerable own properties, so walking them as a plain
-	// object below would silently produce `{}` (review round 2, finding 5) —
-	// preserve as an ISO string instead. Any other non-plain-object type
-	// (RegExp, Map, Set, Error, a custom class instance, ...) is passed
-	// through completely unchanged for the same reason: we can't generically
-	// introspect arbitrary object types for PII, and mangling them into `{}`
-	// is strictly worse than leaving them as-is. This is a known, accepted
-	// limitation of pattern-matching, not a guarantee that such values never
-	// carry PII.
+	// object below would silently produce `{}` — preserve as an ISO string
+	// instead. Any other non-plain-object type (RegExp, Map, Set, Error, a
+	// custom class instance, ...) is passed through completely unchanged for
+	// the same reason: we can't generically introspect arbitrary object
+	// types for PII, and mangling them into `{}` is strictly worse than
+	// leaving them as-is. This is a known, accepted limitation of
+	// pattern-matching, not a guarantee that such values never carry PII.
 	if (value instanceof Date) return value.toISOString();
 	if (Array.isArray(value)) {
-		return value.slice(0, MAX_SCRUB_ITEMS).map((item) => scrubValueDeep(item, depth + 1));
+		return value
+			.slice(0, MAX_SCRUB_ITEMS)
+			.map((item, index) => scrubValueDeep(item, depth + 1, [...path, index]));
 	}
 	if (isPlainObject(value)) {
 		const result: Record<string, unknown> = {};
 		for (const [key, item] of Object.entries(value).slice(0, MAX_SCRUB_ITEMS)) {
-			result[key] = EXEMPT_KEYS.has(key) ? item : scrubValueDeep(item, depth + 1);
+			const exempt = isExemptField(path, key);
+			const scrubbedValue = exempt ? item : scrubValueDeep(item, depth + 1, [...path, key]);
+			const finalKey = exempt ? key : scrubKey(key, result);
+			result[finalKey] = scrubbedValue;
 		}
 		return result;
 	}
@@ -281,12 +404,13 @@ export interface ScrubbableSentryEvent {
 
 /**
  * Scrubs one Sentry event/transaction (and returns it) — the shared body of
- * both beforeSend and beforeSendTransaction. Never drops the event (returns
- * it, never null/undefined) — scrubbing failures should degrade to "less
- * redacted" being caught by other layers, not to losing the report.
+ * both beforeSend and beforeSendTransaction. Never drops the event itself
+ * (returns it, never null/undefined) on its own — callers that need
+ * fail-closed behaviour on an unexpected throw should use
+ * `safeScrubSentryEvent` instead, which wraps this.
  */
 export function scrubSentryEvent<T extends ScrubbableSentryEvent>(event: T): T {
-	const scrubbed = scrubValueDeep(event, 0) as T;
+	const scrubbed = scrubValueDeep(event, 0, []) as T;
 
 	// Structural deletions — these fields must be REMOVED, not merely have
 	// their string content redacted in place, so they're handled as an
@@ -314,4 +438,25 @@ export function scrubSentryEvent<T extends ScrubbableSentryEvent>(event: T): T {
 	}
 
 	return scrubbed;
+}
+
+/**
+ * The function actually wired into beforeSend/beforeSendTransaction (both
+ * client and server). Fails CLOSED: if `scrubSentryEvent` throws for any
+ * reason — a bug in this module, an unexpected event shape, anything — the
+ * event is dropped (`null`, which tells Sentry not to send it) rather than
+ * risking an unscrubbed event reaching Sentry. This is enforced here, in the
+ * app, rather than relying on the SDK to behave any particular way if a
+ * beforeSend hook throws.
+ */
+export function safeScrubSentryEvent<T extends ScrubbableSentryEvent>(event: T): T | null {
+	try {
+		return scrubSentryEvent(event);
+	} catch (err) {
+		console.error(
+			'[sentry-scrub] scrubbing failed; dropping this event rather than risk sending it unscrubbed:',
+			err
+		);
+		return null;
+	}
 }

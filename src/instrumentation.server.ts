@@ -2,7 +2,7 @@
 
 import * as Sentry from '@sentry/bun';
 import { parseSentryTracesSampleRate } from '$lib/sentry-config';
-import { scrubSentryEvent, type ScrubbableSentryEvent } from '$lib/sentry-scrub';
+import { safeScrubSentryEvent, type ScrubbableSentryEvent } from '$lib/sentry-scrub';
 
 const dsn = process.env.PUBLIC_SENTRY_DSN;
 
@@ -27,7 +27,7 @@ if (dsn) {
 		// @sentry/core/build/esm/integration.js) so that data is never
 		// collected in the first place. `ip: false` is already the default
 		// here (gated on `sendDefaultPii`, which this app never sets), kept
-		// explicit for clarity. src/lib/sentry-scrub.ts's scrubRequest()
+		// explicit for clarity. src/lib/sentry-scrub.ts's scrubSentryEvent()
 		// also strips cookies/data/Cookie/Authorization defensively, in case
 		// any other code path (a future SDK change, a manually attached
 		// extra) ever populates them.
@@ -40,10 +40,12 @@ if (dsn) {
 		tracesSampleRate: parseSentryTracesSampleRate(process.env.PUBLIC_SENTRY_TRACES_SAMPLE_RATE),
 		enableLogs: true,
 		// Shared with hooks.client.ts — see src/lib/sentry-scrub.ts for what
-		// this redacts and why.
+		// this redacts and why. Uses the fail-CLOSED wrapper: if scrubbing
+		// itself throws, the event is dropped rather than risking it
+		// reaching Sentry unscrubbed.
 		beforeSend: (event) =>
-			scrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event,
+			safeScrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event,
 		beforeSendTransaction: (event) =>
-			scrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event
+			safeScrubSentryEvent(event as unknown as ScrubbableSentryEvent) as unknown as typeof event
 	});
 }
