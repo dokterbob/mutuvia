@@ -76,14 +76,26 @@ export const GET: RequestHandler = ({ locals }) => {
 			sendPing();
 
 			keepaliveTimer = setInterval(() => {
-				void isSessionStillValid(sessionId).then((valid) => {
-					if (closed) return;
-					if (!valid) {
+				void isSessionStillValid(sessionId)
+					.then((valid) => {
+						if (closed) return;
+						if (!valid) {
+							dispose();
+							return;
+						}
+						sendPing();
+					})
+					.catch((err) => {
+						// The session lookup itself failed (e.g. a DB connection blip) —
+						// rather than leave this an unhandled rejection (which lives
+						// outside SvelteKit's request error handling and can crash the
+						// Bun process), tear the connection down the same way an
+						// invalid session would: dispose() unregisters it and closes
+						// the stream, and the client's EventSource reconnects.
+						if (closed) return;
+						console.warn('[sse] keepalive session check failed — closing connection', err);
 						dispose();
-						return;
-					}
-					sendPing();
-				});
+					});
 			}, KEEPALIVE_INTERVAL_MS);
 		},
 		cancel() {
