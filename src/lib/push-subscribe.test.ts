@@ -220,4 +220,49 @@ describe('unsubscribeFromPush()', () => {
 		vi.stubGlobal('window', {}); // no PushManager
 		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
 	});
+
+	describe('when a browser API stalls instead of rejecting', () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('resolves within UNSUBSCRIBE_TIMEOUT_MS when getRegistration() never resolves', async () => {
+			mockGetRegistration.mockReturnValue(new Promise(() => {})); // never settles
+
+			const promise = unsubscribeFromPush();
+			let settled = false;
+			void promise.then(() => {
+				settled = true;
+			});
+
+			// Not yet — the deadline hasn't elapsed.
+			await vi.advanceTimersByTimeAsync(2999);
+			expect(settled).toBe(false);
+
+			// The shared deadline elapses — the function must give up and resolve.
+			await vi.advanceTimersByTimeAsync(1);
+			await expect(promise).resolves.toBeUndefined();
+			expect(mockFetch).not.toHaveBeenCalled(); // never got far enough to have an endpoint
+		});
+
+		it('does not wait for subscription.unsubscribe() when it never resolves — still notifies the server', async () => {
+			mockUnsubscribingSubscription.unsubscribe.mockReturnValue(new Promise(() => {})); // never settles
+
+			const promise = unsubscribeFromPush();
+
+			// Resolves promptly, well before the 3s deadline — unsubscribe() is
+			// fire-and-forget, not blocking the server round trip.
+			await vi.advanceTimersByTimeAsync(0);
+			await expect(promise).resolves.toBeUndefined();
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				'/api/push/unsubscribe',
+				expect.objectContaining({ method: 'POST' })
+			);
+		});
+	});
 });
