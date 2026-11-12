@@ -59,9 +59,13 @@ services:
       POSTGRES_DB: mutuvia
       POSTGRES_USER: mutuvia
       # No default: a committed/example password would otherwise ship into
-      # real deployments that forget to set it. Required — compose refuses
-      # to start without it.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (must match DATABASE_URL's password)}
+      # real deployments that forget to set it. Deliberately NOT `${VAR:?err}`:
+      # Compose interpolates the whole file before filtering by profile, so
+      # that would also break `--profile sqlite` / `--profile dev`. The
+      # official postgres image itself refuses to initialise a new database
+      # with an empty superuser password, so `--profile postgres` still fails
+      # loudly when this is unset. Must match DATABASE_URL's password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:

@@ -5,7 +5,7 @@ import { auth } from '$lib/server/auth';
 import { db, sqlite } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
-import { isRedirect, redirect, type Handle, type ServerInit } from '@sveltejs/kit';
+import { isRedirect, json, redirect, type Handle, type ServerInit } from '@sveltejs/kit';
 import { config, validateConfig } from '$lib/config';
 import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
@@ -162,9 +162,11 @@ const mainSequence = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, au
  * - The one case that is NOT caught there is our own authHandle calling the
  *   `redirect()` helper directly (for the `/(app)` route guard) — that
  *   throws past `resolve()` entirely. The try/catch below catches exactly
- *   that `Redirect` and builds the equivalent Response ourselves so it still
- *   gets headers, matching what `src/hooks.server.test.ts`'s existing
- *   `authHandle` tests already assert the redirect looks like.
+ *   that `Redirect` and builds the equivalent Response ourselves (see
+ *   `redirectResponse` — including the action-result JSON form for
+ *   `use:enhance` submissions) so it still gets headers, matching what
+ *   `src/hooks.server.test.ts`'s existing `authHandle` tests already assert
+ *   the redirect looks like.
  * - NOT covered, and accepted: a handful of pre-`handle` framework-internal
  *   paths in respond.js itself, all checked at the very top of
  *   `internal_respond()` BEFORE `options.hooks.handle(...)` is ever called —
@@ -180,6 +182,39 @@ const mainSequence = sequence(Sentry.sentryHandle(), i18nHandle, shareHandle, au
  *   them can throw besides the one redirect() case above) would also escape
  *   unheadered; this is a latent gap, not an active one.
  */
+/**
+ * True for a `use:enhance` form-action submission, mirroring SvelteKit's own
+ * `is_action_json_request` (respond.js / page/actions.js): a POST whose
+ * Accept negotiates to JSON. `enhance` also sets `x-sveltekit-action: true`,
+ * which we accept as a stronger signal on its own.
+ */
+function isActionJsonRequest(request: Request): boolean {
+	if (request.method !== 'POST') return false;
+	if (request.headers.get('x-sveltekit-action') === 'true') return true;
+	const accept = request.headers.get('accept') ?? '';
+	return accept.includes('application/json') && !accept.includes('text/html');
+}
+
+/**
+ * Builds the Response for a `Redirect` thrown by our own hooks, in the same
+ * shape SvelteKit's respond.js would have produced had the throw reached it:
+ *
+ * - An enhanced form action expects an ActionResult, not a 3xx — `enhance`
+ *   follows a plain redirect with fetch, gets onboarding HTML back, fails to
+ *   deserialize it, and shows an error instead of navigating. So it gets
+ *   `{ type: 'redirect', status, location }` JSON (SvelteKit's
+ *   `action_json_redirect`), which `enhance` turns into a client-side goto.
+ * - `__data.json` requests need no special case here: respond.js converts a
+ *   3xx Response returned from `handle` into its redirect-JSON form itself.
+ * - Everything else gets an ordinary 3xx with a Location header.
+ */
+function redirectResponse(request: Request, status: number, location: string): Response {
+	if (isActionJsonRequest(request)) {
+		return json({ type: 'redirect', status, location });
+	}
+	return new Response(null, { status, headers: { location } });
+}
+
 function finalizeResponse(event: Parameters<Handle>[0]['event'], response: Response): Response {
 	applySecurityHeaders(response, {
 		pathname: event.url.pathname,
@@ -213,10 +248,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// doc comment above for why that's the one case this try/catch must
 		// handle itself rather than relying on respond.js's own conversion.
 		if (isRedirect(e)) {
-			return finalizeResponse(
-				event,
-				new Response(null, { status: e.status, headers: { location: e.location } })
-			);
+			return finalizeResponse(event, redirectResponse(event.request, e.status, e.location));
 		}
 		throw e;
 	}
