@@ -53,7 +53,7 @@ vi.mock('$lib/config', () => ({
 }));
 
 const { sqlite, db: liveDb } = await import('./db.sqlite');
-const { auth } = await import('./auth');
+const { auth, releaseStalePlaceholderEmail } = await import('./auth');
 
 function resetSchema() {
 	const tables = sqlite
@@ -536,6 +536,75 @@ describe('stale placeholder email release on phone change — real Better Auth i
 		expect(signupResult.user?.id).toBeTruthy();
 		expect(signupResult.user?.id).not.toBe(afterChange.id);
 		expect(signupResult.user?.email).toBe(makePlaceholderEmail(oldPhone));
+	});
+
+	describe('when the stored row changed after the phone-change snapshot was taken', () => {
+		// Reproduces the race directly: `ctx.context.returned.user` is the
+		// snapshot Better Auth returned when the phone change committed, while
+		// a concurrent credential change has since rewritten the row.
+		async function setup() {
+			const oldPhone = '+15553330101';
+			const newPhone = '+15553330102';
+			await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: oldPhone } });
+			const { user } = await auth.api.verifyPhoneNumber({
+				body: { phoneNumber: oldPhone, code: readOtp(oldPhone) }
+			});
+			const context = await auth.$context;
+			// The phone change itself has already committed by the time the
+			// after-hook runs.
+			liveDb
+				.update(schema.user)
+				.set({ phoneNumber: newPhone })
+				.where(eq(schema.user.id, user!.id))
+				.run();
+			const snapshot = {
+				id: user!.id,
+				email: makePlaceholderEmail(oldPhone),
+				phoneNumber: newPhone
+			};
+			const ctx = {
+				context: { ...context, returned: { user: snapshot } }
+			} as unknown as Parameters<typeof releaseStalePlaceholderEmail>[0];
+			return { id: user!.id, oldPhone, newPhone, ctx };
+		}
+
+		function storedEmail(id: string) {
+			return liveDb.select().from(schema.user).where(eq(schema.user.id, id)).get()?.email;
+		}
+
+		test('Given a concurrent email change already stored a real email, then it is not overwritten with a placeholder', async () => {
+			const { id, ctx } = await setup();
+			liveDb
+				.update(schema.user)
+				.set({ email: 'verified-real@example.com' })
+				.where(eq(schema.user.id, id))
+				.run();
+
+			await releaseStalePlaceholderEmail(ctx);
+
+			expect(storedEmail(id)).toBe('verified-real@example.com');
+		});
+
+		test('Given a later phone change already moved the number on, then the placeholder is not rewritten for the stale number', async () => {
+			const { id, oldPhone, ctx } = await setup();
+			liveDb
+				.update(schema.user)
+				.set({ phoneNumber: '+15553330103' })
+				.where(eq(schema.user.id, id))
+				.run();
+
+			await releaseStalePlaceholderEmail(ctx);
+
+			expect(storedEmail(id)).toBe(makePlaceholderEmail(oldPhone));
+		});
+
+		test('Given the row is unchanged since the snapshot, then the placeholder is refreshed to the new number', async () => {
+			const { id, newPhone, ctx } = await setup();
+
+			await releaseStalePlaceholderEmail(ctx);
+
+			expect(storedEmail(id)).toBe(makePlaceholderEmail(newPhone));
+		});
 	});
 
 	test('Given a user with a real email changes their phone number, then their real email is left untouched', async () => {
