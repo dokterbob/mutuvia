@@ -113,11 +113,15 @@ export async function unsubscribeFromPush(): Promise<void> {
 		try {
 			if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
+			// After every browser-API await, bail out if the shared deadline has
+			// already passed: sign-out has finished by then, and a late-resolving
+			// lookup could otherwise pick up — and unsubscribe — the push
+			// subscription of whoever signed in on this browser next.
 			const registration = await navigator.serviceWorker.getRegistration();
-			if (!registration) return;
+			if (!registration || abortController.signal.aborted) return;
 
 			const subscription = await registration.pushManager.getSubscription();
-			if (!subscription) return;
+			if (!subscription || abortController.signal.aborted) return;
 
 			const endpoint = subscription.endpoint;
 			// Fire-and-forget: a stalled or slow browser-side unsubscribe must not
