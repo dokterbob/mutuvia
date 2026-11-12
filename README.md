@@ -103,7 +103,7 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 | `DB_PROVIDER`                       | No       | `sqlite`                           | Database backend: `sqlite` or `pg`.                                                                                                                                                                                                                                                    |
 | `DB_FILE_NAME`                      | No       | `sqlite.db`                        | SQLite file path.                                                                                                                                                                                                                                                                      |
 | `DATABASE_URL`                      | PG only  | —                                  | Full PostgreSQL connection URL including password.                                                                                                                                                                                                                                     |
-| `POSTGRES_PASSWORD`                 | PG only  | `mutuvia`                          | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                                                                                                                                    |
+| `POSTGRES_PASSWORD`                 | PG only  | —                                  | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                                                                                                                                    |
 | `UNIT_CODE`                         | No       | `EUR`                              | ISO 4217 code or custom unit identifier.                                                                                                                                                                                                                                               |
 | `PUBLIC_UNIT_SYMBOL`                | No       | `€`                                | Displayed unit symbol.                                                                                                                                                                                                                                                                 |
 | `PUBLIC_UNIT_DISPLAY_NAME`          | No       | `euro`                             | Lowercase singular name for the unit.                                                                                                                                                                                                                                                  |
@@ -535,19 +535,23 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   to start (migrate.ts / the SQLite open itself errors out). Fix once, before the first restart on
   the new image:
 
-  Check current ownership first (anything other than `1000 1000` / `bun bun` needs the fix below —
-  on a named volume, `docker volume inspect sqlite-data` gives the host path to run `ls -lan`
-  against; on a bind mount, `ls -lan` the host path directly):
+  The commands below go through `docker compose run` on the `app-sqlite` service itself, so they
+  mount exactly the volume your deployment uses. Compose prefixes named volumes with the project
+  name — the real volume is `<project>_sqlite-data` (usually `mutuvia_sqlite-data`, see
+  `docker volume ls --filter name=sqlite-data`), **not** a literal `sqlite-data`, which a bare
+  `docker run -v sqlite-data:/data` would silently create empty instead.
+
+  Check current ownership first (anything other than `1000 1000` / `bun bun` needs the fix below):
 
   ```bash
-  ls -lan /var/lib/docker/volumes/sqlite-data/_data   # or your bind-mount host path
+  docker compose --profile sqlite run --rm --no-deps --user root --entrypoint ls app-sqlite -lan /data
   ```
 
   **Named volume** (the default — `docker-compose.yml`'s `sqlite-data:/data`):
 
   ```bash
-  # Stop the app first (`docker compose --profile sqlite stop app-sqlite`), then:
-  docker run --rm -v sqlite-data:/data alpine chown -R 1000:1000 /data
+  docker compose --profile sqlite stop app-sqlite
+  docker compose --profile sqlite run --rm --no-deps --user root --entrypoint chown app-sqlite -R 1000:1000 /data
   docker compose --profile sqlite up -d
   ```
 
