@@ -249,6 +249,46 @@ describe('unsubscribeFromPush()', () => {
 			expect(mockFetch).not.toHaveBeenCalled(); // never got far enough to have an endpoint
 		});
 
+		it('does not unsubscribe anything when getRegistration() resolves only after the deadline', async () => {
+			let resolveRegistration!: (r: unknown) => void;
+			mockGetRegistration.mockReturnValue(
+				new Promise((resolve) => {
+					resolveRegistration = resolve;
+				})
+			);
+
+			const promise = unsubscribeFromPush();
+			await vi.advanceTimersByTimeAsync(3000);
+			await expect(promise).resolves.toBeUndefined();
+
+			// Sign-out is done; a later user may own the subscription by now.
+			resolveRegistration({ pushManager: mockUnsubPushManager });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(mockUnsubPushManager.getSubscription).not.toHaveBeenCalled();
+			expect(mockUnsubscribingSubscription.unsubscribe).not.toHaveBeenCalled();
+			expect(mockFetch).not.toHaveBeenCalled();
+		});
+
+		it('does not unsubscribe anything when getSubscription() resolves only after the deadline', async () => {
+			let resolveSubscription!: (s: unknown) => void;
+			mockUnsubPushManager.getSubscription.mockReturnValue(
+				new Promise((resolve) => {
+					resolveSubscription = resolve;
+				})
+			);
+
+			const promise = unsubscribeFromPush();
+			await vi.advanceTimersByTimeAsync(3000);
+			await expect(promise).resolves.toBeUndefined();
+
+			resolveSubscription(mockUnsubscribingSubscription);
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(mockUnsubscribingSubscription.unsubscribe).not.toHaveBeenCalled();
+			expect(mockFetch).not.toHaveBeenCalled();
+		});
+
 		it('does not wait for subscription.unsubscribe() when it never resolves — still notifies the server', async () => {
 			mockUnsubscribingSubscription.unsubscribe.mockReturnValue(new Promise(() => {})); // never settles
 
