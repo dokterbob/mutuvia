@@ -370,5 +370,64 @@ describe('handle — security headers (src/lib/server/security-headers.ts)', () 
 			expect(result.headers.get('x-content-type-options')).toBe('nosniff');
 			expect(result.headers.get('strict-transport-security')).toBe('max-age=15552000');
 		});
+
+		// Same streaming-endpoint shortcut as above, with a POST shaped like a
+		// `use:enhance` submission: `enhance` can't follow a plain 3xx (it
+		// fetches the onboarding HTML and fails to deserialize it), so the
+		// guard must answer with SvelteKit's action-result redirect JSON.
+		function makeGuardedPost(headers: Record<string, string>) {
+			getSessionMock.mockResolvedValueOnce(null);
+			return {
+				event: {
+					url: new URL('https://example.test/api/events'),
+					request: new Request('https://example.test/api/events', { method: 'POST', headers }),
+					route: { id: '/(app)/send' },
+					locals: {},
+					getClientAddress: () => '203.0.113.1'
+				},
+				resolve: vi.fn()
+			} as unknown as Parameters<typeof handle>[0];
+		}
+
+		describe('when the request is an enhanced form action (x-sveltekit-action)', () => {
+			test('returns action-result redirect JSON with the security headers', async () => {
+				const result = await handle(
+					makeGuardedPost({ accept: 'application/json', 'x-sveltekit-action': 'true' })
+				);
+
+				expect(result.status).toBe(200);
+				expect(result.headers.get('location')).toBeNull();
+				expect(result.headers.get('content-type')).toContain('application/json');
+				expect(await result.json()).toEqual({
+					type: 'redirect',
+					status: 303,
+					location: '/onboarding'
+				});
+				expect(result.headers.get('x-content-type-options')).toBe('nosniff');
+			});
+		});
+
+		describe('when the POST only negotiates JSON via Accept', () => {
+			test('returns action-result redirect JSON', async () => {
+				const result = await handle(makeGuardedPost({ accept: 'application/json' }));
+
+				expect(await result.json()).toEqual({
+					type: 'redirect',
+					status: 303,
+					location: '/onboarding'
+				});
+			});
+		});
+
+		describe('when the POST is a plain (non-enhanced) HTML form submission', () => {
+			test('returns an ordinary 303 redirect', async () => {
+				const result = await handle(
+					makeGuardedPost({ accept: 'text/html,application/xhtml+xml,application/json;q=0.9' })
+				);
+
+				expect(result.status).toBe(303);
+				expect(result.headers.get('location')).toBe('/onboarding');
+			});
+		});
 	});
 });

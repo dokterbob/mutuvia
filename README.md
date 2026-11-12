@@ -243,7 +243,8 @@ never reach that code at all — see "Known gaps" below.
   positioning, Svelte transitions — not whole `<style>` blocks, which stay nonce-gated);
   `img-src 'self' data: blob:`; `connect-src 'self'` (Sentry goes through the same-origin
   `/sentry-tunnel`; Web Push delivery is the browser's own PushManager, not a page `fetch`);
-  `worker-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`;
+  `worker-src 'self' blob:` (Sentry Session Replay's compression worker is spawned from a blob URL);
+  `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`;
   `object-src 'none'`. `upgrade-insecure-requests` is deliberately **not** set — it would force
   every request to https even for local dev / the E2E suite, which run over plain http.
 - **`Strict-Transport-Security`** — only when BOTH `APP_URL` is https AND the current request is
