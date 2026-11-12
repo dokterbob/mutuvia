@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `HSTS_MAX_AGE_SECONDS` — HSTS max-age, in seconds; default `15552000` (180 days). ([#138](https://github.com/dokterbob/mutuvia/pull/138))
   - `HSTS_INCLUDE_SUBDOMAINS` — whether HSTS applies to subdomains; default `false`. ([#138](https://github.com/dokterbob/mutuvia/pull/138))
 - Behind a reverse proxy, also set `ADDRESS_HEADER`/`XFF_DEPTH` and either `ORIGIN` or `PROTOCOL_HEADER` — see [README's "Reverse proxy, TLS and NODE_ENV" section](README.md#reverse-proxy-tls-and-node_env).
-- Users with a legacy Android-Chrome push subscription (an `android.googleapis.com` endpoint) will stop receiving push notifications until their browser registers a new subscription; the app attempts this automatically each time they create a send or receive QR code. ([#133](https://github.com/dokterbob/mutuvia/pull/133))
+- Users with a legacy Android-Chrome push subscription (an `android.googleapis.com` endpoint, which Chrome stopped issuing in 2019) will stop receiving push notifications: the new endpoint allowlist rejects it, and the app keeps re-sending the browser's existing subscription rather than creating a new one. Affected users recover by signing out and back in — sign-out clears the browser's subscription, and their next send or receive QR registers a fresh one. Alternatively, add `android.googleapis.com` to `PUSH_ENDPOINT_EXTRA_HOSTS` to keep accepting them. ([#133](https://github.com/dokterbob/mutuvia/pull/133))
 
 ## [0.4.0] - 2026-10-27
 

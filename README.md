@@ -598,9 +598,16 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   proxy's own address — see "Reverse proxy, TLS and NODE_ENV" above. Not specific to any one
   upgrade, but easy to miss when first putting a proxy in front of an existing deployment.
 
-- **Web Push to Android (`android.googleapis.com`).** No action needed — mentioned here only so
-  it isn't mistaken for a leak: a push subscription that errors on send (e.g. the user uninstalled
-  the app) is deleted from the database at send time, not retried or left to accumulate.
+- **Web Push to Android (`android.googleapis.com`).** The push-endpoint allowlist no longer
+  accepts the legacy GCM-era `android.googleapis.com` endpoints (Chrome stopped issuing them in
+  2019). Stored subscriptions on that host are deleted at the next delivery attempt, and a browser
+  still holding one does **not** re-register by itself — the app re-sends the existing subscription,
+  which the server keeps rejecting. An affected user recovers by signing out and back in (sign-out
+  clears the browser-side subscription; the next send or receive QR registers a fresh
+  `fcm.googleapis.com` one). To keep accepting these endpoints instead, add
+  `android.googleapis.com` to `PUSH_ENDPOINT_EXTRA_HOSTS`. Separately, and not a leak: any push
+  subscription that errors on send (e.g. the user uninstalled the app) is deleted from the
+  database at send time, not retried or left to accumulate.
 
 - **Unique `user.email` / `user.phone_number`.** A migration adds unique indexes on `user.email`
   and `user.phone_number` (closing an account-takeover path where an attacker could pre-claim
