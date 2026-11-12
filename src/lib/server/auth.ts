@@ -378,21 +378,43 @@ type AuthMiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[
  * an already-successful request into a confusing 500. Worst case: the phone
  * number change stands, the user's email stays the (now stale again) old
  * placeholder, and the failure is logged for manual cleanup.
+ *
+ * Exported only for auth.test.ts, which drives the concurrent-email-change
+ * race directly (it can't be reproduced deterministically through the API).
  */
-async function releaseStalePlaceholderEmail(ctx: AuthMiddlewareContext): Promise<void> {
+export async function releaseStalePlaceholderEmail(ctx: AuthMiddlewareContext): Promise<void> {
 	const returnedUser = (
 		ctx.context.returned as
 			| { user?: { id?: string; email?: string | null; phoneNumber?: string | null } }
 			| undefined
 	)?.user;
 	if (!returnedUser?.id || !returnedUser.phoneNumber) return;
-	if (!isPlaceholderEmail(returnedUser.email)) return;
+	const oldPlaceholder = returnedUser.email;
+	if (!oldPlaceholder || !isPlaceholderEmail(oldPlaceholder)) return;
 
 	const newPlaceholder = makePlaceholderEmail(returnedUser.phoneNumber);
-	if (returnedUser.email === newPlaceholder) return;
+	if (oldPlaceholder === newPlaceholder) return;
 
 	try {
-		await ctx.context.internalAdapter.updateUser(returnedUser.id, { email: newPlaceholder });
+		// Compare-and-set, not an unconditional write: `returnedUser` is a
+		// snapshot from when the phone change committed, and the
+		// revokeOtherSessionsForCredentialChange await above leaves a window
+		// in which a concurrent, independently verified email change (the
+		// settings page offers both flows) can replace the placeholder with a
+		// real address. Only refresh while the row still holds exactly the old
+		// placeholder AND the phone number this change set — otherwise a
+		// later credential change has won and must not be overwritten. The
+		// Drizzle adapter compiles this to a single
+		// `UPDATE … WHERE id = ? AND email = ? AND phone_number = ?`.
+		await ctx.context.adapter.update({
+			model: 'user',
+			where: [
+				{ field: 'id', value: returnedUser.id },
+				{ field: 'email', value: oldPlaceholder },
+				{ field: 'phoneNumber', value: returnedUser.phoneNumber }
+			],
+			update: { email: newPlaceholder, updatedAt: new Date() }
+		});
 	} catch (err) {
 		console.error('Failed to refresh placeholder email after phone change:', err);
 	}
