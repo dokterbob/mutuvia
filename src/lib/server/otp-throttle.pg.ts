@@ -23,13 +23,18 @@
 import { eq, lt, sql } from 'drizzle-orm';
 import { db } from './db.pg';
 import { otpThrottle } from './schema.pg';
-import {
-	SHORT_WINDOW_MS,
-	SHORT_WINDOW_MAX,
-	LONG_WINDOW_MS,
-	LONG_WINDOW_MAX
-} from './otp-throttle-types';
+import { LONG_WINDOW_MS, evaluateThrottle } from './otp-throttle-types';
 import type { ThrottleResult } from './otp-throttle-types';
+
+/**
+ * Read-only pre-check — see otp-throttle.sqlite.ts's `checkOtpSend`. Takes no
+ * advisory lock: it records nothing, and the authoritative decision is the
+ * locked `checkAndRecordOtpSend` at send time.
+ */
+export async function checkOtpSend(destination: string): Promise<ThrottleResult> {
+	const rows = await db.select().from(otpThrottle).where(eq(otpThrottle.destination, destination));
+	return evaluateThrottle(rows, Date.now());
+}
 
 export async function checkAndRecordOtpSend(destination: string): Promise<ThrottleResult> {
 	return db.transaction(async (tx) => {
@@ -58,23 +63,8 @@ export async function checkAndRecordOtpSend(destination: string): Promise<Thrott
 			.from(otpThrottle)
 			.where(eq(otpThrottle.destination, destination));
 
-		if (rows.length >= LONG_WINDOW_MAX) {
-			const oldest = rows.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
-			return {
-				ok: false,
-				retryAfterSeconds: retryAfter(oldest.createdAt.getTime(), LONG_WINDOW_MS, now)
-			} as const;
-		}
-
-		const shortWindowStart = now - SHORT_WINDOW_MS;
-		const recent = rows.filter((r) => r.createdAt.getTime() >= shortWindowStart);
-		if (recent.length >= SHORT_WINDOW_MAX) {
-			const oldest = recent.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
-			return {
-				ok: false,
-				retryAfterSeconds: retryAfter(oldest.createdAt.getTime(), SHORT_WINDOW_MS, now)
-			} as const;
-		}
+		const result = evaluateThrottle(rows, now);
+		if (!result.ok) return result;
 
 		await tx
 			.insert(otpThrottle)
@@ -82,8 +72,4 @@ export async function checkAndRecordOtpSend(destination: string): Promise<Thrott
 
 		return { ok: true } as const;
 	});
-}
-
-function retryAfter(oldestMs: number, windowMs: number, now: number): number {
-	return Math.max(1, Math.ceil((oldestMs + windowMs - now) / 1000));
 }
