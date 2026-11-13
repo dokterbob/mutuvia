@@ -113,6 +113,31 @@ docker compose --profile postgres up -d
 | `SENTRY_ORG`                   | CI       | —                                  | Sentry organisation slug. Only needed in CI builds.                                                                                                                             |
 | `SENTRY_PROJECT`               | CI       | —                                  | Sentry project slug. Only needed in CI builds.                                                                                                                                  |
 
+### Bun adapter patch
+
+Production builds depend on a local patch to `svelte-adapter-bun`,
+[`patches/svelte-adapter-bun@1.0.1.patch`](patches/svelte-adapter-bun@1.0.1.patch), applied
+automatically by `bun install` (`patchedDependencies` in `package.json`). **Do not remove it, and
+re-create it whenever the adapter version changes.**
+
+- **What it fixes:** the adapter re-bundles the server with rolldown but doesn't set `platform`,
+  so rolldown defaults to the _browser_ platform. That resolves `@better-auth/core`'s
+  `./async_hooks` export through its `browser` condition to a polyfill holding a single global
+  "current request" slot instead of Node's `AsyncLocalStorage`. Concurrent requests then overwrite
+  each other's auth request state and randomly fail with HTTP 500
+  (`No request state found … within a runWithRequestState callback`). `bun run dev` is unaffected,
+  since Vite keeps `better-auth` external there; only built servers (Docker, `bun run build`) are.
+- **The patch:** one token in `dist/index.js`, `platform: "node"` on the rolldown call.
+- **Guard:** `bun run build` ends with `scripts/check-server-bundle.ts`, which fails the build if
+  the polyfill shows up in `build/server`. Bun only applies a patch to the exact version it names,
+  so a version bump (e.g. a Dependabot PR) silently drops it; this check then fails CI instead of
+  shipping the bug.
+- **Bumping the adapter:** `bun patch svelte-adapter-bun`, re-apply the change in
+  `node_modules/svelte-adapter-bun/dist/index.js`, then `bun patch --commit node_modules/svelte-adapter-bun`.
+  Upgrading alone doesn't help: 1.0.2 has the same rolldown call.
+- **Long term:** `svelte-adapter-bun` is deprecated in favour of the official
+  `@sveltejs/adapter-bun`, which requires SvelteKit 3. Moving to it removes the need for this patch.
+
 ---
 
 ## Android app
@@ -150,7 +175,7 @@ Setup, release procedure, key custody and troubleshooting: [docs/android.md](doc
 | Command                      | Description                              |
 | ---------------------------- | ---------------------------------------- |
 | `bun run dev`                | Start development server                 |
-| `bun run build`              | Production build                         |
+| `bun run build`              | Production build (+ server-bundle check) |
 | `bun run preview`            | Preview production build                 |
 | `bun run check`              | Type-check (svelte-check)                |
 | `bun run lint`               | Prettier + ESLint                        |

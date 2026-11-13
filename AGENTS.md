@@ -44,6 +44,7 @@ Use these with `mcp__context7__query-docs` for up-to-date documentation:
 - **Amounts are integers** (cents/smallest unit) — `formatAmount()` handles display
 - **Connections are implicit** — upserted on transaction settlement, no friend management UI
 - **Atomic settlement**: Insert transaction + update QR status + upsert connection in one database transaction (SQLite or PG)
+- **`patches/svelte-adapter-bun@1.0.1.patch` is required** — it makes the adapter bundle the server for Node (`platform: "node"`); without it concurrent requests in built servers fail with 500s. `bun run build` fails if it's missing. Re-create it on any adapter version bump (see README → "Bun adapter patch").
 - **Real-time updates via SSE + Web Push** — `/api/events` streams notifications to open tabs; `web-push` (VAPID) delivers to backgrounded PWA users. Dedup via `SeenEventIds` FIFO set in the client.
 - **The Android shell (`android/`) cannot be built without the Android SDK** — sandboxed agents have none, so CI is the compiler; keep the shell minimal.
 - **Keep README.md in sync**: When changing the tech stack, project structure, scripts, or configuration, update `README.md` to reflect the change.
