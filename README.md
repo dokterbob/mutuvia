@@ -131,7 +131,7 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 | `PUSH_ENDPOINT_EXTRA_HOSTS`         | No       | —                                  | Comma-separated extra push-endpoint hosts to allow beyond the built-in browser vendor allowlist (`fcm.googleapis.com`, `updates.push.services.mozilla.com`, `*.push.apple.com`, `*.notify.windows.com`). Each entry is an exact host or `*.suffix`.                                    |
 | `ANDROID_PACKAGE_NAME`              | Android  | `org.mutuvia.app`                  | Android `applicationId` served in `/.well-known/assetlinks.json`.                                                                                                                                                                                                                      |
 | `ANDROID_SHA256_FINGERPRINTS`       | Android  | —                                  | Comma-separated SHA-256 fingerprints of the APK signing certificate; serves `/.well-known/assetlinks.json`.                                                                                                                                                                            |
-| `PUBLIC_SENTRY_DSN`                 | No       | —                                  | Sentry DSN. Set to enable error tracking and session replay. (The interactive feedback widget is deliberately not used — see "Security headers" below.)                                                                                                                                |
+| `PUBLIC_SENTRY_DSN`                 | No       | —                                  | Sentry DSN. Set to enable error tracking (session replay is deliberately not used — see "Security headers" → "Sentry" below). (The interactive feedback widget is deliberately not used — see "Security headers" below.)                                                               |
 | `SENTRY_AUTH_TOKEN`                 | CI       | —                                  | Sentry auth token for source map uploads. Only needed in CI builds.                                                                                                                                                                                                                    |
 | `SENTRY_ORG`                        | CI       | —                                  | Sentry organisation slug. Only needed in CI builds.                                                                                                                                                                                                                                    |
 | `SENTRY_PROJECT`                    | CI       | —                                  | Sentry project slug. Only needed in CI builds.                                                                                                                                                                                                                                         |
@@ -194,7 +194,7 @@ never reach that code at all — see "Known gaps" below.
   positioning, Svelte transitions — not whole `<style>` blocks, which stay nonce-gated);
   `img-src 'self' data: blob:`; `connect-src 'self'` (Sentry goes through the same-origin
   `/sentry-tunnel`; Web Push delivery is the browser's own PushManager, not a page `fetch`);
-  `worker-src 'self' blob:` (Sentry Session Replay's compression worker is spawned from a blob URL);
+  `worker-src 'self'`;
   `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`;
   `object-src 'none'`. `upgrade-insecure-requests` is deliberately **not** set — it would force
   every request to https even for local dev / the E2E suite, which run over plain http.
@@ -318,15 +318,7 @@ formats. This is still pattern matching, not parsing a phone number properly —
 can still slip through either way, and a non-phone number that happens to fit one of the two
 redacted shapes can still be redacted unnecessarily; both are accepted trade-offs.
 
-This covers: what session replay records outside the normal event pipeline — its navigation/fetch
-breadcrumbs and performance spans (scrubbed in `replayIntegration`'s `beforeAddRecordingEvent`,
-before they enter the recording) and each segment's `replay_event` with its visited `urls` (scrubbed
-by an integration `processEvent` in `src/hooks.client.ts`); `networkDetailAllowUrls` is left at its
-default empty list, so replay never records network request/response bodies or headers for any URL
-in the first place. **Known gap:** rrweb's own DOM recording has no scrubbing hook — a full
-snapshot records the page's `location.href` verbatim and element attributes such as link `href`s,
-so a page loaded directly at a sensitive URL (e.g. opening an `/accept/<id>` link) still has that
-URL in the recording. Text and inputs are masked and media blocked regardless; exception `type`/`value`
+This covers: breadcrumbs (including navigation/fetch URLs); exception `type`/`value`
 (deliberately NOT exempt — `type` can carry a custom, PII-bearing error message); and the
 `Referer` header. `user` is reduced to an opaque `id` only (dropping `email`/`username`/
 `ip_address`, and anything else a custom `setUser()` call might attach) — if there's no `id`,
@@ -340,7 +332,10 @@ explicitly configures Sentry's `requestDataIntegration` (a _default_ integration
 server-side event) with `include: { cookies: false, data: false }`, so that data never reaches an
 event in the first place. `sendDefaultPii` is never set anywhere in this app (keeping IP addresses
 off by default).
-Session replay masks all text and inputs and blocks media outright. **The feedback widget
+**Session Replay is deliberately not enabled.** Its DOM recording captures the page URL and link
+`href`s verbatim, with no scrubbing hook, so a page opened at `/accept/<id>` or
+`/onboarding/otp?dest=…` would leak that payment id or contact detail even with all text and inputs
+masked. **The feedback widget
 (`Sentry.feedbackIntegration`) is deliberately not registered at all** — verified in a real
 browser, not assumed: it injects its own `<style>` elements via plain DOM APIs
 (`document.createElement('style')`), bypassing Svelte's compiled-output nonce handling entirely,
@@ -381,7 +376,7 @@ rate limiter was considered and deferred, since the checks above already bound i
 | i18n          | Paraglide JS v2 (EN, PT, NL, DE, ES)                                            |
 | QR            | jose (JWT) + qrcode                                                             |
 | Realtime      | SSE (server-sent events) + Web Push (`web-push`, VAPID)                         |
-| Observability | Sentry (optional — error tracking + session replay)                             |
+| Observability | Sentry (optional — error tracking; no session replay)                           |
 | PWA           | vite-plugin-pwa (`@vite-pwa/sveltekit`) — installable, offline fallback page    |
 
 ---

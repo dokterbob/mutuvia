@@ -1,21 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Wiring test for src/hooks.client.ts's Sentry setup: Session Replay's
-// recording events and per-segment `replay_event` never pass through
-// beforeSend/beforeSendTransaction, so hooks.client.ts must hand them to the
-// shared scrubber through replayIntegration's `beforeAddRecordingEvent` and
-// an integration `processEvent`. This captures the options hooks.client.ts
-// passes to the (mocked) SDK and drives those callbacks with realistic
-// replay payloads.
+// Wiring test for src/hooks.client.ts's Sentry setup. Session Replay is
+// deliberately NOT enabled: rrweb's DOM recording captures page URLs and link
+// hrefs (`/accept/<id>`, `/onboarding/otp?dest=…`) with no scrubbing hook, so
+// it would leak payment ids and contact details regardless of masking. This
+// guards against it being re-added, and checks that the events Sentry does
+// send still go through the shared fail-closed scrubber.
 
 import { describe, expect, test, vi } from 'vitest';
 
 const { initMock, replayIntegrationMock } = vi.hoisted(() => ({
 	initMock: vi.fn(),
-	replayIntegrationMock: vi.fn((options: Record<string, unknown>) => ({
-		name: 'Replay',
-		options
-	}))
+	replayIntegrationMock: vi.fn(() => ({ name: 'Replay' }))
 }));
 
 vi.mock('virtual:pwa-register', () => ({ registerSW: vi.fn() }));
@@ -32,66 +28,49 @@ vi.mock('@sentry/sveltekit', () => ({
 
 await import('./hooks.client');
 
-type Integration = { name: string; options?: Record<string, unknown>; processEvent?: unknown };
+type InitOptions = {
+	integrations?: Array<{ name: string }>;
+	replaysSessionSampleRate?: number;
+	replaysOnErrorSampleRate?: number;
+	beforeSend?: (event: unknown) => unknown;
+	beforeSendTransaction?: (event: unknown) => unknown;
+};
 
-function initOptions() {
+function initOptions(): InitOptions {
 	expect(initMock).toHaveBeenCalledTimes(1);
-	return initMock.mock.calls[0][0] as { integrations: Integration[] };
+	return initMock.mock.calls[0][0] as InitOptions;
 }
 
-describe('hooks.client Sentry Replay scrubbing', () => {
-	describe('beforeAddRecordingEvent', () => {
-		test('scrubs a navigation breadcrumb before it enters the recording', () => {
-			const replayOptions = replayIntegrationMock.mock.calls[0][0] as {
-				beforeAddRecordingEvent?: (event: unknown) => unknown;
-			};
-			expect(typeof replayOptions.beforeAddRecordingEvent).toBe('function');
+describe('hooks.client Sentry setup', () => {
+	describe('given a Sentry DSN is configured', () => {
+		test('does not enable Session Replay', () => {
+			const options = initOptions();
 
-			const result = replayOptions.beforeAddRecordingEvent!({
-				type: 5,
-				timestamp: 1794500000000,
-				data: {
-					tag: 'breadcrumb',
-					payload: {
-						category: 'navigation',
-						data: { from: '/onboarding/otp?dest=jane%40example.com', to: '/accept/tok123' }
-					}
-				}
-			});
-
-			const serialized = JSON.stringify(result);
-			expect(serialized).not.toContain('jane');
-			expect(serialized).not.toContain('tok123');
+			expect(replayIntegrationMock).not.toHaveBeenCalled();
+			expect(options.integrations ?? []).not.toContainEqual(
+				expect.objectContaining({ name: 'Replay' })
+			);
+			expect(options.replaysSessionSampleRate).toBeUndefined();
+			expect(options.replaysOnErrorSampleRate).toBeUndefined();
 		});
-	});
 
-	describe('ReplayEventScrubber integration', () => {
-		function processEvent() {
-			const scrubber = initOptions().integrations.find((i) => i.name === 'ReplayEventScrubber');
-			expect(scrubber).toBeDefined();
-			return scrubber!.processEvent as (event: Record<string, unknown>) => unknown;
-		}
-
-		test('scrubs the visited urls and request url of a replay_event', () => {
-			const result = processEvent()({
-				type: 'replay_event',
-				replay_id: 'deadbeefdeadbeefdeadbeefdeadbeef',
-				urls: [
-					'https://app.example/accept/tok123',
-					'https://app.example/onboarding/otp?dest=%2B31612345678'
-				],
-				request: { url: 'https://app.example/accept/tok123' }
+		test('scrubs error events before sending them', () => {
+			const result = initOptions().beforeSend!({
+				message: 'failed on /accept/tok123 for jane@example.com'
 			});
 
 			const serialized = JSON.stringify(result);
 			expect(serialized).not.toContain('tok123');
-			expect(serialized).not.toContain('31612345678');
-			expect((result as { replay_id: string }).replay_id).toBe('deadbeefdeadbeefdeadbeefdeadbeef');
+			expect(serialized).not.toContain('jane@example.com');
 		});
 
-		test('leaves error events to beforeSend (returned unchanged)', () => {
-			const errorEvent = { message: 'see /accept/tok123' };
-			expect(processEvent()(errorEvent)).toBe(errorEvent);
+		test('scrubs transactions before sending them', () => {
+			const result = initOptions().beforeSendTransaction!({
+				transaction: '/onboarding/otp',
+				request: { url: 'https://app.example/onboarding/otp?dest=%2B31612345678' }
+			});
+
+			expect(JSON.stringify(result)).not.toContain('31612345678');
 		});
 	});
 });

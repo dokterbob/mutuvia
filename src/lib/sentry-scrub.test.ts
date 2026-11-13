@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import {
 	redactContactInfo,
 	redactDynamicIds,
 	redactQueryParams,
-	safeScrubReplayRecordingEvent,
 	safeScrubSentryEvent,
-	scrubReplayRecordingEvent,
 	scrubSentryEvent,
 	scrubString
 } from './sentry-scrub';
@@ -857,102 +855,5 @@ describe('scrubSentryEvent', () => {
 		expect((event.contexts as { trace: { trace_id: string } }).trace.trace_id).toBe(
 			'deadbeefdeadbeefdeadbeefdeadbeef'
 		);
-	});
-});
-
-// Session Replay's custom recording events (rrweb type 5) never pass through
-// beforeSend — see the "Session replay" note at the top of sentry-scrub.ts.
-// Shapes below are what @sentry-internal/replay builds for a breadcrumb and
-// for a navigation performance span.
-describe('scrubReplayRecordingEvent', () => {
-	describe('given a navigation breadcrumb recording event', () => {
-		const event = {
-			type: 5,
-			timestamp: 1794500000000,
-			data: {
-				tag: 'breadcrumb',
-				payload: {
-					timestamp: 1794500000.1,
-					type: 'default',
-					category: 'navigation',
-					data: {
-						from: '/onboarding/otp?dest=%2B31612345678',
-						to: '/accept/abc123XYZ'
-					}
-				}
-			}
-		};
-
-		test('redacts the contact detail and the accept id in from/to', () => {
-			const result = scrubReplayRecordingEvent(event);
-			const serialized = JSON.stringify(result);
-			expect(serialized).not.toContain('31612345678');
-			expect(serialized).not.toContain('abc123XYZ');
-			expect(serialized).toContain('/accept/[id]');
-		});
-
-		test('keeps the type, timestamp and tag the replay player needs', () => {
-			const result = scrubReplayRecordingEvent(event);
-			expect(result.type).toBe(5);
-			expect(result.timestamp).toBe(1794500000000);
-			expect(result.data.tag).toBe('breadcrumb');
-			expect((result.data.payload as { category: string }).category).toBe('navigation');
-		});
-
-		test('does not mutate the original event', () => {
-			scrubReplayRecordingEvent(event);
-			expect(event.data.payload.data.to).toBe('/accept/abc123XYZ');
-		});
-	});
-
-	describe('given a performance span recording event', () => {
-		test('redacts the URL in description and data', () => {
-			const result = scrubReplayRecordingEvent({
-				type: 5,
-				timestamp: 1794500000000,
-				data: {
-					tag: 'performanceSpan',
-					payload: {
-						op: 'navigation.push',
-						description: 'https://app.example/send/sendId42?email=jane%40example.com',
-						startTimestamp: 1794500000,
-						endTimestamp: 1794500001,
-						data: { previous: 'https://app.example/accept/prevId7' }
-					}
-				}
-			});
-			const serialized = JSON.stringify(result);
-			expect(serialized).not.toContain('sendId42');
-			expect(serialized).not.toContain('jane');
-			expect(serialized).not.toContain('prevId7');
-			expect((result.data.payload as { op: string }).op).toBe('navigation.push');
-		});
-	});
-});
-
-describe('safeScrubReplayRecordingEvent', () => {
-	test('returns the scrubbed event normally', () => {
-		const result = safeScrubReplayRecordingEvent({
-			type: 5,
-			timestamp: 1,
-			data: { tag: 'breadcrumb', payload: { message: 'sent to jane@example.com' } }
-		});
-		expect(JSON.stringify(result)).not.toContain('jane@example.com');
-	});
-
-	test('fails closed: drops the recording event (null) if scrubbing throws', () => {
-		const hostile = {
-			type: 5,
-			timestamp: 1,
-			data: {
-				tag: 'breadcrumb',
-				get payload(): unknown {
-					throw new Error('boom');
-				}
-			}
-		};
-		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		expect(safeScrubReplayRecordingEvent(hostile)).toBeNull();
-		errorSpy.mockRestore();
 	});
 });
