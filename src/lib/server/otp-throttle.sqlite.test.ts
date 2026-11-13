@@ -19,7 +19,7 @@ vi.mock('$lib/config', () => ({
 }));
 
 const { sqlite, db: liveDb } = await import('./db.sqlite');
-const { checkAndRecordOtpSend } = await import('./otp-throttle.sqlite');
+const { checkAndRecordOtpSend, checkOtpSend } = await import('./otp-throttle.sqlite');
 
 function resetSchema() {
 	const tables = sqlite
@@ -175,6 +175,37 @@ describe('checkAndRecordOtpSend — real SQLite transaction', () => {
 
 			expect(result).toEqual({ ok: true });
 			expect(countRows(otherDest)).toBe(1);
+		});
+	});
+});
+
+describe('checkOtpSend — read-only pre-check', () => {
+	describe('Given a destination under its limits', () => {
+		test('When checked, then it is allowed and nothing is recorded', () => {
+			seedAttempt('+15550100001', 60_000);
+
+			expect(checkOtpSend('+15550100001')).toEqual({ ok: true });
+			expect(countRows('+15550100001')).toBe(1);
+		});
+	});
+
+	describe('Given 3 sends within the last 10 minutes', () => {
+		test('When checked, then it reports the same throttle as checkAndRecordOtpSend would', () => {
+			for (let i = 0; i < 3; i++) seedAttempt('+15550100002', 60_000);
+
+			const result = checkOtpSend('+15550100002');
+
+			expect(result.ok).toBe(false);
+			expect(result.ok === false && result.retryAfterSeconds).toBeGreaterThan(0);
+			expect(countRows('+15550100002')).toBe(3);
+		});
+	});
+
+	describe('Given 10 unpruned sends that are all older than 24 hours', () => {
+		test('When checked, then they are ignored, matching a pruned table', () => {
+			for (let i = 0; i < 10; i++) seedAttempt('+15550100003', 25 * 60 * 60 * 1000);
+
+			expect(checkOtpSend('+15550100003')).toEqual({ ok: true });
 		});
 	});
 });

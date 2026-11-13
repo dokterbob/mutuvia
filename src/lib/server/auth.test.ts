@@ -531,6 +531,41 @@ describe('per-destination OTP throttle vs request-email-change — real Better A
 		).resolves.toBeTruthy();
 	});
 
+	test('Given send-verification-otp calls with type change-email for a victim address, then Better Auth rejects them without spending its quota', async () => {
+		const victim = 'change-type-victim@example.com';
+
+		for (let i = 0; i < 5; i++) {
+			await expect(
+				auth.api.sendVerificationOTP({ body: { email: victim, type: 'change-email' } })
+			).rejects.toThrow();
+		}
+
+		expect(throttleRowsFor(victim)).toBe(0);
+	});
+
+	test('Given email-verification OTP requests for an address with no account, then nothing is sent and its quota is untouched', async () => {
+		const stranger = 'no-account@example.com';
+
+		for (let i = 0; i < 5; i++) {
+			await auth.api.sendVerificationOTP({ body: { email: stranger, type: 'email-verification' } });
+		}
+
+		expect(throttleRowsFor(stranger)).toBe(0);
+	});
+
+	test('Given a destination already at its short-window limit, then the next send is rejected with 429 before anything is sent or recorded', async () => {
+		const email = 'at-limit@example.com';
+		for (let i = 0; i < 3; i++) {
+			await auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } });
+		}
+		expect(throttleRowsFor(email)).toBe(3);
+
+		await expect(
+			auth.api.sendVerificationOTP({ body: { email, type: 'sign-in' } })
+		).rejects.toMatchObject({ statusCode: 429 });
+		expect(throttleRowsFor(email)).toBe(3);
+	});
+
 	test('Given an authenticated email-change request to a +tag alias of the current address, then it is charged against the shared mailbox bucket', async () => {
 		const owner = 'alias-owner@example.com';
 		const alias = 'alias-owner+tag@example.com';

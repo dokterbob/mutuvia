@@ -23,3 +23,12 @@ const mod: any =
 export async function checkAndRecordOtpSend(destination: string): Promise<ThrottleResult> {
 	return mod.checkAndRecordOtpSend(destination);
 }
+
+/**
+ * Read-only: whether one more send to `destination` would currently be
+ * allowed. Records nothing — see `checkAndRecordOtpSend` for the atomic,
+ * recording decision.
+ */
+export async function checkOtpSend(destination: string): Promise<ThrottleResult> {
+	return mod.checkOtpSend(destination);
+}
