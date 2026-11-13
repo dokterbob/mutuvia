@@ -367,9 +367,15 @@ formats. This is still pattern matching, not parsing a phone number properly —
 can still slip through either way, and a non-phone number that happens to fit one of the two
 redacted shapes can still be redacted unnecessarily; both are accepted trade-offs.
 
-This covers: the generic navigation/fetch breadcrumbs session replay records (`replayIntegration`'s
-`networkDetailAllowUrls` is left at its default empty list, so replay never records network
-request/response bodies or headers for any URL in the first place); exception `type`/`value`
+This covers: what session replay records outside the normal event pipeline — its navigation/fetch
+breadcrumbs and performance spans (scrubbed in `replayIntegration`'s `beforeAddRecordingEvent`,
+before they enter the recording) and each segment's `replay_event` with its visited `urls` (scrubbed
+by an integration `processEvent` in `src/hooks.client.ts`); `networkDetailAllowUrls` is left at its
+default empty list, so replay never records network request/response bodies or headers for any URL
+in the first place. **Known gap:** rrweb's own DOM recording has no scrubbing hook — a full
+snapshot records the page's `location.href` verbatim and element attributes such as link `href`s,
+so a page loaded directly at a sensitive URL (e.g. opening an `/accept/<id>` link) still has that
+URL in the recording. Text and inputs are masked and media blocked regardless; exception `type`/`value`
 (deliberately NOT exempt — `type` can carry a custom, PII-bearing error message); and the
 `Referer` header. `user` is reduced to an opaque `id` only (dropping `email`/`username`/
 `ip_address`, and anything else a custom `setUser()` call might attach) — if there's no `id`,
@@ -577,10 +583,10 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   own Dockerfile.
 
 - **`MAX_TRANSACTION_AMOUNT` / non-positive-amount CHECK constraints.** A migration adds CHECK
-  constraints rejecting a zero/negative `transactions.amount`, a negative `payment_requests.amount`
-  (NULL is still allowed — an open-amount reusable QR), and a transaction where
-  `from_user_id = to_user_id`. Like the unique-index migration below, this fails loudly on a
-  database that already violates it, rather than silently dropping rows. Check first:
+  constraints rejecting a zero/negative `transactions.amount`, a zero/negative
+  `payment_requests.amount` (NULL is still allowed — an open-amount reusable QR), and a
+  transaction where `from_user_id = to_user_id`. Like the unique-index migration below, this fails
+  loudly on a database that already violates it, rather than silently dropping rows. Check first:
 
   ```sql
   -- Same SQL on SQLite and PostgreSQL
@@ -589,9 +595,34 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   SELECT * FROM payment_requests WHERE amount IS NOT NULL AND amount <= 0;
   ```
 
-  If any of these return rows, they predate validation that's been in place since the amount-
-  parsing/settlement work — resolve them manually (there's no safe automatic fix for a
-  bad historical row) before running `bun run db:migrate`.
+  **Zero amounts are a realistic leftover, not just tampering:** the previous amount parser
+  accepted exponent notation, so an input like `1e-3` passed its "positive, at most N decimals"
+  checks and then rounded to `0` minor units — creating zero-amount QRs and transactions.
+  Negative amounts were never creatable through the app; if the first query returns any
+  `amount < 0` row, stop and investigate by hand.
+
+  Zero-amount transactions and self-payments are **balance-neutral** (balances are the sum of
+  incoming minus outgoing amounts, so a `0` row adds nothing and a self-payment adds `+x` and `−x`
+  to the same user), so deleting them changes no one's balance. Take a backup, then, before
+  `bun run db:migrate`:
+
+  ```sql
+  -- Same SQL on SQLite and PostgreSQL. Run in this order (transactions reference payment_requests).
+  BEGIN;
+  DELETE FROM transactions WHERE amount = 0 OR from_user_id = to_user_id;
+  -- Zero-amount QRs can only ever have produced zero-amount payments, which the line above removed.
+  -- If this fails on the foreign key, a non-zero payment references one — investigate by hand.
+  DELETE FROM payment_requests WHERE amount = 0;
+  -- Optional: re-sync reusable QRs' payment counters with the payments that remain
+  -- (total_received is unaffected — the deleted payments were all 0).
+  UPDATE payment_requests
+  SET payment_count = (SELECT COUNT(*) FROM transactions t WHERE t.payment_request_id = payment_requests.id)
+  WHERE reusable = true;
+  COMMIT;
+  ```
+
+  This removes those rows from transaction history. If you need to keep them, export them first
+  (e.g. `SELECT * FROM transactions WHERE amount = 0 OR from_user_id = to_user_id`).
 
 - **`ADDRESS_HEADER` / `XFF_DEPTH` behind a reverse proxy.** If this deployment sits behind a
   proxy and these aren't set, rate limiting still runs, but it buckets every visitor by the

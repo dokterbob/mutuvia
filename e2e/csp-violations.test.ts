@@ -27,7 +27,8 @@ import {
 	createReusablePaymentRequest,
 	deleteTestUser,
 	clearOTPs,
-	onboardUserViaEmail
+	onboardUserViaEmail,
+	generateQrVideo
 } from './test-utils.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -128,24 +129,38 @@ test.describe('CSP — no violations on main pages', () => {
 	});
 
 	test.describe('QR scanner (scan page)', () => {
-		test('mounting the scanner and loading the WASM barcode detector produces no CSP violations', async ({
+		test('decoding a QR with the self-hosted WASM barcode detector produces no CSP violations', async ({
 			testUser
 		}, testInfo) => {
-			// Reuses the fake-camera launch pattern from e2e/qr-scanner.test.ts, minus
-			// the generated QR video — we only need the camera stream (or its
-			// failure) and the WASM module load to happen without tripping CSP, not
-			// an actual successful scan.
+			// Reuses the fake-camera pattern from e2e/qr-scanner.test.ts, feeding a
+			// QR that holds a NON-app string. That gives an explicit
+			// completed-detection signal without navigating away from the page
+			// (which would reset the CSP listeners): /scan shows its "invalid QR"
+			// message only after `detector.detect()` returned a decoded result.
+			// qr-scanner.svelte always uses the `barcode-detector/ponyfill` (the
+			// zxing WASM build, never the native BarcodeDetector), so a decode
+			// proves the self-hosted /wasm/zxing_reader.wasm was fetched,
+			// compiled and run under this CSP. Removing 'wasm-unsafe-eval' or
+			// breaking the self-hosted module makes this test fail rather than
+			// pass vacuously.
+			// Video generation + a persistent browser launch + a 30s decode wait
+			// would otherwise exceed the default 30s test timeout, hiding the
+			// clear "invalid QR message never appeared" assertion failure below.
+			test.setTimeout(60_000);
+
 			const { userId } = await testUser({ displayName: 'CSP Scanner User' });
 			const cookies = await getAuthCookies(userId);
 			const baseURL = testInfo.project.use.baseURL!;
 
+			const y4mPath = await generateQrVideo('mutuvia-csp-wasm-fixture');
 			const persistentDir = mkdtempSync(join(tmpdir(), 'pw-csp-scan-'));
 			const context = await chromium.launchPersistentContext(persistentDir, {
 				permissions: ['camera'],
 				args: [
 					'--disable-web-security',
 					'--auto-accept-camera-and-microphone-capture',
-					'--use-fake-device-for-media-stream'
+					'--use-fake-device-for-media-stream',
+					`--use-file-for-fake-video-capture=${y4mPath}`
 				]
 			});
 
@@ -157,32 +172,25 @@ test.describe('CSP — no violations on main pages', () => {
 				const page = await context.newPage();
 				const listeners = await attachCspListeners(page);
 
+				const wasmResponse = page.waitForResponse(
+					(response) => new URL(response.url()).pathname === '/wasm/zxing_reader.wasm',
+					{ timeout: 30_000 }
+				);
 				await page.goto(`${baseURL}/scan`);
 				await page.locator('body.hydrated').waitFor();
 
-				// Wait for either the fake camera to start streaming (video has frame
-				// data) or the component to surface a camera error — either outcome
-				// means the component fully mounted and the WASM detector was
-				// constructed/exercised. Camera access can be unreliable in headless
-				// environments, so this is a best-effort wait, not a hard requirement.
-				await page
-					.waitForFunction(
-						() => {
-							const video = document.querySelector('video');
-							if (video && video.readyState >= 2) return true;
-							return /camera|scanner/i.test(document.body.innerText);
-						},
-						null,
-						{ timeout: 20_000 }
-					)
-					.catch(() => {
-						// Fall through — we still assert on whatever CSP activity occurred.
-					});
+				expect((await wasmResponse).ok()).toBe(true);
+				// A hard requirement, not best-effort: no decode means the WASM
+				// detector never ran, and the CSP assertion below would prove nothing.
+				await expect(page.getByText('Not a valid Mutuvia QR code')).toBeVisible({
+					timeout: 30_000
+				});
 
 				await expectNoCspViolations(page, listeners);
 			} finally {
 				await context.close();
 				rmSync(persistentDir, { recursive: true, force: true });
+				rmSync(y4mPath.replace(/\/[^/]+$/, ''), { recursive: true, force: true });
 			}
 		});
 	});
