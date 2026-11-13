@@ -39,7 +39,15 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	send_cancel: () => 'Cancel',
 	send_back_home: () => 'Back home',
 	send_declined: () => 'Declined',
-	send_done: () => 'Done'
+	send_done: () => 'Done',
+	qr_expiry_label: () => 'Expires',
+	qr_expiry_1h: () => '1 hour',
+	qr_expiry_1d: () => '1 day',
+	qr_expiry_3d: () => '3 days',
+	qr_expiry_1w: () => '1 week',
+	qr_expiry_30d: () => '30 days',
+	qr_expiry_never: () => 'Never',
+	qr_expiry_default: () => 'Default'
 }));
 
 const mockData = {
@@ -47,6 +55,7 @@ const mockData = {
 	appName: 'Mutuvia',
 	needsConsent: false,
 	qrTtlSeconds: 600,
+	expiryOptions: [{ key: '3d', seconds: 259_200, isDefault: true }],
 	resumeQr: null
 };
 

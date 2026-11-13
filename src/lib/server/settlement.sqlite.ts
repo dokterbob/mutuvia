@@ -16,8 +16,9 @@
 import { db } from './db.sqlite';
 import { paymentRequests, transactions, connections } from './schema.sqlite';
 import { config } from '$lib/config';
-import { eq, and, or, isNull, gt, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { SettleResult } from './settlement-types';
+import { isExpired, notExpiredCondition } from './qr-expiry';
 
 function orderedPair(a: string, b: string): [string, string] {
 	return a < b ? [a, b] : [b, a];
@@ -85,7 +86,7 @@ export function settleOneTimeAccept(qrId: string, acceptingUserId: string): Sett
 						eq(paymentRequests.id, qrId),
 						eq(paymentRequests.status, 'active'),
 						eq(paymentRequests.reusable, false),
-						or(isNull(paymentRequests.expiresAt), gt(paymentRequests.expiresAt, now))
+						notExpiredCondition(paymentRequests.expiresAt, now)
 					)
 				)
 				.returning()
@@ -137,11 +138,18 @@ export function settleOneTimeAccept(qrId: string, acceptingUserId: string): Sett
  *
  * Validation reads happen first (for precise error messages), then the
  * counter increment is the atomic claim: a conditional UPDATE requiring
- * `status='active'`, with RETURNING. Only once that claim succeeds does the
- * ledger row get inserted — so a forced failure of the ledger insert rolls
- * back the counter increment too (real atomicity), and a request that was
- * paused/archived/declined between the read and the claim is rejected
- * without writing a ledger row.
+ * `status='active' AND not expired` (the same `notExpiredCondition()` used by
+ * `settleOneTimeAccept()`), with RETURNING. Only once that claim succeeds
+ * does the ledger row get inserted — so a forced failure of the ledger insert
+ * rolls back the counter increment too (real atomicity).
+ *
+ * A single `now`, taken once at the top of the transaction, is used for both
+ * the pre-read's expiry check and the claim's `notExpiredCondition()` — they
+ * can never disagree about what "now" means, so if the claim's WHERE still
+ * matches zero rows, it was NOT expiry (the pre-read already ruled that out,
+ * using the exact same `now`): it's a concurrent status change
+ * (pause/archive/decline) between the pre-read and the claim. That's what
+ * the claim's own zero-rows branch below reports.
  */
 export function settleReusable(
 	paymentRequestId: string,
@@ -161,6 +169,8 @@ export function settleReusable(
 
 	return db.transaction(
 		(tx) => {
+			const now = new Date();
+
 			const [pr] = tx
 				.select()
 				.from(paymentRequests)
@@ -181,10 +191,8 @@ export function settleReusable(
 					status: 400,
 					error: 'Amount does not match the required amount'
 				} as const;
-			if (pr.expiresAt && pr.expiresAt <= new Date())
+			if (isExpired(pr.expiresAt, now))
 				return { ok: false, status: 410, error: 'Payment request has expired' } as const;
-
-			const now = new Date();
 
 			const claimed = tx
 				.update(paymentRequests)
@@ -193,12 +201,31 @@ export function settleReusable(
 					paymentCount: sql`${paymentRequests.paymentCount} + 1`,
 					updatedAt: now
 				})
-				.where(and(eq(paymentRequests.id, paymentRequestId), eq(paymentRequests.status, 'active')))
+				.where(
+					and(
+						eq(paymentRequests.id, paymentRequestId),
+						eq(paymentRequests.status, 'active'),
+						notExpiredCondition(paymentRequests.expiresAt, now)
+					)
+				)
 				.returning()
 				.all();
 
 			if (claimed.length !== 1) {
-				return { ok: false, status: 409, error: 'Payment request is not active' } as const;
+				// Zero rows: the claim's WHERE uses the exact same `now` as the
+				// pre-read's `isExpired()` check two lines up, so expiry can't be
+				// *why* this failed — if the pre-read saw it as not expired, the
+				// claim's `notExpiredCondition()` agrees, by construction, every
+				// time. The only remaining way to land here is a concurrent
+				// status change (pause/archive/decline) between the pre-read and
+				// the claim — report that, not expiry. No ledger row has been
+				// written yet (the insert below hasn't run), so there is nothing
+				// to roll back.
+				return {
+					ok: false,
+					status: 409,
+					error: 'Payment request is not active'
+				} as const;
 			}
 
 			const txId = crypto.randomUUID();

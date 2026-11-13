@@ -638,4 +638,31 @@ describe('load — initiator balance direction gating [security]', () => {
 			expect(result).toMatchObject({ initiatorBalance: null });
 		});
 	});
+
+	// Pin: an expired QR is never "active", so it must never reach the
+	// initiatorBalance computation at all — regardless of direction. This
+	// also exercises the <= expiry boundary (see $lib/server/qr-expiry):
+	// expiresAt exactly equal to "now" counts as expired.
+	describe('Given a direction "send" QR whose expiresAt is in the past (expired)', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([
+				{ ...paymentRequestRecord, direction: 'send', expiresAt: new Date(Date.now() - 1000) }
+			]);
+		});
+
+		it('When anyone loads the page → reports expired and never computes initiatorBalance', async () => {
+			const result = await load(
+				makeLoadEvent(QR_ID, {
+					locals: {
+						session: { id: 'session-1' },
+						appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+					}
+				})
+			);
+
+			expect(getBalance).not.toHaveBeenCalled();
+			expect(result).toMatchObject({ expired: true });
+			expect(result).not.toHaveProperty('initiatorBalance');
+		});
+	});
 });

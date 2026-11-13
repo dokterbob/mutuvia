@@ -11,12 +11,14 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
 	import { formatTimeRemaining } from '$lib/format-time';
+	import { qrExpiryLabel } from '$lib/qr-expiry-labels';
 	import { sseManager } from '$lib/sse-client';
 	import { subscribeToPush } from '$lib/push-subscribe';
 
@@ -29,6 +31,16 @@
 	let note = $state('');
 	let reusable = $state(false);
 	let showAdvanced = $state(false);
+	let expiryOptions = $derived(reusable ? data.expiryOptionsReusable : data.expiryOptionsOneTime);
+	let expiryPreset = $state('');
+	// Picks the default option on mount, and re-picks it whenever "reusable"
+	// is toggled and invalidates the current selection — the preset lists
+	// differ (only the reusable list offers "never").
+	$effect(() => {
+		if (!expiryOptions.some((o) => o.key === expiryPreset)) {
+			expiryPreset = expiryOptions.find((o) => o.isDefault)?.key ?? '';
+		}
+	});
 	let qrDataUrl = $state('');
 	let qrId = $state('');
 	let secondsLeft = $state(0);
@@ -99,10 +111,12 @@
 		}
 	}
 
-	// Countdown: auto-cleans when step leaves 'qr' or component unmounts
-	// Only runs for non-reusable QRs with an expiry
+	// Countdown: auto-cleans when step leaves 'qr' or component unmounts.
+	// Runs whenever there's an expiry — including a reusable QR created with
+	// one (reusable QRs default to "never" / no expiry, in which case
+	// expiresAt stays null and this never runs).
 	$effect(() => {
-		if (step !== 'qr' || !expiresAt || isReusable) return;
+		if (step !== 'qr' || !expiresAt) return;
 		const expTime = new Date(expiresAt).getTime();
 		const update = () => {
 			const left = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
@@ -211,6 +225,22 @@
 							</p>
 						</div>
 					</label>
+
+					<Label class="mt-4 mb-2 block text-sm text-muted-foreground">
+						{m.qr_expiry_label()}
+					</Label>
+					<Select.Root type="single" name="expiryPreset" bind:value={expiryPreset}>
+						<Select.Trigger class="w-full">
+							{expiryPreset ? qrExpiryLabel(expiryPreset) : ''}
+						</Select.Trigger>
+						<Select.Content>
+							{#each expiryOptions as option (option.key)}
+								<Select.Item value={option.key} label={qrExpiryLabel(option.key)}>
+									{qrExpiryLabel(option.key)}
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
 			</details>
 
@@ -281,11 +311,18 @@
 					</div>
 				{/if}
 				{#if isReusable}
-					<p class="mb-6 text-sm text-muted-foreground">
+					<p class="mb-1 text-sm text-muted-foreground">
 						{paymentCount === 1
 							? m.receive_reusable_payment_count_singular({ count: String(paymentCount) })
 							: m.receive_reusable_payment_count_plural({ count: String(paymentCount) })}
 					</p>
+					{#if expiresAt}
+						<p class="mb-6 text-sm text-muted-foreground">
+							{m.qr_expires({ time: formatTimeRemaining(secondsLeft, getLocale()) })}
+						</p>
+					{:else}
+						<div class="mb-6"></div>
+					{/if}
 					<div class="flex flex-col items-center gap-2">
 						<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
 							<XIcon class="mr-2 h-4 w-4" />
