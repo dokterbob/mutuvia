@@ -67,6 +67,13 @@ jobs:
     needs: build
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-24.04
+    # Gates this job behind a GitHub Environment so the signing secrets
+    # (ANDROID_KEYSTORE_BASE64 and friends) require approval before a run
+    # can read them — see docs/android.md's "Release and signing" section
+    # and the PR description for the repo-settings setup this still needs
+    # (creating the environment, adding required reviewers, and moving the
+    # secrets from repository secrets to this environment's own secrets).
+    environment: android-release
     permissions:
       contents: write # upload assets to the GitHub Release
     env:

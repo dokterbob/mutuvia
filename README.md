@@ -16,8 +16,8 @@ bun install
 
 # Set up environment
 cp .env.example .env
-# Generate a secure QR_JWT_SECRET and add it to .env:
-echo "QR_JWT_SECRET=$(bun run generate-secret)" >> .env
+# Generate a secure BETTER_AUTH_SECRET and add it to .env:
+echo "BETTER_AUTH_SECRET=$(bun run generate-secret)" >> .env
 
 # Run database migration
 bun run db:migrate
@@ -44,8 +44,8 @@ Two deployment profiles are available. Choose **SQLite** for simplicity (single 
 ```bash
 # 1. Create your .env from the template
 cp .env.docker.example .env
-# Edit .env — generate secrets:
-#   bun run generate-secret  # paste output into QR_JWT_SECRET and BETTER_AUTH_SECRET
+# Edit .env — generate a secret:
+#   bun run generate-secret  # paste output into BETTER_AUTH_SECRET
 # Set APP_URL if deploying to a fixed domain; omit for Render (auto-detected).
 # Also set PRELUDE_API_TOKEN or SMTP_HOST — the app refuses to start in
 # production with neither configured.
@@ -63,7 +63,7 @@ The server listens on port `3000` by default. Override with `PORT=<port>` in `.e
 
 ### SQLite
 
-Data is stored in `/data/sqlite.db` inside the container, backed by a named Docker volume (`sqlite-data`). No extra services required.
+Data is stored in `/data/sqlite.db` inside the container, backed by a named Docker volume (`sqlite-data`). No extra services required. The container runs as a non-root user — upgrading an existing deployment from an older, root-running image needs a one-off `chown` on that volume; see "Upgrading" below.
 
 ```bash
 docker compose --profile sqlite up -d
@@ -80,7 +80,7 @@ docker compose --profile postgres up -d
 
 ### Environment variables
 
-`APP_URL` only controls what the **app** builds (QR links, cookie security, trusted origins) — it does not change how the underlying server sees incoming requests. Auth routes (`/api/auth/*`) match on request path regardless of host, so they work the same whether you access the app via `APP_URL`'s domain, a LAN IP, or `localhost:<port>` directly. If you put a reverse proxy in front that terminates TLS, set `ORIGIN` (and/or `PROTOCOL_HEADER`/`HOST_HEADER`, read by `svelte-adapter-bun`) so the app knows the real public origin for anything that does depend on it — this affects `svelte-adapter-bun`'s own request handling, separate from `APP_URL`. The mismatch cuts both ways: an https `APP_URL` makes session cookies always `Secure`, so if browsers actually reach this server over plain http (TLS termination missing or misconfigured in front of it), the browser silently drops the cookie and sign-in loops forever with no error. A full deployment/reverse-proxy guide is coming in a later PR.
+`APP_URL` only controls what the **app** builds (QR links, cookie security, trusted origins) — it does not change how the underlying server sees incoming requests. Auth routes (`/api/auth/*`) match on request path regardless of host, so they work the same whether you access the app via `APP_URL`'s domain, a LAN IP, or `localhost:<port>` directly. If you put a reverse proxy in front that terminates TLS, set `ORIGIN` (and/or `PROTOCOL_HEADER`/`HOST_HEADER`, read by `svelte-adapter-bun`) so the app knows the real public origin for anything that does depend on it — this affects `svelte-adapter-bun`'s own request handling, separate from `APP_URL`. The mismatch cuts both ways: an https `APP_URL` makes session cookies always `Secure`, so if browsers actually reach this server over plain http (TLS termination missing or misconfigured in front of it), the browser silently drops the cookie and sign-in loops forever with no error. See "Reverse proxy, TLS and NODE_ENV" below for the fuller walkthrough.
 
 **Reverse proxy / client IP**: Better Auth's rate limiter (used for the auth endpoints — see the table below) keys on a client IP taken from the HTTP header named by `TRUSTED_IP_HEADER` (default `x-mutuvia-client-ip`). The app always manages that header itself: on every request, `src/hooks.server.ts` strips any client-supplied value and sets it from SvelteKit's `event.getClientAddress()` — a client can never choose its own rate-limit bucket, and limiting is never silently skipped for lack of a determinable IP (unlike pointing Better Auth directly at a raw, spoofable header like the default `x-forwarded-for`). Behind a reverse proxy, `event.getClientAddress()` is only correct once you set `ADDRESS_HEADER` (the proxy header to trust, e.g. `X-Forwarded-For`) and usually `XFF_DEPTH` (how many trusted proxy hops to skip) — both are `svelte-adapter-bun`'s own env vars, read directly, not wrapped by this app. Without `ADDRESS_HEADER`, rate limiting still runs, but behind a proxy it buckets every visitor by the proxy's own address instead of their real IP — the app warns loudly about this at startup in production.
 
@@ -94,8 +94,7 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 
 | Variable                            | Required | Default                            | Description                                                                                                                                                                                                                                                                            |
 | ----------------------------------- | -------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QR_JWT_SECRET`                     | **Yes**  | —                                  | Min 32 chars. Signs QR JWT tokens.                                                                                                                                                                                                                                                     |
-| `BETTER_AUTH_SECRET`                | **Yes**  | —                                  | Min 32 chars. Signs Better Auth sessions.                                                                                                                                                                                                                                              |
+| `BETTER_AUTH_SECRET`                | **Yes**  | —                                  | Min 32 chars. Signs Better Auth sessions. Generate with `bun run generate-secret`.                                                                                                                                                                                                     |
 | `APP_URL`                           | No       | auto-detected                      | Public base URL. Used in QR links and auth. On Render, falls back to `RENDER_EXTERNAL_URL`. In dev, falls back to the Vite server's network URL (LAN IP when `--host` is used).                                                                                                        |
 | `PORT`                              | No       | `3000`                             | Server listen port.                                                                                                                                                                                                                                                                    |
 | `PUBLIC_APP_NAME`                   | No       | `Mutuvia`                          | Display name for rebranding.                                                                                                                                                                                                                                                           |
@@ -104,7 +103,7 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 | `DB_PROVIDER`                       | No       | `sqlite`                           | Database backend: `sqlite` or `pg`.                                                                                                                                                                                                                                                    |
 | `DB_FILE_NAME`                      | No       | `sqlite.db`                        | SQLite file path.                                                                                                                                                                                                                                                                      |
 | `DATABASE_URL`                      | PG only  | —                                  | Full PostgreSQL connection URL including password.                                                                                                                                                                                                                                     |
-| `POSTGRES_PASSWORD`                 | PG only  | `mutuvia`                          | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                                                                                                                                    |
+| `POSTGRES_PASSWORD`                 | PG only  | —                                  | Docker only: initialises the managed postgres container. Must match the password in `DATABASE_URL`.                                                                                                                                                                                    |
 | `UNIT_CODE`                         | No       | `EUR`                              | ISO 4217 code or custom unit identifier.                                                                                                                                                                                                                                               |
 | `PUBLIC_UNIT_SYMBOL`                | No       | `€`                                | Displayed unit symbol.                                                                                                                                                                                                                                                                 |
 | `PUBLIC_UNIT_DISPLAY_NAME`          | No       | `euro`                             | Lowercase singular name for the unit.                                                                                                                                                                                                                                                  |
@@ -141,6 +140,51 @@ The phone-side nuance: the format check uses `libphonenumber-js`'s "possible" (l
 | `HSTS_MAX_AGE_SECONDS`              | No       | `15552000`                         | `Strict-Transport-Security` max-age, in seconds (180 days). Only sent when BOTH `APP_URL` is https AND the current request is itself seen as https — see "Security headers" below and "Reverse proxy / client IP" above (`ORIGIN`/`PROTOCOL_HEADER`).                                  |
 | `HSTS_INCLUDE_SUBDOMAINS`           | No       | `false`                            | Adds `includeSubDomains` to the HSTS header. Off by default — see "Security headers" below for why.                                                                                                                                                                                    |
 
+### Reverse proxy, TLS and NODE_ENV
+
+A production deployment almost always sits behind a reverse proxy (nginx, Caddy, Traefik, a
+platform load balancer) that terminates TLS and forwards plain http to this container. Four
+separate things depend on that proxy being configured correctly — getting any one wrong tends to
+fail silently (a cookie that's dropped, a rate limiter that buckets everyone together, a header
+that's missing) rather than with an obvious error:
+
+- **`ORIGIN` / `PROTOCOL_HEADER` / `HOST_HEADER`** — `svelte-adapter-bun`'s own env vars (not
+  wrapped by this app), read directly by the adapter to decide what protocol/host it believes the
+  current request arrived over. Set a fixed `ORIGIN` (e.g. `https://example.com`) if this
+  deployment only ever serves one origin, or `PROTOCOL_HEADER`/`HOST_HEADER` (e.g.
+  `x-forwarded-proto`/`x-forwarded-host`) if the proxy sets those and you trust it to. Without
+  either, the adapter assumes every request is https — harmless if that's actually true, but see
+  "Security headers" below for why that assumption can make HSTS lie about a request that really
+  arrived over plain http. This is separate from `APP_URL` (which only controls what the app
+  itself builds — QR links, auth trusted-origin checks) — see the paragraph above.
+- **`ADDRESS_HEADER` / `XFF_DEPTH`** — also `svelte-adapter-bun`'s own env vars, read directly by
+  `event.getClientAddress()`. Without `ADDRESS_HEADER` set to the proxy's real client-IP header
+  (e.g. `X-Forwarded-For`), every visitor behind the proxy shares one rate-limit bucket (see
+  "Reverse proxy / client IP" above) — in practice, one busy visitor's traffic can lock out
+  everyone else from signing in. `XFF_DEPTH` says how many trusted proxy hops to skip when more
+  than one proxy is in the chain.
+- **TLS termination itself** — this app never terminates TLS; it always expects to receive plain
+  http from whatever's in front of it (the proxy, or a platform like Render that terminates TLS
+  for you). Terminate TLS at the proxy, forward http internally, and set `ORIGIN`/
+  `PROTOCOL_HEADER` above so the app knows that forwarded traffic really did arrive over https.
+- **`NODE_ENV=production`** — required for `validateConfig()`'s startup checks (`BETTER_AUTH_SECRET`
+  strength, a configured OTP delivery channel, rate-limiting kill switches rejected, etc. — see
+  `src/lib/config.ts`) to actually run, and for `svelte-adapter-bun` and any Sentry integration
+  that branches on it at runtime. The Dockerfile sets it in both build and runtime stages; if
+  you're running `bun build/index.js` outside Docker, set it yourself.
+
+**Backups**: neither SQLite nor PostgreSQL backups are automated by this app.
+
+- **SQLite** — back up the whole `/data` directory (the `sqlite.db` file plus its `-wal`/`-shm`
+  companions) while the container isn't mid-write, or use SQLite's own
+  [online backup API](https://www.sqlite.org/backup.html)/`.backup` CLI command against the live
+  file rather than copying it with `cp` (a plain copy can catch the database mid-checkpoint and
+  miss data still sitting in the WAL). A stopped-container copy of the volume is always safe.
+- **PostgreSQL** — use `pg_dump`/`pg_dumpall` (or your platform's managed-Postgres backup feature,
+  if you're not running the bundled `postgres:17-alpine` container) against `DATABASE_URL`; there's
+  nothing app-specific here beyond the schema itself, which `drizzle-kit`'s migration history in
+  `drizzle/pg/` fully describes.
+
 ### Bun adapter patch
 
 Production builds depend on a local patch to `svelte-adapter-bun`,
@@ -155,12 +199,17 @@ re-create it whenever the adapter version changes.**
   each other's auth request state and randomly fail with HTTP 500
   (`No request state found … within a runWithRequestState callback`). `bun run dev` is unaffected,
   since Vite keeps `better-auth` external there; only built servers (Docker, `bun run build`) are.
-- **The patch:** one token in `dist/index.js`, `platform: "node"` on the rolldown call.
+- **The patch:** two small changes to the adapter's rolldown call in `dist/index.js`:
+  - `platform: "node"` (above);
+  - `transform.define` for `process.env.NODE_ENV` from the real build environment. Without it the
+    adapter bakes the literal string `"development"` into the server bundle, so `NODE_ENV=production`
+    (see "Reverse proxy, TLS and NODE_ENV" above) would have no effect
+    ([upstream #88](https://github.com/gornostay25/svelte-adapter-bun/issues/88)).
 - **Guard:** `bun run build` ends with `scripts/check-server-bundle.ts`, which fails the build if
   the polyfill shows up in `build/server`. Bun only applies a patch to the exact version it names,
   so a version bump (e.g. a Dependabot PR) silently drops it; this check then fails CI instead of
   shipping the bug.
-- **Bumping the adapter:** `bun patch svelte-adapter-bun`, re-apply the change in
+- **Bumping the adapter:** `bun patch svelte-adapter-bun`, re-apply both changes in
   `node_modules/svelte-adapter-bun/dist/index.js`, then `bun patch --commit node_modules/svelte-adapter-bun`.
   Upgrading alone doesn't help: 1.0.2 has the same rolldown call.
 - **Long term:** `svelte-adapter-bun` is deprecated in favour of the official
@@ -374,7 +423,7 @@ rate limiter was considered and deferred, since the checks above already bound i
 | ORM           | Drizzle ORM                                                                     |
 | Database      | SQLite (default, WAL mode, via bun:sqlite) or PostgreSQL (via `DB_PROVIDER=pg`) |
 | i18n          | Paraglide JS v2 (EN, PT, NL, DE, ES)                                            |
-| QR            | jose (JWT) + qrcode                                                             |
+| QR            | `qrcode` (plain `crypto.randomUUID()` payment-request ids — no signed JWT)      |
 | Realtime      | SSE (server-sent events) + Web Push (`web-push`, VAPID)                         |
 | Observability | Sentry (optional — error tracking; no session replay)                           |
 | PWA           | vite-plugin-pwa (`@vite-pwa/sveltekit`) — installable, offline fallback page    |
@@ -397,7 +446,23 @@ rate limiter was considered and deferred, since the checks above already bound i
 | `bun run db:migrate`         | Apply migrations (honours `DB_PROVIDER`) |
 | `bun run db:push:pg`         | Push schema to local PG (no migration)   |
 | `bun run db:seed`            | Seed test data                           |
-| `bun run generate-secret`    | Generate a secure QR_JWT_SECRET          |
+| `bun run generate-secret`    | Generate a secure BETTER_AUTH_SECRET     |
+
+### Patched dependencies
+
+`package.json`'s `patchedDependencies` pins two packages to a patch tied to one exact version
+(`patches/svelte-adapter-bun@1.0.1.patch`, `patches/bun-git-hooks@0.3.1.patch`) — each patches a
+bug in that specific release's own source. `bun install` behaves differently when a patched
+dependency's installed version no longer matches the patch's pinned version: for most packages it
+fails outright, but for `bun-git-hooks` specifically it only **prints a warning** ("patch file ...
+no longer applies") and still **exits 0** — easy to miss in CI output, since the install step
+doesn't fail. `.github/dependabot.yml` excludes both packages from automatic bumps for exactly this
+reason (enforced against `patchedDependencies` by
+`scripts/check-dependabot-patches.test.ts`, so the two can't drift apart silently), so this should
+only come up if a patched dependency is bumped manually without re-checking the patch. **Follow-up,
+not yet implemented**: making CI treat that warning as a failure (e.g. `bun install 2>&1 | tee
+/tmp/install.log; ! grep -q 'no longer applies' /tmp/install.log`) would need a change to
+`.github/workflows/ci.yml`.
 
 ---
 
@@ -461,31 +526,128 @@ bun run db:generate:pg
 DB_PROVIDER=pg bun run db:migrate
 ```
 
-### Upgrading to unique `user.email` / `user.phone_number`
+### Upgrading
 
-A migration adds unique indexes on `user.email` and `user.phone_number`
-(closing an account-takeover path where an attacker could pre-claim another
-person's phone number). Both columns stay nullable — NULL never conflicts
-with another NULL on either engine — but if your database already has
-duplicate non-null values, the migration fails loudly (a clear "UNIQUE
-constraint failed" / "could not create unique index" error) rather than
-silently dropping or merging rows. Check for duplicates **before**
-upgrading:
+A checklist of things worth checking before upgrading an existing deployment, newest first.
 
-```sql
--- Same SQL on SQLite and PostgreSQL
-SELECT phone_number, COUNT(*) FROM "user"
-WHERE phone_number IS NOT NULL GROUP BY phone_number HAVING COUNT(*) > 1;
+- **Non-root Docker image.** The runtime image now runs as the `bun` user (uid/gid 1000) instead
+  of root. An existing `sqlite-data` volume created by an older, root-running image has its
+  `sqlite.db` (+ `-wal`/`-shm`) owned by root — the new container cannot write to it and will fail
+  to start (migrate.ts / the SQLite open itself errors out). Fix once, before the first restart on
+  the new image:
 
-SELECT email, COUNT(*) FROM "user"
-WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1;
-```
+  The commands below go through `docker compose run` on the `app-sqlite` service itself, so they
+  mount exactly the volume your deployment uses. Compose prefixes named volumes with the project
+  name — the real volume is `<project>_sqlite-data` (usually `mutuvia_sqlite-data`, see
+  `docker volume ls --filter name=sqlite-data`), **not** a literal `sqlite-data`, which a bare
+  `docker run -v sqlite-data:/data` would silently create empty instead.
 
-If either query returns rows, resolve the duplicates manually first (there
-is no safe automatic merge — decide per case which account is real, migrate
-its data via `app_users`/`connections`/`transactions`, then null out or
-change the losing account's duplicate credential) before running
-`bun run db:migrate`.
+  Check current ownership first (anything other than `1000 1000` / `bun bun` needs the fix below):
+
+  ```bash
+  docker compose --profile sqlite run --rm --no-deps --user root --entrypoint ls app-sqlite -lan /data
+  ```
+
+  **Named volume** (the default — `docker-compose.yml`'s `sqlite-data:/data`):
+
+  ```bash
+  docker compose --profile sqlite stop app-sqlite
+  docker compose --profile sqlite run --rm --no-deps --user root --entrypoint chown app-sqlite -R 1000:1000 /data
+  docker compose --profile sqlite up -d
+  ```
+
+  **Bind mount** (if your own `docker-compose.override.yml` or deployment maps `/data` to a host
+  directory instead of the named volume): `chown` the host path directly — no container needed,
+  since it's already visible on the host:
+
+  ```bash
+  docker compose --profile sqlite stop app-sqlite
+  sudo chown -R 1000:1000 /path/on/host/mapped/to/data
+  docker compose --profile sqlite up -d
+  ```
+
+  A brand-new **named-volume** deployment (first-ever `sqlite-data` volume) is unaffected — Docker
+  initialises a fresh named volume from whatever already exists at the mount point in the image,
+  which is already owned by `bun`. A brand-new **bind-mount** deployment is NOT automatically fine
+  the same way: Docker does not copy the image's `/data` content (or its ownership) into a bind
+  mount at all, and if the host directory doesn't already exist, Docker creates it as root when the
+  container starts — so even a first-ever bind-mount deployment needs that directory pre-created
+  and `chown`'d to `1000:1000` before the first `up`, or it hits the same failure a root-owned
+  upgrade would. PostgreSQL deployments are unaffected either way — the `postgres`/
+  `postgres-dev` containers are the official `postgres:17-alpine` image, unrelated to this app's
+  own Dockerfile.
+
+- **`MAX_TRANSACTION_AMOUNT` / non-positive-amount CHECK constraints.** A migration adds CHECK
+  constraints rejecting a zero/negative `transactions.amount`, a zero/negative
+  `payment_requests.amount` (NULL is still allowed — an open-amount reusable QR), and a
+  transaction where `from_user_id = to_user_id`. Like the unique-index migration below, this fails
+  loudly on a database that already violates it, rather than silently dropping rows. Check first:
+
+  ```sql
+  -- Same SQL on SQLite and PostgreSQL
+  SELECT * FROM transactions WHERE amount <= 0;
+  SELECT * FROM transactions WHERE from_user_id = to_user_id;
+  SELECT * FROM payment_requests WHERE amount IS NOT NULL AND amount <= 0;
+  ```
+
+  **Zero amounts are a realistic leftover, not just tampering:** the previous amount parser
+  accepted exponent notation, so an input like `1e-3` passed its "positive, at most N decimals"
+  checks and then rounded to `0` minor units — creating zero-amount QRs and transactions.
+  Negative amounts were never creatable through the app; if the first query returns any
+  `amount < 0` row, stop and investigate by hand.
+
+  Zero-amount transactions and self-payments are **balance-neutral** (balances are the sum of
+  incoming minus outgoing amounts, so a `0` row adds nothing and a self-payment adds `+x` and `−x`
+  to the same user), so deleting them changes no one's balance. Take a backup, then, before
+  `bun run db:migrate`:
+
+  ```sql
+  -- Same SQL on SQLite and PostgreSQL. Run in this order (transactions reference payment_requests).
+  BEGIN;
+  DELETE FROM transactions WHERE amount = 0 OR from_user_id = to_user_id;
+  -- Zero-amount QRs can only ever have produced zero-amount payments, which the line above removed.
+  -- If this fails on the foreign key, a non-zero payment references one — investigate by hand.
+  DELETE FROM payment_requests WHERE amount = 0;
+  -- Optional: re-sync reusable QRs' payment counters with the payments that remain
+  -- (total_received is unaffected — the deleted payments were all 0).
+  UPDATE payment_requests
+  SET payment_count = (SELECT COUNT(*) FROM transactions t WHERE t.payment_request_id = payment_requests.id)
+  WHERE reusable = true;
+  COMMIT;
+  ```
+
+  This removes those rows from transaction history. If you need to keep them, export them first
+  (e.g. `SELECT * FROM transactions WHERE amount = 0 OR from_user_id = to_user_id`).
+
+- **`ADDRESS_HEADER` / `XFF_DEPTH` behind a reverse proxy.** If this deployment sits behind a
+  proxy and these aren't set, rate limiting still runs, but it buckets every visitor by the
+  proxy's own address — see "Reverse proxy, TLS and NODE_ENV" above. Not specific to any one
+  upgrade, but easy to miss when first putting a proxy in front of an existing deployment.
+
+- **Web Push to Android (`android.googleapis.com`).** No action needed — mentioned here only so
+  it isn't mistaken for a leak: a push subscription that errors on send (e.g. the user uninstalled
+  the app) is deleted from the database at send time, not retried or left to accumulate.
+
+- **Unique `user.email` / `user.phone_number`.** A migration adds unique indexes on `user.email`
+  and `user.phone_number` (closing an account-takeover path where an attacker could pre-claim
+  another person's phone number). Both columns stay nullable — NULL never conflicts with another
+  NULL on either engine — but if your database already has duplicate non-null values, the
+  migration fails loudly (a clear "UNIQUE constraint failed" / "could not create unique index"
+  error) rather than silently dropping or merging rows. Check for duplicates **before** upgrading:
+
+  ```sql
+  -- Same SQL on SQLite and PostgreSQL
+  SELECT phone_number, COUNT(*) FROM "user"
+  WHERE phone_number IS NOT NULL GROUP BY phone_number HAVING COUNT(*) > 1;
+
+  SELECT email, COUNT(*) FROM "user"
+  WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1;
+  ```
+
+  If either query returns rows, resolve the duplicates manually first (there is no safe automatic
+  merge — decide per case which account is real, migrate its data via
+  `app_users`/`connections`/`transactions`, then null out or change the losing account's duplicate
+  credential) before running `bun run db:migrate`.
 
 ### Stale placeholder emails from phone number changes
 
@@ -543,7 +705,7 @@ src/
 │   │   ├── db.pg.ts         # PostgreSQL driver (bun:sql)
 │   │   ├── push-endpoint.ts # Push endpoint/keys validation + host allowlist (SSRF guard)
 │   │   ├── push-sender.ts   # Best-effort Web Push delivery (VAPID), stale sub cleanup
-│   │   ├── qr.ts            # JWT sign/verify (jose)
+│   │   ├── qr.ts            # /accept/{id} and /send/{id} URL builders (id = crypto.randomUUID())
 │   │   ├── schema.ts        # Re-exports active schema
 │   │   ├── schema.sqlite.ts # Drizzle schema for SQLite
 │   │   ├── schema.pg.ts     # Drizzle schema for PostgreSQL
@@ -582,6 +744,12 @@ See [ROADMAP.md](ROADMAP.md) for the full roadmap. Highlights:
 - **Invitation system** — Invite by phone/email, building on the implicit connections graph
 - **Trusted contacts** — Skip QR for known members
 - **Admin panel** — Member management, transaction oversight
+
+---
+
+## Security
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md) for how to report it privately.
 
 ---
 
