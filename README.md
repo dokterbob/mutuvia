@@ -318,9 +318,15 @@ formats. This is still pattern matching, not parsing a phone number properly —
 can still slip through either way, and a non-phone number that happens to fit one of the two
 redacted shapes can still be redacted unnecessarily; both are accepted trade-offs.
 
-This covers: the generic navigation/fetch breadcrumbs session replay records (`replayIntegration`'s
-`networkDetailAllowUrls` is left at its default empty list, so replay never records network
-request/response bodies or headers for any URL in the first place); exception `type`/`value`
+This covers: what session replay records outside the normal event pipeline — its navigation/fetch
+breadcrumbs and performance spans (scrubbed in `replayIntegration`'s `beforeAddRecordingEvent`,
+before they enter the recording) and each segment's `replay_event` with its visited `urls` (scrubbed
+by an integration `processEvent` in `src/hooks.client.ts`); `networkDetailAllowUrls` is left at its
+default empty list, so replay never records network request/response bodies or headers for any URL
+in the first place. **Known gap:** rrweb's own DOM recording has no scrubbing hook — a full
+snapshot records the page's `location.href` verbatim and element attributes such as link `href`s,
+so a page loaded directly at a sensitive URL (e.g. opening an `/accept/<id>` link) still has that
+URL in the recording. Text and inputs are masked and media blocked regardless; exception `type`/`value`
 (deliberately NOT exempt — `type` can carry a custom, PII-bearing error message); and the
 `Referer` header. `user` is reduced to an opaque `id` only (dropping `email`/`username`/
 `ip_address`, and anything else a custom `setUser()` call might attach) — if there's no `id`,
