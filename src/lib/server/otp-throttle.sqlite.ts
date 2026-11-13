@@ -11,13 +11,19 @@
 import { eq, lt } from 'drizzle-orm';
 import { db } from './db.sqlite';
 import { otpThrottle } from './schema.sqlite';
-import {
-	SHORT_WINDOW_MS,
-	SHORT_WINDOW_MAX,
-	LONG_WINDOW_MS,
-	LONG_WINDOW_MAX
-} from './otp-throttle-types';
+import { LONG_WINDOW_MS, evaluateThrottle } from './otp-throttle-types';
 import type { ThrottleResult } from './otp-throttle-types';
+
+/**
+ * Read-only: would one more send to `destination` be allowed right now?
+ * Records nothing. Used as a fast pre-check that can still turn into a 429
+ * for the client; the authoritative, atomic decision is
+ * `checkAndRecordOtpSend`, made only when an OTP is actually about to go out.
+ */
+export function checkOtpSend(destination: string): ThrottleResult {
+	const rows = db.select().from(otpThrottle).where(eq(otpThrottle.destination, destination)).all();
+	return evaluateThrottle(rows, Date.now());
+}
 
 export function checkAndRecordOtpSend(destination: string): ThrottleResult {
 	return db.transaction(
@@ -43,23 +49,8 @@ export function checkAndRecordOtpSend(destination: string): ThrottleResult {
 				.where(eq(otpThrottle.destination, destination))
 				.all();
 
-			if (rows.length >= LONG_WINDOW_MAX) {
-				const oldest = rows.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
-				return {
-					ok: false,
-					retryAfterSeconds: retryAfter(oldest.createdAt.getTime(), LONG_WINDOW_MS, now)
-				};
-			}
-
-			const shortWindowStart = now - SHORT_WINDOW_MS;
-			const recent = rows.filter((r) => r.createdAt.getTime() >= shortWindowStart);
-			if (recent.length >= SHORT_WINDOW_MAX) {
-				const oldest = recent.reduce((a, b) => (a.createdAt < b.createdAt ? a : b));
-				return {
-					ok: false,
-					retryAfterSeconds: retryAfter(oldest.createdAt.getTime(), SHORT_WINDOW_MS, now)
-				};
-			}
+			const result = evaluateThrottle(rows, now);
+			if (!result.ok) return result;
 
 			tx.insert(otpThrottle)
 				.values({ id: crypto.randomUUID(), destination, createdAt: new Date(now) })
@@ -69,8 +60,4 @@ export function checkAndRecordOtpSend(destination: string): ThrottleResult {
 		},
 		{ behavior: 'immediate' }
 	);
-}
-
-function retryAfter(oldestMs: number, windowMs: number, now: number): number {
-	return Math.max(1, Math.ceil((oldestMs + windowMs - now) / 1000));
 }
