@@ -4,7 +4,12 @@ import { registerSW } from 'virtual:pwa-register';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/public';
 import { parseSentryTracesSampleRate } from '$lib/sentry-config';
-import { safeScrubSentryEvent, type ScrubbableSentryEvent } from '$lib/sentry-scrub';
+import {
+	safeScrubReplayRecordingEvent,
+	safeScrubSentryEvent,
+	type ScrubbableReplayRecordingEvent,
+	type ScrubbableSentryEvent
+} from '$lib/sentry-scrub';
 
 // Register the service worker for offline support and PWA updates.
 // `immediate: false` defers registration until after the load event, avoiding a
@@ -63,8 +68,30 @@ if (dsn) {
 				// outright, not just masked.
 				maskAllText: true,
 				maskAllInputs: true,
-				blockAllMedia: true
-			})
+				blockAllMedia: true,
+				// Replay's breadcrumbs and performance spans (navigation,
+				// fetch/xhr, resource URLs such as `/accept/<id>` or
+				// `/onboarding/otp?dest=…`) never pass through beforeSend,
+				// so they get the same scrubber here, before entering the
+				// recording buffer. Fails closed (the event is skipped).
+				beforeAddRecordingEvent: (event) =>
+					safeScrubReplayRecordingEvent(
+						event as unknown as ScrubbableReplayRecordingEvent
+					) as unknown as typeof event
+			}),
+			// The per-segment `replay_event` (visited `urls`, `request.url`)
+			// also bypasses beforeSend; integration processEvent hooks do run
+			// for it (prepareReplayEvent). Errors and transactions are left
+			// to beforeSend/beforeSendTransaction below.
+			{
+				name: 'ReplayEventScrubber',
+				processEvent: (event) =>
+					event.type === 'replay_event'
+						? (safeScrubSentryEvent(
+								event as unknown as ScrubbableSentryEvent
+							) as unknown as typeof event)
+						: event
+			}
 		],
 		// Shared parser/default with src/instrumentation.server.ts and
 		// $lib/config's sentryTracesSampleRate (used there only for the

@@ -81,8 +81,24 @@
 // is left at its default of `[]` — see
 // node_modules/@sentry-internal/replay/build/npm/esm/index.js — meaning
 // replay never records network request/response bodies or headers for any
-// URL. The generic navigation/fetch breadcrumbs replay DOES record (method,
-// url, status, timing) go through the same blanket walk as everything else.
+// URL. What replay DOES record never passes through beforeSend/
+// beforeSendTransaction, so it gets its own two hooks, both running the same
+// blanket walk (see `safeScrubReplayRecordingEvent` below and the
+// replayIntegration/ReplayEventScrubber wiring in src/hooks.client.ts):
+//   - custom recording events — the navigation/fetch/xhr/console/click
+//     breadcrumbs and the navigation/resource performance spans, whose
+//     `description`/`data` carry full URLs (`/accept/<id>`,
+//     `/onboarding/otp?dest=…`) — via replayIntegration's
+//     `beforeAddRecordingEvent`, before they enter the recording buffer;
+//   - the per-segment `replay_event` (its `urls` list of visited pages and
+//     `request.url`) via an integration `processEvent`, which
+//     prepareReplayEvent runs just like for any other event.
+// NOT covered (no SDK hook exists for it): rrweb's own non-custom events.
+// The full-snapshot "meta" event records `window.location.href` verbatim,
+// and DOM snapshots record element attributes such as `href`. That matters
+// for a page loaded directly at a sensitive URL (e.g. opening an
+// `/accept/<id>` link). maskAllText masks only text and the `title`/
+// `placeholder`/`aria-label` attributes.
 //
 // Fail-closed: `safeScrubSentryEvent` (the function actually wired into
 // beforeSend/beforeSendTransaction) catches any exception from the scrubber
@@ -519,6 +535,56 @@ export function safeScrubSentryEvent<T extends ScrubbableSentryEvent>(event: T):
 	} catch (err) {
 		console.error(
 			'[sentry-scrub] scrubbing failed; dropping this event rather than risk sending it unscrubbed:',
+			err
+		);
+		return null;
+	}
+}
+
+/**
+ * Minimal shape of a Session Replay CUSTOM recording event (rrweb event type
+ * 5) — the only kind replayIntegration's `beforeAddRecordingEvent` is ever
+ * called with (`maybeApplyCallback`/`isCustomEvent` in
+ * @sentry-internal/replay). `data.tag` says what it is (`breadcrumb`,
+ * `performanceSpan`, `options`, ...) and `data.payload` holds the breadcrumb
+ * or span itself, URLs included.
+ */
+export interface ScrubbableReplayRecordingEvent {
+	type: number;
+	timestamp: number;
+	data: { tag?: string; payload?: unknown; [key: string]: unknown };
+	[key: string]: unknown;
+}
+
+/**
+ * Scrubs one replay custom recording event with the same blanket deep walk
+ * as `scrubSentryEvent` — every string and key under `data` except the
+ * `tag` discriminator. The event's own `type`/`timestamp` (numbers the
+ * replay player needs) are kept as-is. No path exemptions apply below
+ * `data`, so breadcrumb `data.from`/`data.to`/`data.url` and span
+ * `description`/`data` are all scrubbed.
+ */
+export function scrubReplayRecordingEvent<T extends ScrubbableReplayRecordingEvent>(event: T): T {
+	const data: Record<string, unknown> = {};
+	for (const [key, value] of Object.entries(event.data)) {
+		data[key] = key === 'tag' ? value : scrubValueDeep(value, 1, ['data', key]);
+	}
+	return { ...event, data };
+}
+
+/**
+ * The function wired into replayIntegration's `beforeAddRecordingEvent`.
+ * Fails CLOSED like `safeScrubSentryEvent`: returning `null` tells replay to
+ * skip this recording event, rather than keep it unscrubbed.
+ */
+export function safeScrubReplayRecordingEvent<T extends ScrubbableReplayRecordingEvent>(
+	event: T
+): T | null {
+	try {
+		return scrubReplayRecordingEvent(event);
+	} catch (err) {
+		console.error(
+			'[sentry-scrub] replay recording event scrubbing failed; dropping it rather than risk recording it unscrubbed:',
 			err
 		);
 		return null;
