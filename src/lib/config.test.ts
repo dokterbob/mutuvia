@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const { privateEnv, devFlag } = vi.hoisted(() => ({
+const { privateEnv, publicEnv, devFlag } = vi.hoisted(() => ({
 	privateEnv: {} as Record<string, string | undefined>,
+	publicEnv: {} as Record<string, string | undefined>,
 	// Mutable wrapper so tests can flip `dev` ($app/environment) per case —
 	// a plain exported boolean would be snapshotted once at mock-setup time.
 	devFlag: { value: false }
 }));
 
 vi.mock('$env/dynamic/private', () => ({ env: privateEnv }));
-vi.mock('$env/dynamic/public', () => ({ env: {} }));
+vi.mock('$env/dynamic/public', () => ({ env: publicEnv }));
 vi.mock('$app/environment', () => ({
 	get dev() {
 		return devFlag.value;
@@ -492,6 +493,83 @@ describe('validateConfig', () => {
 			}
 		});
 
+		// Review round 1, finding 2: HSTS (src/lib/server/security-headers.ts)
+		// is only trustworthy once svelte-adapter-bun is told how to
+		// determine each request's real protocol — without ORIGIN or
+		// PROTOCOL_HEADER it defaults every request to 'https', which can
+		// make HSTS fire even when real traffic arrives over plain http.
+		describe('given a non-https APP_URL (HSTS warning only applies when APP_URL IS https)', () => {
+			test('when validated with no ORIGIN/PROTOCOL_HEADER, then does not warn about them', () => {
+				privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+				privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+				privateEnv.APP_URL = 'http://example.com';
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					validateConfig();
+					expect(warnSpy).not.toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+		});
+
+		describe('given an https APP_URL', () => {
+			beforeEach(() => {
+				privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+				privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+				privateEnv.APP_URL = 'https://example.com';
+			});
+
+			afterEach(() => {
+				delete privateEnv.ORIGIN;
+				delete privateEnv.PROTOCOL_HEADER;
+			});
+
+			test('when neither ORIGIN nor PROTOCOL_HEADER is set, then warns that the adapter cannot verify the real protocol', () => {
+				delete privateEnv.ORIGIN;
+				delete privateEnv.PROTOCOL_HEADER;
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					expect(() => validateConfig()).not.toThrow();
+					expect(warnSpy).toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+
+			test('when ORIGIN is set, then does not warn', () => {
+				privateEnv.ORIGIN = 'https://example.com';
+				delete privateEnv.PROTOCOL_HEADER;
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					validateConfig();
+					expect(warnSpy).not.toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+
+			test('when PROTOCOL_HEADER is set, then does not warn', () => {
+				delete privateEnv.ORIGIN;
+				privateEnv.PROTOCOL_HEADER = 'x-forwarded-proto';
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				try {
+					validateConfig();
+					expect(warnSpy).not.toHaveBeenCalledWith(
+						expect.stringContaining('neither ORIGIN nor PROTOCOL_HEADER')
+					);
+				} finally {
+					warnSpy.mockRestore();
+				}
+			});
+		});
+
 		test('when validated with a malformed EXPIRED_QR_RETENTION_SECONDS, then throws even before reaching the secret checks', () => {
 			privateEnv.EXPIRED_QR_RETENTION_SECONDS = '-5';
 			expect(() => validateConfig()).toThrow(/EXPIRED_QR_RETENTION_SECONDS/);
@@ -651,5 +729,97 @@ describe('config (phoneCountryAllowlist)', () => {
 	test('given an invalid country code, when read, then throws naming the entry', () => {
 		privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
 		expect(() => config.phoneCountryAllowlist).toThrow(/ZZ/);
+	});
+});
+
+describe('config (hstsMaxAgeSeconds / hstsIncludeSubdomains)', () => {
+	beforeEach(() => {
+		delete privateEnv.HSTS_MAX_AGE_SECONDS;
+		delete privateEnv.HSTS_INCLUDE_SUBDOMAINS;
+	});
+
+	test('given no env vars, when read, then defaults to 180 days and includeSubDomains off', () => {
+		expect(config.hstsMaxAgeSeconds).toBe(15552000);
+		expect(config.hstsIncludeSubdomains).toBe(false);
+	});
+
+	test('given HSTS_MAX_AGE_SECONDS, when read, then uses it', () => {
+		privateEnv.HSTS_MAX_AGE_SECONDS = '3600';
+		expect(config.hstsMaxAgeSeconds).toBe(3600);
+	});
+
+	test('given a non-numeric HSTS_MAX_AGE_SECONDS, when read, then throws', () => {
+		privateEnv.HSTS_MAX_AGE_SECONDS = 'forever';
+		expect(() => config.hstsMaxAgeSeconds).toThrow(/HSTS_MAX_AGE_SECONDS/);
+	});
+
+	test('given HSTS_INCLUDE_SUBDOMAINS=true, when read, then is true', () => {
+		privateEnv.HSTS_INCLUDE_SUBDOMAINS = 'true';
+		expect(config.hstsIncludeSubdomains).toBe(true);
+	});
+
+	test('given any other HSTS_INCLUDE_SUBDOMAINS value, when read, then is false (fail closed)', () => {
+		privateEnv.HSTS_INCLUDE_SUBDOMAINS = 'yes';
+		expect(config.hstsIncludeSubdomains).toBe(false);
+	});
+});
+
+describe('config (sentryTracesSampleRate)', () => {
+	beforeEach(() => {
+		delete publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE;
+	});
+
+	test('given no env var, when read, then defaults to 0.1', () => {
+		expect(config.sentryTracesSampleRate).toBe(0.1);
+	});
+
+	test('given a valid rate, when read, then uses it', () => {
+		publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE = '0.5';
+		expect(config.sentryTracesSampleRate).toBe(0.5);
+	});
+
+	test('given an out-of-range rate, when read, then throws', () => {
+		publicEnv.PUBLIC_SENTRY_TRACES_SAMPLE_RATE = '2';
+		expect(() => config.sentryTracesSampleRate).toThrow(/PUBLIC_SENTRY_TRACES_SAMPLE_RATE/);
+	});
+});
+
+describe('config (sentryTunnelMaxBodyBytes)', () => {
+	beforeEach(() => {
+		delete privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES;
+	});
+
+	test('given no env var, when read, then defaults to 5 MB', () => {
+		expect(config.sentryTunnelMaxBodyBytes).toBe(5_000_000);
+	});
+
+	test('given a custom value, when read, then uses it', () => {
+		privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES = '1000';
+		expect(config.sentryTunnelMaxBodyBytes).toBe(1000);
+	});
+
+	test('given a non-positive value, when read, then throws', () => {
+		privateEnv.SENTRY_TUNNEL_MAX_BODY_BYTES = '0';
+		expect(() => config.sentryTunnelMaxBodyBytes).toThrow(/SENTRY_TUNNEL_MAX_BODY_BYTES/);
+	});
+});
+
+describe('config (sentryTunnelUpstreamTimeoutMs)', () => {
+	beforeEach(() => {
+		delete privateEnv.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS;
+	});
+
+	test('given no env var, when read, then defaults to 5000ms', () => {
+		expect(config.sentryTunnelUpstreamTimeoutMs).toBe(5000);
+	});
+
+	test('given a custom value, when read, then uses it', () => {
+		privateEnv.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS = '2000';
+		expect(config.sentryTunnelUpstreamTimeoutMs).toBe(2000);
+	});
+
+	test('given a non-positive value, when read, then throws', () => {
+		privateEnv.SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS = '0';
+		expect(() => config.sentryTunnelUpstreamTimeoutMs).toThrow(/SENTRY_TUNNEL_UPSTREAM_TIMEOUT_MS/);
 	});
 });

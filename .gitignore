@@ -33,6 +33,10 @@ vite.config.ts.timestamp-*
 # Paraglide generated
 src/lib/paraglide/
 
+# Self-hosted QR scanner WASM, copied from node_modules/zxing-wasm at
+# vite.config.ts load time (see its ZXING_WASM_SOURCE comment) — never commit.
+/static/wasm/
+
 # Test results
 playwright-report/
 test-results/

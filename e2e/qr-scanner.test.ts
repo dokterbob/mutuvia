@@ -1,39 +1,11 @@
 import { expect, chromium, type BrowserContext } from '@playwright/test';
-import { test, setupAuthenticatedUser, deleteTestUser } from './test-utils.js';
-import QRCode from 'qrcode';
-import { execSync } from 'child_process';
-import { mkdtempSync, unlinkSync, rmSync } from 'fs';
+import { test, setupAuthenticatedUser, deleteTestUser, generateQrVideo } from './test-utils.js';
+import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
 const SENDER_NAME = 'QR Sender';
 const RECEIVER_NAME = 'QR Scanner';
-
-/**
- * Generate a .y4m fake webcam video file containing a QR code for the given URL.
- * Chromium's --use-file-for-fake-video-capture accepts .y4m format.
- */
-async function generateQrVideo(url: string): Promise<string> {
-	const dir = mkdtempSync(join(tmpdir(), 'qr-e2e-'));
-	const pngPath = join(dir, 'qr.png');
-	const y4mPath = join(dir, 'qr.y4m');
-
-	// Generate a QR code PNG at a size Chromium's fake camera can read
-	await QRCode.toFile(pngPath, url, {
-		width: 640,
-		margin: 4,
-		color: { dark: '#000000', light: '#FFFFFF' }
-	});
-
-	// Convert to y4m: 5-second still image video at 10fps
-	execSync(
-		`ffmpeg -y -loop 1 -i "${pngPath}" -t 5 -pix_fmt yuv420p -vf "scale=640:640" -r 10 "${y4mPath}"`,
-		{ stdio: 'pipe' }
-	);
-
-	unlinkSync(pngPath);
-	return y4mPath;
-}
 
 test.describe.serial('QR scanner E2E', () => {
 	let senderStorage: Awaited<ReturnType<BrowserContext['storageState']>>;

@@ -87,6 +87,13 @@ test.describe('QR expiry preset', () => {
 			const trigger = page.locator('[data-slot="select-trigger"]');
 			await trigger.click();
 			await expect(page.getByRole('listbox')).toBeVisible();
+			// Guard the race the note above warns about: the listbox can open
+			// before the $effect that recomputes `expiryOptions` for the
+			// reusable list has actually re-rendered the option set. "Never" is
+			// reusable-only, so waiting for it to appear confirms the Select is
+			// showing the post-toggle (reusable) options, not a stale one-time
+			// list, before picking from it.
+			await expect(page.getByRole('option', { name: 'Never' })).toBeVisible();
 			await page.getByRole('option', { name: '1 day' }).click();
 			await expect(trigger).toHaveText('1 day');
 
