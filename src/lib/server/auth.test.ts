@@ -22,15 +22,18 @@
 // attacker's pre-planted row (not a fresh one) and mints a session for it —
 // logging the victim into the attacker's account.
 
-import { describe, test, expect, beforeEach, afterAll, vi } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { rmSync } from 'node:fs';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { eq } from 'drizzle-orm';
 import * as schema from './schema.sqlite';
 import { makePlaceholderEmail } from '$lib/placeholder-email';
 
-const { TEST_DB_FILE } = vi.hoisted(() => ({
-	TEST_DB_FILE: `.vitest-auth-sqlite-${process.pid}.db`
+const { TEST_DB_FILE, configMock } = vi.hoisted(() => ({
+	TEST_DB_FILE: `.vitest-auth-sqlite-${process.pid}.db`,
+	// Mutable so the per-destination OTP throttle can be switched on for the
+	// one describe block that exercises it (it is off everywhere else).
+	configMock: { otpThrottleEnabled: false }
 }));
 
 // See settlement.sqlite.test.ts for why this must go through a `$lib/config`
@@ -42,14 +45,14 @@ const { TEST_DB_FILE } = vi.hoisted(() => ({
 // in test runs when it's trivially avoidable — the OTP codes themselves are
 // read straight out of the `verification` table below, not from these logs.
 vi.mock('$lib/config', () => ({
-	config: {
+	config: Object.assign(configMock, {
 		dbFileName: TEST_DB_FILE,
 		dbProvider: 'sqlite',
 		appUrl: 'http://localhost:5173',
 		preludeApiToken: '',
 		devLogOtp: true,
 		smtpHost: ''
-	}
+	})
 }));
 
 const { sqlite, db: liveDb } = await import('./db.sqlite');
@@ -492,6 +495,65 @@ describe('session revocation on credential change — real Better Auth instance'
 // deterministic placeholder for them and the DB's unique `user_email_idx`
 // rejects the insert outright — even though their OTP was verified
 // correctly. Confirmed live below.
+// Codex review (PR #136): the per-destination OTP throttle runs in
+// hooks.before, ahead of `/email-otp/request-email-change`'s own session
+// check — so unauthenticated calls naming someone else's address used to
+// spend that address's sign-in OTP budget without sending it anything.
+describe('per-destination OTP throttle vs request-email-change — real Better Auth instance', () => {
+	beforeEach(() => {
+		configMock.otpThrottleEnabled = true;
+	});
+	afterEach(() => {
+		configMock.otpThrottleEnabled = false;
+	});
+
+	function throttleRowsFor(destination: string) {
+		return sqlite
+			.query<
+				{ n: number },
+				[string]
+			>('SELECT COUNT(*) AS n FROM otp_throttle WHERE destination = ?')
+			.get(destination)!.n;
+	}
+
+	test('Given unauthenticated email-change requests naming a victim address, then they are rejected without spending its quota, and the victim can still get a sign-in OTP', async () => {
+		const victim = 'throttle-victim@example.com';
+
+		for (let i = 0; i < 5; i++) {
+			await expect(
+				auth.api.requestEmailChangeEmailOTP({ body: { newEmail: victim }, headers: new Headers() })
+			).rejects.toThrow();
+		}
+
+		expect(throttleRowsFor(victim)).toBe(0);
+		await expect(
+			auth.api.sendVerificationOTP({ body: { email: victim, type: 'sign-in' } })
+		).resolves.toBeTruthy();
+	});
+
+	test('Given an authenticated email-change request to a new address, then it is still charged against that address', async () => {
+		const owner = 'throttle-owner@example.com';
+		const newEmail = 'throttle-new@example.com';
+		await auth.api.sendVerificationOTP({ body: { email: owner, type: 'sign-in' } });
+		const { headers } = await auth.api.signInEmailOTP({
+			body: { email: owner, otp: readOtp(`sign-in-otp-${owner}`) },
+			returnHeaders: true
+		});
+		const cookie = headers
+			.get('set-cookie')!
+			.split(/,(?=\s*[\w-]+=)/)
+			.map((part) => part.split(';')[0].trim())
+			.join('; ');
+
+		await auth.api.requestEmailChangeEmailOTP({
+			body: { newEmail },
+			headers: new Headers({ cookie })
+		});
+
+		expect(throttleRowsFor(newEmail)).toBe(1);
+	});
+});
+
 describe('stale placeholder email release on phone change — real Better Auth instance', () => {
 	test('Given a phone-only user changes their phone number, when a new user later signs up with the OLD (now-released) number, then the sign-up succeeds because the stale placeholder was released', async () => {
 		const oldPhone = '+15553330001';
