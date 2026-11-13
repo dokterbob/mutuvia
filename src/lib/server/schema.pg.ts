@@ -6,8 +6,10 @@ import {
 	boolean,
 	timestamp,
 	integer,
+	bigint,
 	primaryKey,
 	uniqueIndex,
+	index,
 	check
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -74,6 +76,18 @@ export const verification = pgTable('verification', {
 	expiresAt: timestamp('expires_at').notNull(),
 	createdAt: timestamp('created_at'),
 	updatedAt: timestamp('updated_at')
+});
+
+// Better Auth's own IP-based rate limiter — see the matching comment in
+// schema.sqlite.ts for why the field names are fixed. `lastRequest` is
+// epoch-milliseconds (`Date.now()`), which overflows PostgreSQL's 32-bit
+// `integer`: must be `bigint`, not `integer`, unlike SQLite's single
+// 64-bit-capable `integer` type.
+export const rateLimit = pgTable('rate_limit', {
+	id: text('id').primaryKey(),
+	key: text('key').notNull().unique(),
+	count: integer('count').notNull(),
+	lastRequest: bigint('last_request', { mode: 'number' }).notNull()
 });
 
 // ── Application tables ──
@@ -177,4 +191,15 @@ export const pushSubscriptions = pgTable(
 	// ever have one owner for a given push endpoint. Subscribing re-assigns
 	// ownership to the subscribing user (see src/routes/api/push/subscribe/+server.ts).
 	(table) => [uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint)]
+);
+
+// See the matching comment in schema.sqlite.ts.
+export const otpThrottle = pgTable(
+	'otp_throttle',
+	{
+		id: text('id').primaryKey(),
+		destination: text('destination').notNull(),
+		createdAt: timestamp('created_at').notNull()
+	},
+	(table) => [index('otp_throttle_destination_idx').on(table.destination, table.createdAt)]
 );

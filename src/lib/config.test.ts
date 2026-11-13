@@ -215,6 +215,7 @@ describe('validateConfig', () => {
 		delete privateEnv.DEV_LOG_OTP;
 		delete privateEnv.QR_TTL_SECONDS;
 		delete privateEnv.EXPIRED_QR_RETENTION_SECONDS;
+		delete privateEnv.PHONE_COUNTRY_ALLOWLIST;
 		// Baseline: a built server (Docker, Playwright's webServer, a bare
 		// `bun build/index.js`) — NOT `bun run dev`.
 		devFlag.value = false;
@@ -289,6 +290,12 @@ describe('validateConfig', () => {
 			privateEnv.NODE_ENV = 'test';
 			privateEnv.QR_TTL_SECONDS = 'abc';
 			expect(() => validateConfig()).toThrow(/QR_TTL_SECONDS/);
+		});
+
+		test('when validated with an invalid PHONE_COUNTRY_ALLOWLIST, then still throws — that check is unconditional too', () => {
+			privateEnv.NODE_ENV = 'test';
+			privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
+			expect(() => validateConfig()).toThrow(/ZZ/);
 		});
 	});
 
@@ -367,5 +374,160 @@ describe('validateConfig', () => {
 			privateEnv.EXPIRED_QR_RETENTION_SECONDS = '-5';
 			expect(() => validateConfig()).toThrow(/EXPIRED_QR_RETENTION_SECONDS/);
 		});
+
+		// Review fix (PR #136): validateConfig() never read
+		// config.phoneCountryAllowlist, so a bad value (e.g. a typo'd country
+		// code) only surfaced the first time someone actually sent a phone
+		// OTP — long after startup, and potentially in production. Read it
+		// eagerly, in the same unconditional "fail fast on nonsense values"
+		// block as qrTtlSeconds/expiredQrRetentionSeconds above.
+		test('when validated with an invalid PHONE_COUNTRY_ALLOWLIST entry, then throws naming the entry, even before reaching the secret checks', () => {
+			privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
+			expect(() => validateConfig()).toThrow(/ZZ/);
+		});
+
+		test('when validated with no ADDRESS_HEADER set, then warns about untrustworthy client IPs but does not throw', () => {
+			privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+			privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+			privateEnv.APP_URL = 'https://example.com';
+			delete privateEnv.ADDRESS_HEADER;
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			try {
+				expect(() => validateConfig()).not.toThrow();
+				expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ADDRESS_HEADER'));
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+
+		test('when validated with ADDRESS_HEADER set, then does not warn about client IPs', () => {
+			privateEnv.BETTER_AUTH_SECRET = VALID_SECRET;
+			privateEnv.PRELUDE_API_TOKEN = 'prelude-token';
+			privateEnv.APP_URL = 'https://example.com';
+			privateEnv.ADDRESS_HEADER = 'X-Forwarded-For';
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+			try {
+				validateConfig();
+				expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('ADDRESS_HEADER'));
+			} finally {
+				warnSpy.mockRestore();
+			}
+		});
+	});
+});
+
+describe('config (rateLimitEnabled / rateLimitDisableForTesting)', () => {
+	beforeEach(() => {
+		delete privateEnv.NODE_ENV;
+		delete privateEnv.RATE_LIMIT_DISABLE_FOR_TESTING;
+		devFlag.value = false;
+	});
+
+	test('given no env var, when read, then rate limiting is enabled', () => {
+		expect(config.rateLimitEnabled).toBe(true);
+		expect(config.rateLimitDisableForTesting).toBe(false);
+	});
+
+	test('given RATE_LIMIT_DISABLE_FOR_TESTING=true and NODE_ENV=test (not production), when read, then rate limiting is disabled', () => {
+		privateEnv.RATE_LIMIT_DISABLE_FOR_TESTING = 'true';
+		privateEnv.NODE_ENV = 'test';
+		expect(config.rateLimitDisableForTesting).toBe(true);
+		expect(config.rateLimitEnabled).toBe(false);
+	});
+
+	// The fail-closed guarantee this whole getter exists for: the escape
+	// hatch must never work in production, no matter how it got set.
+	test('given RATE_LIMIT_DISABLE_FOR_TESTING=true but NODE_ENV=production, when read, then rate limiting stays enabled', () => {
+		privateEnv.RATE_LIMIT_DISABLE_FOR_TESTING = 'true';
+		privateEnv.NODE_ENV = 'production';
+		expect(config.isProduction).toBe(true);
+		expect(config.rateLimitDisableForTesting).toBe(false);
+		expect(config.rateLimitEnabled).toBe(true);
+	});
+
+	test('given RATE_LIMIT_DISABLE_FOR_TESTING=true but no NODE_ENV on a built server, when read, then rate limiting stays enabled (unset NODE_ENV is production)', () => {
+		privateEnv.RATE_LIMIT_DISABLE_FOR_TESTING = 'true';
+		expect(config.rateLimitEnabled).toBe(true);
+	});
+
+	test('given RATE_LIMIT_DISABLE_FOR_TESTING=true under bun run dev, when read, then rate limiting is disabled', () => {
+		devFlag.value = true;
+		privateEnv.RATE_LIMIT_DISABLE_FOR_TESTING = 'true';
+		expect(config.rateLimitEnabled).toBe(false);
+	});
+});
+
+describe('config (otpThrottleEnabled / otpThrottleDisableForTesting)', () => {
+	beforeEach(() => {
+		delete privateEnv.NODE_ENV;
+		delete privateEnv.OTP_THROTTLE_DISABLE_FOR_TESTING;
+		devFlag.value = false;
+	});
+
+	test('given no env var, when read, then the throttle is enabled', () => {
+		expect(config.otpThrottleEnabled).toBe(true);
+		expect(config.otpThrottleDisableForTesting).toBe(false);
+	});
+
+	test('given OTP_THROTTLE_DISABLE_FOR_TESTING=true and NODE_ENV=test (not production), when read, then the throttle is disabled', () => {
+		privateEnv.OTP_THROTTLE_DISABLE_FOR_TESTING = 'true';
+		privateEnv.NODE_ENV = 'test';
+		expect(config.otpThrottleDisableForTesting).toBe(true);
+		expect(config.otpThrottleEnabled).toBe(false);
+	});
+
+	// Same fail-closed guarantee as rateLimitDisableForTesting: never works
+	// in production, no matter how it got set.
+	test('given OTP_THROTTLE_DISABLE_FOR_TESTING=true but NODE_ENV=production, when read, then the throttle stays enabled', () => {
+		privateEnv.OTP_THROTTLE_DISABLE_FOR_TESTING = 'true';
+		privateEnv.NODE_ENV = 'production';
+		expect(config.isProduction).toBe(true);
+		expect(config.otpThrottleDisableForTesting).toBe(false);
+		expect(config.otpThrottleEnabled).toBe(true);
+	});
+
+	test('given OTP_THROTTLE_DISABLE_FOR_TESTING=true but no NODE_ENV on a built server, when read, then the throttle stays enabled', () => {
+		privateEnv.OTP_THROTTLE_DISABLE_FOR_TESTING = 'true';
+		expect(config.otpThrottleEnabled).toBe(true);
+	});
+});
+
+describe('config (trustedIpHeader)', () => {
+	beforeEach(() => {
+		delete privateEnv.TRUSTED_IP_HEADER;
+	});
+
+	test('given no env var, when read, then defaults to the internal header name', () => {
+		expect(config.trustedIpHeader).toBe('x-mutuvia-client-ip');
+	});
+
+	test('given a custom header name in mixed case, when read, then lowercases it', () => {
+		privateEnv.TRUSTED_IP_HEADER = 'X-Real-IP';
+		expect(config.trustedIpHeader).toBe('x-real-ip');
+	});
+
+	test('given a header name with an invalid character, when read, then throws', () => {
+		privateEnv.TRUSTED_IP_HEADER = 'x real ip!';
+		expect(() => config.trustedIpHeader).toThrow(/TRUSTED_IP_HEADER/);
+	});
+});
+
+describe('config (phoneCountryAllowlist)', () => {
+	beforeEach(() => {
+		delete privateEnv.PHONE_COUNTRY_ALLOWLIST;
+	});
+
+	test('given no env var, when read, then returns null (no restriction)', () => {
+		expect(config.phoneCountryAllowlist).toBeNull();
+	});
+
+	test('given a comma-separated list with whitespace and lowercase codes, when read, then trims and uppercases', () => {
+		privateEnv.PHONE_COUNTRY_ALLOWLIST = ' pt, nl ,de';
+		expect(config.phoneCountryAllowlist).toEqual(['PT', 'NL', 'DE']);
+	});
+
+	test('given an invalid country code, when read, then throws naming the entry', () => {
+		privateEnv.PHONE_COUNTRY_ALLOWLIST = 'PT,ZZ';
+		expect(() => config.phoneCountryAllowlist).toThrow(/ZZ/);
 	});
 });

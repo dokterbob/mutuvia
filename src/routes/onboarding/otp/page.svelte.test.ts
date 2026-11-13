@@ -32,7 +32,8 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	otp_cta: () => 'Verify',
 	otp_back: () => 'Back',
 	otp_invalid_code: () => 'Invalid code',
-	error_send_code: () => 'Failed to send code'
+	error_send_code: () => 'Failed to send code',
+	error_too_many_requests: () => 'Too many attempts, please wait'
 }));
 
 const mockData = {
@@ -111,6 +112,27 @@ describe('OTP page – loading spinner', () => {
 			expect(primaryButton).not.toBeNull();
 			expect(primaryButton!.querySelector('.animate-spin')).toBeNull();
 			expect(container.textContent).toContain('Invalid code');
+		});
+	});
+
+	// Review fix (PR #136): this call site showed Better Auth's raw English
+	// 429 text (e.g. from the IP rate limiter on /phone-number/verify)
+	// instead of the app's own localized "too many attempts" copy.
+	test('verify shows the localized rate-limit message on a 429, not the raw server text', async () => {
+		verifyMock.mockResolvedValue({
+			error: { status: 429, message: 'Too many requests. Please try again later.' }
+		} as never);
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { container } = render(OtpPage, { props: { data: mockData as any } });
+
+		const otpInput = container.querySelector('input[inputmode="numeric"]');
+		expect(otpInput).not.toBeNull();
+		await fireEvent.input(otpInput!, { target: { value: '123456' } });
+
+		await waitFor(() => {
+			expect(container.textContent).toContain('Too many attempts, please wait');
+			expect(container.textContent).not.toContain('Too many requests. Please try again later.');
 		});
 	});
 });

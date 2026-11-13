@@ -4,6 +4,9 @@ import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 import { dev } from '$app/environment';
 import { isValidHostPattern } from '$lib/server/push-endpoint';
+import { getCountries, type CountryCode } from 'libphonenumber-js';
+
+const VALID_HEADER_NAME = /^[a-z0-9-]+$/;
 
 const ANDROID_SHA256_FINGERPRINT = /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/;
 
@@ -107,6 +110,78 @@ export const config = {
 	},
 	get preludeApiToken() {
 		return env.PRELUDE_API_TOKEN || '';
+	},
+	// ── Rate limiting / abuse prevention ──
+	//
+	// Explicit kill switch for Better Auth's request rate limiting — never
+	// implicitly derived from `isProduction`. Honoured ONLY when the runtime
+	// is NOT production (see `isProduction` above): a built, production-baked
+	// server (e.g. Playwright's `webServer`, which runs many sign-ins from one
+	// address in parallel) can set this with `NODE_ENV=test`/`development` to
+	// get deterministic tests, but the same env var can never silently
+	// disable rate limiting on an actual production deployment — see
+	// `validateConfig()`, which warns loudly whenever this is in effect.
+	get rateLimitDisableForTesting() {
+		return env.RATE_LIMIT_DISABLE_FOR_TESTING === 'true' && !this.isProduction;
+	},
+	get rateLimitEnabled() {
+		return !this.rateLimitDisableForTesting;
+	},
+	// Same fail-closed shape as `rateLimitDisableForTesting`, for the
+	// independent per-destination OTP send throttle (otp-throttle.ts) rather
+	// than Better Auth's own IP-based limiter. Needed separately: several E2E
+	// test files deliberately reuse one fixture-derived destination (e.g. the
+	// same `email('user')`) across multiple sequential test cases, which
+	// legitimately exceeds the throttle's real-world thresholds (3/10min,
+	// 10/day) well before any single test file finishes.
+	get otpThrottleDisableForTesting() {
+		return env.OTP_THROTTLE_DISABLE_FOR_TESTING === 'true' && !this.isProduction;
+	},
+	get otpThrottleEnabled() {
+		return !this.otpThrottleDisableForTesting;
+	},
+	// Header name Better Auth reads the client IP from for rate-limit bucketing
+	// (`advanced.ipAddress.ipAddressHeaders` in auth.ts). Defaults to an
+	// internal header name that `src/hooks.server.ts` always sets itself (from
+	// SvelteKit's `event.getClientAddress()`, after stripping any
+	// client-supplied value of the same header) — so a client can never choose
+	// its own rate-limit bucket, and limiting is never silently off for lack
+	// of a determinable IP. See README's "Reverse proxy / client IP" section
+	// for `ADDRESS_HEADER`/`XFF_DEPTH` (svelte-adapter-bun, read directly —
+	// not wrapped here) which `event.getClientAddress()` itself depends on.
+	get trustedIpHeader() {
+		const header = (env.TRUSTED_IP_HEADER || 'x-mutuvia-client-ip').trim().toLowerCase();
+		if (!VALID_HEADER_NAME.test(header)) {
+			throw new Error(
+				`TRUSTED_IP_HEADER "${header}" is not a valid HTTP header name (expected letters, digits and hyphens only)`
+			);
+		}
+		return header;
+	},
+	// Comma-separated ISO 3166-1 alpha-2 country codes (e.g. "PT,NL,DE,ES,FR").
+	// When set, only phone numbers resolving to one of these countries may be
+	// used for sign-up/OTP (enforced via `phoneNumberValidator` in auth.ts,
+	// using the `libphonenumber-js` already pulled in transitively by
+	// `svelte-tel-input` — see src/lib/components/ui/phone-input). `null`
+	// means no restriction (the default). A phone number whose country can't
+	// be determined (e.g. ambiguous/invalid) is rejected whenever this is set
+	// — fail closed, since we can't confirm it's allowed.
+	get phoneCountryAllowlist(): string[] | null {
+		const raw = env.PHONE_COUNTRY_ALLOWLIST;
+		if (!raw) return null;
+		const codes = raw
+			.split(',')
+			.map((c) => c.trim().toUpperCase())
+			.filter(Boolean);
+		const valid = new Set<string>(getCountries());
+		for (const code of codes) {
+			if (!valid.has(code)) {
+				throw new Error(
+					`PHONE_COUNTRY_ALLOWLIST entry "${code}" is not a valid ISO 3166-1 alpha-2 country code`
+				);
+			}
+		}
+		return codes as CountryCode[];
 	},
 	// ── SMTP (email OTP) ──
 	get smtpHost() {
@@ -215,6 +290,30 @@ export function validateConfig(): void {
 	// getters triggers their own validation.
 	void config.qrTtlSeconds;
 	void config.expiredQrRetentionSeconds;
+	// Review fix (PR #136): without this, a bad PHONE_COUNTRY_ALLOWLIST value
+	// (e.g. a typo'd country code) wouldn't surface until the first real
+	// phone OTP send tried to read it — long after startup, possibly in
+	// production.
+	void config.phoneCountryAllowlist;
+
+	if (config.rateLimitDisableForTesting) {
+		// Always worth a loud, visible line — even under `bun run dev` — since
+		// this flag existing at all is solely for deterministic E2E/test runs.
+		console.warn(
+			'[WARNING] Rate limiting is DISABLED via RATE_LIMIT_DISABLE_FOR_TESTING=true. ' +
+				'This has no effect in production (see config.isProduction) — if you see this ' +
+				'warning on a real deployment, that env var should not be set there at all.'
+		);
+	}
+
+	if (config.otpThrottleDisableForTesting) {
+		console.warn(
+			'[WARNING] The per-destination OTP send throttle is DISABLED via ' +
+				'OTP_THROTTLE_DISABLE_FOR_TESTING=true. This has no effect in production (see ' +
+				'config.isProduction) — if you see this warning on a real deployment, that env var ' +
+				'should not be set there at all.'
+		);
+	}
 
 	if (!config.isProduction) {
 		if (dev) {
@@ -230,6 +329,26 @@ export function validateConfig(): void {
 			);
 		}
 		return;
+	}
+
+	// Rate limiting keys on the client IP (see `advanced.ipAddress` in
+	// auth.ts). `src/hooks.server.ts` always feeds it SvelteKit's own
+	// `event.getClientAddress()`, which — behind a reverse proxy — is only
+	// correct once `ADDRESS_HEADER` (and usually `XFF_DEPTH`) are configured
+	// for svelte-adapter-bun; read directly here (not wrapped by this module)
+	// because it's the adapter's own env var, not ours. Without it,
+	// `getClientAddress()` falls back to the raw socket address — the proxy's
+	// own address for every request — so rate limiting still runs (never
+	// silently skipped) but buckets every real visitor together. We can't
+	// tell from here whether this deployment actually sits behind a proxy, so
+	// this errs toward warning rather than staying silent.
+	if (!env.ADDRESS_HEADER) {
+		console.warn(
+			'[WARNING] ADDRESS_HEADER is not set. If this server is behind a reverse proxy, rate ' +
+				"limiting will bucket every visitor by the proxy's own address instead of their real " +
+				"IP — set ADDRESS_HEADER (and XFF_DEPTH) for svelte-adapter-bun. See README's " +
+				'"Reverse proxy / client IP" section.'
+		);
 	}
 
 	const secret = env.BETTER_AUTH_SECRET;

@@ -12,9 +12,11 @@ export const {
 	session,
 	account,
 	verification,
+	rateLimit,
 	appUsers,
 	paymentRequests,
 	transactions,
 	connections,
-	pushSubscriptions
+	pushSubscriptions,
+	otpThrottle
 } = mod as unknown as SqliteSchema;

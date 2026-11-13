@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import * as m from '$lib/paraglide/messages.js';
 	import { authClient } from '$lib/auth-client';
+	import { otpSendErrorMessage } from '$lib/otp-error';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import { PhoneInput } from '$lib/components/ui/phone-input';
@@ -21,7 +22,7 @@
 		try {
 			const { error } = await authClient.phoneNumber.sendOtp({ phoneNumber: phoneValue });
 			if (error) {
-				authError = error.message || m.error_send_code();
+				authError = otpSendErrorMessage(error);
 			} else {
 				goto(`/onboarding/otp?dest=${encodeURIComponent(phoneValue)}&method=phone`);
 			}
