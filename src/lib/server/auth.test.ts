@@ -531,6 +531,31 @@ describe('per-destination OTP throttle vs request-email-change — real Better A
 		).resolves.toBeTruthy();
 	});
 
+	test('Given an authenticated email-change request to a +tag alias of the current address, then it is charged against the shared mailbox bucket', async () => {
+		const owner = 'alias-owner@example.com';
+		const alias = 'alias-owner+tag@example.com';
+		await auth.api.sendVerificationOTP({ body: { email: owner, type: 'sign-in' } });
+		const { headers } = await auth.api.signInEmailOTP({
+			body: { email: owner, otp: readOtp(`sign-in-otp-${owner}`) },
+			returnHeaders: true
+		});
+		const cookie = headers
+			.get('set-cookie')!
+			.split(/,(?=\s*[\w-]+=)/)
+			.map((part) => part.split(';')[0].trim())
+			.join('; ');
+		const before = throttleRowsFor(owner); // the sign-in send above
+
+		// Better Auth treats the alias as a different address and sends to it,
+		// so it must count against the (alias-folded) mailbox bucket.
+		await auth.api.requestEmailChangeEmailOTP({
+			body: { newEmail: alias },
+			headers: new Headers({ cookie })
+		});
+
+		expect(throttleRowsFor(owner)).toBe(before + 1);
+	});
+
 	test('Given an authenticated email-change request to a new address, then it is still charged against that address', async () => {
 		const owner = 'throttle-owner@example.com';
 		const newEmail = 'throttle-new@example.com';
