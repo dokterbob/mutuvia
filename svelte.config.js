@@ -79,13 +79,10 @@ const config = {
 				// `fetch()` from page/SW code, so it isn't governed by
 				// connect-src at all.
 				'connect-src': ['self'],
-				// 'blob:' is required by Sentry Session Replay, which compresses
-				// recordings in a Web Worker it spawns from a blob URL (see
-				// https://docs.sentry.io/platforms/javascript/session-replay/#content-security-policy-csp).
-				// A blob: worker can only be created by script already running
-				// under this CSP's script-src, so this doesn't open a new script
-				// injection path. The PWA service worker itself is 'self'.
-				'worker-src': ['self', 'blob:'],
+				// Only the PWA service worker. Sentry Session Replay (whose
+				// compression worker would need 'blob:') is deliberately not
+				// enabled — see src/hooks.client.ts.
+				'worker-src': ['self'],
 				'frame-ancestors': ['none'],
 				'base-uri': ['self'],
 				'form-action': ['self'],
