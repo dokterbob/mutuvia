@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { betterAuth } from 'better-auth';
-import { createAuthMiddleware, APIError, isAPIError } from 'better-auth/api';
+import { createAuthMiddleware, APIError, getSessionFromCtx, isAPIError } from 'better-auth/api';
 import { phoneNumber, emailOTP } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
@@ -429,7 +429,7 @@ export const auth = betterAuth({
 			// endpoints, but also `requestEmailChange` (which sends to an
 			// arbitrary new address).
 			const destination = config.otpThrottleEnabled ? otpSendDestination(ctx.path, ctx.body) : null;
-			if (destination) {
+			if (destination && (await mayConsumeOtpQuota(ctx, destination))) {
 				const result = await checkAndRecordOtpSend(destination);
 				if (!result.ok) {
 					throw new APIError('TOO_MANY_REQUESTS', {
@@ -542,6 +542,34 @@ export async function revokeOtherSessionsForCredentialChange(headers: Headers): 
 /** The context object `hooks.after` handlers receive — reused here so this
  * helper's parameter type always matches what's actually passed to it. */
 type AuthMiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+/**
+ * Whether this request may be charged against `destination`'s per-destination
+ * OTP budget. The throttle has to run in `hooks.before` (see the comment at
+ * its call site), i.e. BEFORE the endpoint's own checks — so without this, a
+ * request the endpoint is about to reject would still spend the budget of a
+ * destination it never sends to. That matters for
+ * `/email-otp/request-email-change`: it sends only after
+ * `sensitiveSessionMiddleware` finds a (non-cached) session, and never to the
+ * user's own current address. Codex review (PR #136): unauthenticated calls
+ * naming someone else's address could otherwise lock that address out of
+ * sign-in OTPs (3 per 10 minutes, then the daily cap) without sending them
+ * anything. So mirror exactly those two eligibility checks here; the
+ * atomic check-and-record below still runs for every eligible request.
+ *
+ * The sign-in send endpoints (`/phone-number/send-otp`,
+ * `/email-otp/send-verification-otp`) are unauthenticated by design and
+ * always attempt a send, so they are always charged.
+ */
+async function mayConsumeOtpQuota(
+	ctx: AuthMiddlewareContext,
+	destination: string
+): Promise<boolean> {
+	if (ctx.path !== '/email-otp/request-email-change') return true;
+	const session = await getSessionFromCtx(ctx, { disableCookieCache: true });
+	if (!session) return false;
+	return normalizeEmailDestination(session.user.email ?? '') !== destination;
+}
 
 /**
  * Refreshes a phone-only user's placeholder email after a successful phone
