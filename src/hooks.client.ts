@@ -4,12 +4,7 @@ import { registerSW } from 'virtual:pwa-register';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/public';
 import { parseSentryTracesSampleRate } from '$lib/sentry-config';
-import {
-	safeScrubReplayRecordingEvent,
-	safeScrubSentryEvent,
-	type ScrubbableReplayRecordingEvent,
-	type ScrubbableSentryEvent
-} from '$lib/sentry-scrub';
+import { safeScrubSentryEvent, type ScrubbableSentryEvent } from '$lib/sentry-scrub';
 
 // Register the service worker for offline support and PWA updates.
 // `immediate: false` defers registration until after the load event, avoiding a
@@ -59,46 +54,20 @@ if (dsn) {
 	Sentry.init({
 		dsn,
 		tunnel: '/sentry-tunnel',
-		integrations: [
-			Sentry.replayIntegration({
-				// Session replay would otherwise capture every phone/email the
-				// user types (sign-in, settings) and every amount/name on
-				// screen — mask it all rather than try to allowlist what's
-				// safe. Media (camera preview while scanning a QR) is blocked
-				// outright, not just masked.
-				maskAllText: true,
-				maskAllInputs: true,
-				blockAllMedia: true,
-				// Replay's breadcrumbs and performance spans (navigation,
-				// fetch/xhr, resource URLs such as `/accept/<id>` or
-				// `/onboarding/otp?dest=…`) never pass through beforeSend,
-				// so they get the same scrubber here, before entering the
-				// recording buffer. Fails closed (the event is skipped).
-				beforeAddRecordingEvent: (event) =>
-					safeScrubReplayRecordingEvent(
-						event as unknown as ScrubbableReplayRecordingEvent
-					) as unknown as typeof event
-			}),
-			// The per-segment `replay_event` (visited `urls`, `request.url`)
-			// also bypasses beforeSend; integration processEvent hooks do run
-			// for it (prepareReplayEvent). Errors and transactions are left
-			// to beforeSend/beforeSendTransaction below.
-			{
-				name: 'ReplayEventScrubber',
-				processEvent: (event) =>
-					event.type === 'replay_event'
-						? (safeScrubSentryEvent(
-								event as unknown as ScrubbableSentryEvent
-							) as unknown as typeof event)
-						: event
-			}
-		],
+		// Session Replay is deliberately NOT enabled (no replayIntegration,
+		// no replays*SampleRate). Even with all text/inputs masked and every
+		// breadcrumb/span/replay_event URL scrubbed, rrweb's own DOM recording
+		// has no scrubbing hook: a full snapshot records `location.href`
+		// verbatim and element attributes such as link `href`s, so a page
+		// opened at `/accept/<id>` or `/onboarding/otp?dest=<phone/email>`
+		// would still ship that payment id / contact detail to Sentry.
+		// src/hooks.client.test.ts guards against re-adding it. If Replay is
+		// ever wanted again, its compression worker also needs `blob:` in
+		// the CSP's worker-src (svelte.config.js).
 		// Shared parser/default with src/instrumentation.server.ts and
 		// $lib/config's sentryTracesSampleRate (used there only for the
 		// boot-time validateConfig() check) — see src/lib/sentry-config.ts.
 		tracesSampleRate: parseSentryTracesSampleRate(env.PUBLIC_SENTRY_TRACES_SAMPLE_RATE),
-		replaysSessionSampleRate: 0.1,
-		replaysOnErrorSampleRate: 1.0,
 		enableLogs: true,
 		// Shared with instrumentation.server.ts — see src/lib/sentry-scrub.ts
 		// for what this redacts and why (ids in /accept, /send,
