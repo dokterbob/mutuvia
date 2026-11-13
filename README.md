@@ -577,10 +577,10 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   own Dockerfile.
 
 - **`MAX_TRANSACTION_AMOUNT` / non-positive-amount CHECK constraints.** A migration adds CHECK
-  constraints rejecting a zero/negative `transactions.amount`, a negative `payment_requests.amount`
-  (NULL is still allowed — an open-amount reusable QR), and a transaction where
-  `from_user_id = to_user_id`. Like the unique-index migration below, this fails loudly on a
-  database that already violates it, rather than silently dropping rows. Check first:
+  constraints rejecting a zero/negative `transactions.amount`, a zero/negative
+  `payment_requests.amount` (NULL is still allowed — an open-amount reusable QR), and a
+  transaction where `from_user_id = to_user_id`. Like the unique-index migration below, this fails
+  loudly on a database that already violates it, rather than silently dropping rows. Check first:
 
   ```sql
   -- Same SQL on SQLite and PostgreSQL
@@ -589,9 +589,34 @@ A checklist of things worth checking before upgrading an existing deployment, ne
   SELECT * FROM payment_requests WHERE amount IS NOT NULL AND amount <= 0;
   ```
 
-  If any of these return rows, they predate validation that's been in place since the amount-
-  parsing/settlement work — resolve them manually (there's no safe automatic fix for a
-  bad historical row) before running `bun run db:migrate`.
+  **Zero amounts are a realistic leftover, not just tampering:** the previous amount parser
+  accepted exponent notation, so an input like `1e-3` passed its "positive, at most N decimals"
+  checks and then rounded to `0` minor units — creating zero-amount QRs and transactions.
+  Negative amounts were never creatable through the app; if the first query returns any
+  `amount < 0` row, stop and investigate by hand.
+
+  Zero-amount transactions and self-payments are **balance-neutral** (balances are the sum of
+  incoming minus outgoing amounts, so a `0` row adds nothing and a self-payment adds `+x` and `−x`
+  to the same user), so deleting them changes no one's balance. Take a backup, then, before
+  `bun run db:migrate`:
+
+  ```sql
+  -- Same SQL on SQLite and PostgreSQL. Run in this order (transactions reference payment_requests).
+  BEGIN;
+  DELETE FROM transactions WHERE amount = 0 OR from_user_id = to_user_id;
+  -- Zero-amount QRs can only ever have produced zero-amount payments, which the line above removed.
+  -- If this fails on the foreign key, a non-zero payment references one — investigate by hand.
+  DELETE FROM payment_requests WHERE amount = 0;
+  -- Optional: re-sync reusable QRs' payment counters with the payments that remain
+  -- (total_received is unaffected — the deleted payments were all 0).
+  UPDATE payment_requests
+  SET payment_count = (SELECT COUNT(*) FROM transactions t WHERE t.payment_request_id = payment_requests.id)
+  WHERE reusable = true;
+  COMMIT;
+  ```
+
+  This removes those rows from transaction history. If you need to keep them, export them first
+  (e.g. `SELECT * FROM transactions WHERE amount = 0 OR from_user_id = to_user_id`).
 
 - **`ADDRESS_HEADER` / `XFF_DEPTH` behind a reverse proxy.** If this deployment sits behind a
   proxy and these aren't set, rate limiting still runs, but it buckets every visitor by the
