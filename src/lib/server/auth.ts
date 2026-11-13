@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { betterAuth } from 'better-auth';
-import { createAuthMiddleware, APIError, getSessionFromCtx, isAPIError } from 'better-auth/api';
+import { createAuthMiddleware, APIError, isAPIError } from 'better-auth/api';
 import { phoneNumber, emailOTP } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
@@ -12,7 +12,7 @@ import { sendOtpEmail } from './mailer';
 import { makePlaceholderEmail, isPlaceholderEmail } from '$lib/placeholder-email';
 import { closeSession } from './sse-registry';
 import { maskPhone } from './phone-mask';
-import { checkAndRecordOtpSend } from './otp-throttle';
+import { checkAndRecordOtpSend, checkOtpSend } from './otp-throttle';
 import {
 	canonicalE164,
 	normalizeEmailDestination,
@@ -155,6 +155,26 @@ function rejectNonCanonicalPhoneNumber(path: string, body: unknown): void {
 //    actual safety net (that test re-demonstrates the live attack against
 //    the real Better Auth instance on every run, so it would start failing
 //    again if either defense regressed).
+
+/**
+ * The authoritative per-destination throttle decision, made only when an OTP
+ * is actually about to be delivered: atomically checks AND records the send.
+ * Returns false (and the caller skips delivery) if the destination is over
+ * its limit — reachable only when concurrent requests all passed the
+ * read-only pre-check in `hooks.before`; in that race the losing callers get
+ * Better Auth's normal success response but no code. Can't throw a 429 here
+ * (see the PRELUDE_BLOCKED comment above), so it logs instead, never the
+ * destination itself.
+ */
+async function throttledSend(destination: string): Promise<boolean> {
+	if (!config.otpThrottleEnabled) return true;
+	const result = await checkAndRecordOtpSend(destination);
+	if (!result.ok) {
+		console.warn('[otp-throttle] destination over its limit at send time; OTP not delivered');
+	}
+	return result.ok;
+}
+
 const phoneNumberPlugin = phoneNumber({
 	signUpOnVerification: {
 		getTempEmail: (phoneNumber) => makePlaceholderEmail(phoneNumber)
@@ -180,6 +200,7 @@ const phoneNumberPlugin = phoneNumber({
 		return !!country && (allowlist as string[]).includes(country);
 	},
 	sendOTP: async ({ phoneNumber: phone, code }, ctx) => {
+		if (!(await throttledSend(normalizePhoneDestination(phone)))) return;
 		if (!prelude) {
 			if (config.devLogOtp) {
 				console.log(`[DEV] OTP for ${phone}: ${code}`);
@@ -301,6 +322,7 @@ export const auth = betterAuth({
 	plugins: [
 		emailOTP({
 			sendVerificationOTP: async ({ email, otp }) => {
+				if (!(await throttledSend(normalizeEmailDestination(email)))) return;
 				await sendOtpEmail(email, otp);
 			},
 			otpLength: 6,
@@ -418,19 +440,27 @@ export const auth = betterAuth({
 			rejectNonCanonicalPhoneNumber(ctx.path, ctx.body);
 
 			// Per-destination OTP send throttle — independent of client IP
-			// (which Better Auth's own `rateLimit` below already covers).
-			// This has to run as a `hooks.before` check that THROWS, rather
-			// than inside `sendOTP`/`sendVerificationOTP`: Better Auth's
-			// `runInBackgroundOrAwait` swallows anything those throw (see the
-			// PRELUDE_BLOCKED comment above), so this is the only place a
-			// throttle rejection can actually reach the client as a 429. Every
-			// endpoint that triggers an OTP send to a destination the caller
-			// controls goes through this — not just the obvious sign-in send
-			// endpoints, but also `requestEmailChange` (which sends to an
-			// arbitrary new address).
+			// (which Better Auth's own `rateLimit` below already covers). Two
+			// halves:
+			//   - here, a READ-ONLY pre-check that throws, so an over-limit
+			//     destination gets a real 429. It has to be a `hooks.before`
+			//     throw: Better Auth's `runInBackgroundOrAwait` swallows anything
+			//     `sendOTP`/`sendVerificationOTP` throw (see the PRELUDE_BLOCKED
+			//     comment above), so a rejection there never reaches the client.
+			//   - in those send callbacks, the atomic check-and-RECORD
+			//     (`throttledSend` below), so only an OTP that is actually going
+			//     out spends the destination's budget.
+			// Recording here instead (Codex reviews, PR #136) charged requests
+			// Better Auth then rejects or silently skips without sending — an
+			// unauthenticated `request-email-change`, `send-verification-otp`
+			// with `type: 'change-email'`, a non-sign-in type for an unknown
+			// address — letting anyone lock a victim out of sign-in OTPs without
+			// the victim ever receiving anything. Mirroring each endpoint's
+			// eligibility rules here proved fragile; recording at delivery
+			// covers every path, including future ones.
 			const destination = config.otpThrottleEnabled ? otpSendDestination(ctx.path, ctx.body) : null;
-			if (destination && (await mayConsumeOtpQuota(ctx))) {
-				const result = await checkAndRecordOtpSend(destination);
+			if (destination) {
+				const result = await checkOtpSend(destination);
 				if (!result.ok) {
 					throw new APIError('TOO_MANY_REQUESTS', {
 						message: 'Too many attempts. Please try again later.',
@@ -542,40 +572,6 @@ export async function revokeOtherSessionsForCredentialChange(headers: Headers): 
 /** The context object `hooks.after` handlers receive — reused here so this
  * helper's parameter type always matches what's actually passed to it. */
 type AuthMiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
-
-/**
- * Whether this request may be charged against `destination`'s per-destination
- * OTP budget. The throttle has to run in `hooks.before` (see the comment at
- * its call site), i.e. BEFORE the endpoint's own checks — so without this, a
- * request the endpoint is about to reject would still spend the budget of a
- * destination it never sends to. That matters for
- * `/email-otp/request-email-change`: it sends only after
- * `sensitiveSessionMiddleware` finds a (non-cached) session, and never to the
- * user's own current address. Codex review (PR #136): unauthenticated calls
- * naming someone else's address could otherwise lock that address out of
- * sign-in OTPs (3 per 10 minutes, then the daily cap) without sending them
- * anything. So mirror exactly those two eligibility checks here; the
- * atomic check-and-record below still runs for every eligible request.
- *
- * The "same address" check must use the ENDPOINT's equality (both sides
- * `.toLowerCase()`, nothing else — see request-email-change in
- * better-auth's email-otp routes.mjs), not the throttle key's alias folding:
- * `user+tag@gmail.com` normalizes to the same bucket as `user@gmail.com`,
- * yet Better Auth treats it as a different address and DOES send to it.
- * Comparing normalized keys exempted exactly those sends from the throttle
- * (Codex review, PR #136, second round).
- *
- * The sign-in send endpoints (`/phone-number/send-otp`,
- * `/email-otp/send-verification-otp`) are unauthenticated by design and
- * always attempt a send, so they are always charged.
- */
-async function mayConsumeOtpQuota(ctx: AuthMiddlewareContext): Promise<boolean> {
-	if (ctx.path !== '/email-otp/request-email-change') return true;
-	const session = await getSessionFromCtx(ctx, { disableCookieCache: true });
-	if (!session) return false;
-	const newEmail = (ctx.body as { newEmail: string }).newEmail;
-	return (session.user.email ?? '').toLowerCase() !== newEmail.toLowerCase();
-}
 
 /**
  * Refreshes a phone-only user's placeholder email after a successful phone

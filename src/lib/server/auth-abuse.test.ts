@@ -187,18 +187,19 @@ describe('per-destination OTP throttle, wired end-to-end — real Better Auth in
 		expect(fourth.status).toBe(429);
 	});
 
-	test('Given a mixed-case email with surrounding whitespace, when throttled, then it is normalized to the same destination as a clean lowercase send', async () => {
+	test('Given a mixed-case email, when throttled, then it is normalized to the same destination as a clean lowercase send', async () => {
 		const { auth } = await import('./auth');
 		const email = 'Norm@Example.com';
 
 		for (let i = 0; i < 3; i++) {
-			await auth.handler(
+			const res = await auth.handler(
 				new Request('http://localhost:5173/api/auth/email-otp/send-verification-otp', {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ email: ` ${email} `, type: 'sign-in' })
+					body: JSON.stringify({ email, type: 'sign-in' })
 				})
 			);
+			expect(res.status).toBe(200);
 		}
 
 		const fourth = await auth.handler(
@@ -210,6 +211,28 @@ describe('per-destination OTP throttle, wired end-to-end — real Better Auth in
 		);
 
 		expect(fourth.status).toBe(429);
+	});
+
+	// Better Auth rejects a space-padded address as INVALID_EMAIL before
+	// sending, so — now that the throttle records at delivery, not in
+	// hooks.before — such requests must not spend the real address's budget.
+	test('Given space-padded email sends that Better Auth rejects as invalid, then they do not count against that address', async () => {
+		const { auth } = await import('./auth');
+		const email = 'padded@example.com';
+		const send = (address: string) =>
+			auth.handler(
+				new Request('http://localhost:5173/api/auth/email-otp/send-verification-otp', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ email: address, type: 'sign-in' })
+				})
+			);
+
+		for (let i = 0; i < 5; i++) {
+			expect((await send(` ${email} `)).status).toBe(400);
+		}
+
+		expect((await send(email)).status).toBe(200);
 	});
 
 	test('Given the email change-request endpoint, when sent repeatedly past the short-window cap, then it is also throttled (not just the sign-in send endpoint)', async () => {
