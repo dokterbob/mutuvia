@@ -4,8 +4,17 @@
 // the redirect with a GET instead of re-POSTing. A 307 redirect to
 // `/receive?qrId=<id>` causes a POST without an action specifier → SvelteKit
 // returns 404.
+//
+// Also covers the amount-validation fix: `createQr` used to parse the
+// submitted amount with `parseFloat`, which accepted exponential notation,
+// "Infinity", and unbounded values. It now delegates to the shared
+// `parseAmount()` (unit-tested in `$lib/server/amount.test.ts`) — those tests
+// below only check that the route wires it up and rejects cleanly, not every
+// parsing edge case again. receive/+page.server.ts is special in that an
+// empty amount is valid for a *reusable* request (open amount) but invalid
+// for a one-time request.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, test, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Sentinel for redirect — lets tests detect the normal exit path without crashing
@@ -26,19 +35,29 @@ class MockRedirect extends Error {
 // factory callbacks execute (Vitest hoists vi.mock() calls to the top).
 // ---------------------------------------------------------------------------
 
-const { redirectMock, resumePaymentRequestMock, getPendingItemByIdMock, buildReusableUrlMock } =
-	vi.hoisted(() => {
-		const redirectMock = vi.fn().mockImplementation((status: number, location: string) => {
-			throw new MockRedirect(status, location);
-		});
-
-		return {
-			redirectMock,
-			resumePaymentRequestMock: vi.fn().mockResolvedValue(undefined),
-			getPendingItemByIdMock: vi.fn(),
-			buildReusableUrlMock: vi.fn((id: string) => `http://localhost/send/${id}`)
-		};
+const {
+	redirectMock,
+	resumePaymentRequestMock,
+	getPendingItemByIdMock,
+	buildReusableUrlMock,
+	dbInsertMock,
+	insertValuesFn
+} = vi.hoisted(() => {
+	const redirectMock = vi.fn().mockImplementation((status: number, location: string) => {
+		throw new MockRedirect(status, location);
 	});
+	const insertValuesFn = vi.fn().mockResolvedValue(undefined);
+	const dbInsertMock = vi.fn().mockReturnValue({ values: insertValuesFn });
+
+	return {
+		redirectMock,
+		resumePaymentRequestMock: vi.fn().mockResolvedValue(undefined),
+		getPendingItemByIdMock: vi.fn(),
+		buildReusableUrlMock: vi.fn((id: string) => `http://localhost/send/${id}`),
+		dbInsertMock,
+		insertValuesFn
+	};
+});
 
 // ---------------------------------------------------------------------------
 // Module mocks
@@ -56,7 +75,7 @@ vi.mock('@sentry/sveltekit', () => ({
 
 vi.mock('@sveltejs/kit', () => ({
 	redirect: redirectMock,
-	fail: vi.fn((_status: number, data: unknown) => data),
+	fail: vi.fn((status: number, data: unknown) => ({ status, ...(data as object) })),
 	error: vi.fn((_status: number, msg: unknown) => {
 		throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
 	})
@@ -76,7 +95,7 @@ vi.mock('$lib/server/qr', () => ({
 
 vi.mock('$lib/server/db', () => ({
 	db: {
-		insert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+		insert: dbInsertMock,
 		update: vi.fn().mockReturnValue({
 			set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) })
 		})
@@ -97,7 +116,8 @@ vi.mock('$lib/config', () => ({
 		appName: 'Mutuvia',
 		unitCode: 'EUR',
 		qrTtlSeconds: 300,
-		appUrl: 'http://localhost'
+		appUrl: 'http://localhost',
+		maxTransactionAmount: 100_000_000
 	}
 }));
 
@@ -145,6 +165,22 @@ function makeLoadEvent(qrId?: string): Parameters<typeof load>[0] {
 		route: { id: '/(app)/receive' },
 		cookies: { set: vi.fn(), get: vi.fn(), delete: vi.fn() }
 	} as unknown as Parameters<typeof load>[0];
+}
+
+function makeCreateQrEvent(
+	amount: string | null,
+	reusable = false
+): Parameters<(typeof actions)['createQr']>[0] {
+	const formData = new FormData();
+	if (amount !== null) formData.set('amount', amount);
+	if (reusable) formData.set('reusable', 'on');
+	return {
+		request: { formData: () => Promise.resolve(formData) },
+		locals: {
+			session: { id: 'session-1' },
+			appUser: { id: USER_ID, displayName: 'Alice' }
+		}
+	} as unknown as Parameters<(typeof actions)['createQr']>[0];
 }
 
 /** Run an action and swallow MockRedirects (the normal exit path). */
@@ -256,5 +292,60 @@ describe('load — receive page with reusable QR via ?qrId= (regression: resume 
 			expect(result.resumeQr).toBeNull();
 			expect(getPendingItemByIdMock).not.toHaveBeenCalled();
 		});
+	});
+});
+
+describe('createQr — amount validation (non-reusable: amount required)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		dbInsertMock.mockReturnValue({ values: insertValuesFn });
+		insertValuesFn.mockResolvedValue(undefined);
+	});
+
+	describe.each([
+		['exponential notation', '1e9'],
+		['Infinity', 'Infinity'],
+		['trailing garbage', '10abc'],
+		['negative', '-1'],
+		['zero', '0'],
+		['too many decimal places', '1.234'],
+		['above the sanity bound', '1000000.01'],
+		['empty string', ''],
+		['missing field', null]
+	])('Given amount is %s (%j)', (_label, amountValue) => {
+		test('When createQr is submitted → rejects with a 400 and does not write anything', async () => {
+			const result = await actions.createQr(makeCreateQrEvent(amountValue, false));
+
+			expect(result).toMatchObject({ status: 400 });
+			expect(dbInsertMock).not.toHaveBeenCalled();
+		});
+	});
+
+	test('Given a valid amount, When createQr is submitted → inserts with the parsed minor-unit amount', async () => {
+		await actions.createQr(makeCreateQrEvent('10.50', false));
+
+		expect(insertValuesFn).toHaveBeenCalledWith(expect.objectContaining({ amount: 1050 }));
+	});
+});
+
+describe('createQr — amount validation (reusable: amount optional)', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		dbInsertMock.mockReturnValue({ values: insertValuesFn });
+		insertValuesFn.mockResolvedValue(undefined);
+	});
+
+	test('Given no amount and reusable=on, When createQr is submitted → accepts an open-amount request', async () => {
+		const result = await actions.createQr(makeCreateQrEvent(null, true));
+
+		expect(insertValuesFn).toHaveBeenCalledWith(expect.objectContaining({ amount: null }));
+		expect(result).toMatchObject({ isReusable: true });
+	});
+
+	test('Given an invalid amount and reusable=on, When createQr is submitted → still rejects with a 400', async () => {
+		const result = await actions.createQr(makeCreateQrEvent('1e9', true));
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(dbInsertMock).not.toHaveBeenCalled();
 	});
 });

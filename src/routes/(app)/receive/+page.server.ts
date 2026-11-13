@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { buildPaymentRequestUrl, buildReusableUrl } from '$lib/server/qr';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
+import { parseAmount } from '$lib/server/amount';
 import {
 	getPendingItemById,
 	pausePaymentRequest,
@@ -79,25 +80,18 @@ export const actions: Actions = {
 		const displayName = locals.appUser!.displayName;
 		const data = await request.formData();
 
-		const amountStr = data.get('amount') as string;
+		const amountStr = data.get('amount');
 		const note = (data.get('note') as string)?.trim().slice(0, 120) || null;
 		const reusable = data.get('reusable') === 'on';
 		const dp = currencyFractionDigits();
 
 		let amount: number | null = null;
 
-		if (amountStr && amountStr.trim() !== '') {
-			const floatAmount = parseFloat(amountStr);
-			if (isNaN(floatAmount) || floatAmount <= 0) {
+		if (typeof amountStr === 'string' && amountStr.trim() !== '') {
+			amount = parseAmount(amountStr, dp);
+			if (amount === null) {
 				return fail(400, { error: 'Enter a valid amount.' });
 			}
-			const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
-			if (submittedDecimals > dp) {
-				return fail(400, {
-					error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
-				});
-			}
-			amount = Math.round(floatAmount * Math.pow(10, dp));
 		} else if (!reusable) {
 			return fail(400, { error: 'Enter a valid amount.' });
 		}

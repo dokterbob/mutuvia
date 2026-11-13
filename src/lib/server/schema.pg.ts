@@ -7,8 +7,10 @@ import {
 	timestamp,
 	integer,
 	primaryKey,
-	uniqueIndex
+	uniqueIndex,
+	check
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ── Better Auth managed tables ──
 // These are created/managed by Better Auth. We define them here for FK references only.
@@ -79,42 +81,61 @@ export const appUsers = pgTable('app_users', {
 	lastSeenVersion: text('last_seen_version')
 });
 
-export const paymentRequests = pgTable('payment_requests', {
-	id: text('id').primaryKey(),
-	initiatingUserId: text('initiating_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	reusable: boolean('reusable').notNull().default(false),
-	direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
-	amount: integer('amount'),
-	description: text('description'),
-	status: text('status', {
-		enum: ['active', 'paused', 'completed', 'declined', 'archived']
-	})
-		.notNull()
-		.default('active'),
-	initiatorName: text('initiator_name').notNull(),
-	createdAt: timestamp('created_at').notNull(),
-	updatedAt: timestamp('updated_at').defaultNow().notNull(),
-	expiresAt: timestamp('expires_at'),
-	totalReceived: integer('total_received').notNull().default(0),
-	paymentCount: integer('payment_count').notNull().default(0)
-});
+export const paymentRequests = pgTable(
+	'payment_requests',
+	{
+		id: text('id').primaryKey(),
+		initiatingUserId: text('initiating_user_id')
+			.notNull()
+			.references(() => appUsers.id),
+		reusable: boolean('reusable').notNull().default(false),
+		direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
+		amount: integer('amount'),
+		description: text('description'),
+		status: text('status', {
+			enum: ['active', 'paused', 'completed', 'declined', 'archived']
+		})
+			.notNull()
+			.default('active'),
+		initiatorName: text('initiator_name').notNull(),
+		createdAt: timestamp('created_at').notNull(),
+		updatedAt: timestamp('updated_at').defaultNow().notNull(),
+		expiresAt: timestamp('expires_at'),
+		totalReceived: integer('total_received').notNull().default(0),
+		paymentCount: integer('payment_count').notNull().default(0)
+	},
+	(table) => [
+		// amount is nullable (an "open amount" reusable request has none), but
+		// when set it must be a positive sanity-bounded value — same invariant
+		// enforced in application code by parseAmount().
+		check(
+			'payment_requests_amount_positive_check',
+			sql`${table.amount} IS NULL OR ${table.amount} > 0`
+		)
+	]
+);
 
-export const transactions = pgTable('transactions', {
-	id: text('id').primaryKey(),
-	fromUserId: text('from_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	toUserId: text('to_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	amount: integer('amount').notNull(),
-	unitCode: text('unit_code').notNull(),
-	note: text('note'),
-	paymentRequestId: text('payment_request_id').references(() => paymentRequests.id),
-	createdAt: timestamp('created_at').notNull()
-});
+export const transactions = pgTable(
+	'transactions',
+	{
+		id: text('id').primaryKey(),
+		fromUserId: text('from_user_id')
+			.notNull()
+			.references(() => appUsers.id),
+		toUserId: text('to_user_id')
+			.notNull()
+			.references(() => appUsers.id),
+		amount: integer('amount').notNull(),
+		unitCode: text('unit_code').notNull(),
+		note: text('note'),
+		paymentRequestId: text('payment_request_id').references(() => paymentRequests.id),
+		createdAt: timestamp('created_at').notNull()
+	},
+	(table) => [
+		check('transactions_amount_positive_check', sql`${table.amount} > 0`),
+		check('transactions_not_self_payment_check', sql`${table.fromUserId} <> ${table.toUserId}`)
+	]
+);
 
 export const connections = pgTable(
 	'connections',
