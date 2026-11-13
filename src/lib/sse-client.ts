@@ -17,6 +17,13 @@ export class SseManager {
 	private readonly seenIds = new SeenEventIds();
 	private readonly handlerSets = new Set<NotificationHandlers>();
 	private swMessageHandler: ((e: MessageEvent) => void) | null = null;
+	// Set when the server evicted this connection (connection-per-user cap —
+	// see sse-registry.ts). While true, connect() will not auto-reconnect:
+	// the server already told us it closed this stream on purpose, and
+	// auto-retrying would just evict a different tab a few seconds later,
+	// turning a one-off cap overflow into a reconnect storm. A later
+	// explicit connect() call (e.g. a fresh page load/remount) clears it.
+	private evicted = false;
 
 	/** Register handlers. Returns an unsubscribe function to remove them on cleanup. */
 	on(handlers: NotificationHandlers): Unsubscribe {
@@ -26,6 +33,9 @@ export class SseManager {
 
 	connect(): void {
 		if (this.es) return;
+		// An explicit connect() call is a fresh intent to reconnect (e.g. a page
+		// reload or component remount) — clear any prior eviction.
+		this.evicted = false;
 
 		this.es = new EventSource('/api/events');
 
@@ -38,7 +48,19 @@ export class SseManager {
 			}
 		};
 
+		// Named SSE event from sse-registry.ts's connection cap: this specific
+		// connection was evicted on purpose. Close without scheduling a
+		// reconnect — see the `evicted` field comment above.
+		this.es.addEventListener('evicted', () => {
+			this.evicted = true;
+			if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+			this.reconnectTimer = null;
+			this.es?.close();
+			this.es = null;
+		});
+
 		this.es.onerror = () => {
+			if (this.evicted) return;
 			this.es?.close();
 			this.es = null;
 			// Reconnect after a short delay; browser EventSource also retries automatically
