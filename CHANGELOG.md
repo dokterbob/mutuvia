@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Production builds no longer fail with intermittent HTTP 500s under concurrent requests. The Bun adapter bundled Better Auth's single-request browser polyfill instead of Node's `AsyncLocalStorage`; a local adapter patch fixes this, and `bun run build` now checks for it. See README → "Bun adapter patch".
 - Push notification icon path now points at the generated `/pwa-192x192.png` (the previous path did not exist).
 
 ## [0.4.0] - 2026-10-27
