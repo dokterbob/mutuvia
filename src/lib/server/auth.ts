@@ -429,7 +429,7 @@ export const auth = betterAuth({
 			// endpoints, but also `requestEmailChange` (which sends to an
 			// arbitrary new address).
 			const destination = config.otpThrottleEnabled ? otpSendDestination(ctx.path, ctx.body) : null;
-			if (destination && (await mayConsumeOtpQuota(ctx, destination))) {
+			if (destination && (await mayConsumeOtpQuota(ctx))) {
 				const result = await checkAndRecordOtpSend(destination);
 				if (!result.ok) {
 					throw new APIError('TOO_MANY_REQUESTS', {
@@ -557,18 +557,24 @@ type AuthMiddlewareContext = Parameters<Parameters<typeof createAuthMiddleware>[
  * anything. So mirror exactly those two eligibility checks here; the
  * atomic check-and-record below still runs for every eligible request.
  *
+ * The "same address" check must use the ENDPOINT's equality (both sides
+ * `.toLowerCase()`, nothing else — see request-email-change in
+ * better-auth's email-otp routes.mjs), not the throttle key's alias folding:
+ * `user+tag@gmail.com` normalizes to the same bucket as `user@gmail.com`,
+ * yet Better Auth treats it as a different address and DOES send to it.
+ * Comparing normalized keys exempted exactly those sends from the throttle
+ * (Codex review, PR #136, second round).
+ *
  * The sign-in send endpoints (`/phone-number/send-otp`,
  * `/email-otp/send-verification-otp`) are unauthenticated by design and
  * always attempt a send, so they are always charged.
  */
-async function mayConsumeOtpQuota(
-	ctx: AuthMiddlewareContext,
-	destination: string
-): Promise<boolean> {
+async function mayConsumeOtpQuota(ctx: AuthMiddlewareContext): Promise<boolean> {
 	if (ctx.path !== '/email-otp/request-email-change') return true;
 	const session = await getSessionFromCtx(ctx, { disableCookieCache: true });
 	if (!session) return false;
-	return normalizeEmailDestination(session.user.email ?? '') !== destination;
+	const newEmail = (ctx.body as { newEmail: string }).newEmail;
+	return (session.user.email ?? '').toLowerCase() !== newEmail.toLowerCase();
 }
 
 /**
