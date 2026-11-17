@@ -17,8 +17,10 @@
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
-	import { formatTimeRemaining } from '$lib/format-time';
+	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
 	import { qrExpiryLabel } from '$lib/qr-expiry-labels';
+	import { now } from '$lib/now.svelte';
+	import AdvancedOptions from '$lib/components/advanced-options.svelte';
 	import { sseManager } from '$lib/sse-client';
 	import { subscribeToPush } from '$lib/push-subscribe';
 
@@ -30,16 +32,22 @@
 	let amount = $state('');
 	let note = $state('');
 	let expiryPreset = $state('');
+	let showAdvanced = $state(false);
 	$effect(() => {
 		if (!expiryPreset) {
 			expiryPreset = data.expiryOptions.find((o) => o.isDefault)?.key ?? '';
 		}
 	});
+	let selectedExpiryOption = $derived(data.expiryOptions.find((o) => o.key === expiryPreset));
 	let qrDataUrl = $state('');
 	let qrId = $state('');
-	let secondsLeft = $state(0);
 	let expiresAt = $state('');
-	let isExpired = $state(false);
+	// Set when resuming a QR the server already reports as expired.
+	let resumedExpired = $state(false);
+	// Live countdown off the shared clock — only ticks while a QR with an
+	// expiry is shown (`now.current` isn't read otherwise).
+	let secondsLeft = $derived(expiresAt ? remainingSeconds(expiresAt, now.current) : 0);
+	let isExpired = $derived(resumedExpired || (step === 'qr' && !!expiresAt && secondsLeft <= 0));
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
@@ -72,7 +80,7 @@
 	$effect(() => {
 		if (!data.resumeQr) return;
 		if (data.resumeQr.isExpired) {
-			isExpired = true;
+			resumedExpired = true;
 			step = 'qr';
 		} else {
 			shareDescription = data.resumeQr.shareDescription ?? '';
@@ -99,23 +107,6 @@
 			// user cancelled or share failed — stay on QR screen
 		}
 	}
-
-	// Countdown: auto-cleans when step leaves 'qr' or component unmounts
-	$effect(() => {
-		if (step !== 'qr' || !expiresAt) return;
-		const expTime = new Date(expiresAt).getTime();
-		const update = () => {
-			const left = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
-			secondsLeft = left;
-			if (left <= 0) {
-				isExpired = true;
-				clearInterval(interval);
-			}
-		};
-		update();
-		const interval = setInterval(update, 1000);
-		return () => clearInterval(interval);
-	});
 
 	// SSE: subscribe when QR is active, auto-cleans on completion, expiry, or unmount
 	$effect(() => {
@@ -226,19 +217,21 @@
 			></textarea>
 			<p class="mb-1 text-right text-xs text-muted-foreground">{note.length}/120</p>
 
-			<Label class="mb-2 block text-sm text-muted-foreground">{m.qr_expiry_label()}</Label>
-			<Select.Root type="single" name="expiryPreset" bind:value={expiryPreset}>
-				<Select.Trigger class="mb-6 w-full">
-					{expiryPreset ? qrExpiryLabel(expiryPreset) : ''}
-				</Select.Trigger>
-				<Select.Content>
-					{#each data.expiryOptions as option (option.key)}
-						<Select.Item value={option.key} label={qrExpiryLabel(option.key)}>
-							{qrExpiryLabel(option.key)}
-						</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
+			<AdvancedOptions class="mt-3 mb-6" bind:open={showAdvanced}>
+				<Label class="mb-2 block text-sm text-muted-foreground">{m.qr_expiry_label()}</Label>
+				<Select.Root type="single" name="expiryPreset" bind:value={expiryPreset}>
+					<Select.Trigger class="w-full">
+						{selectedExpiryOption ? qrExpiryLabel(selectedExpiryOption, getLocale()) : ''}
+					</Select.Trigger>
+					<Select.Content>
+						{#each data.expiryOptions as option (option.key)}
+							<Select.Item value={option.key} label={qrExpiryLabel(option, getLocale())}>
+								{qrExpiryLabel(option, getLocale())}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</AdvancedOptions>
 
 			{#if form?.error}
 				<p class="mb-3 text-sm text-red-600">{form.error}</p>
