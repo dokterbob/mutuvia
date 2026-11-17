@@ -7,10 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-17
+
+Security hardening across the app, configurable QR expiry, and a smoother sign-in when you scan a QR before having an account.
+
 ### Added
 
-- **Android app** — Trusted Web Activity shell, with signed APKs published on GitHub Releases. See [docs/android.md](docs/android.md).
 - **Configurable QR expiry** — creators can now pick an expiry preset (1 hour, 1 day, 3 days, 1 week, 30 days, or "never" for reusable QRs) under "Advanced options" when sending or receiving; operators can set defaults and an optional hard cap via new env vars. An operator default that matches no preset is offered as an extra option labelled with its actual duration (e.g. "10 minutes"). Remaining time counts down live on the QR screen and in the Home and History pending lists, which switch to "Expired" without a reload. ([#137](https://github.com/dokterbob/mutuvia/pull/137))
+- **Android app** — Trusted Web Activity shell, with signed APKs published on GitHub Releases. See [docs/android.md](docs/android.md).
 
 ### Changed
 

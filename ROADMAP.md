@@ -23,6 +23,8 @@
 - [x] `.env.example` with all config documented
 - [x] AGPL-3.0 license
 - [x] **Android app** — Trusted Web Activity shell, signed APK on GitHub Releases (see [docs/android.md](docs/android.md))
+- [x] **Configurable QR expiry** (v0.5.0) — presets from 1 hour to 30 days (plus "never" for reusable QRs) under "Advanced options" on Send and Receive, operator defaults and an optional cap, live countdowns on the QR screen and pending lists
+- [x] **Signed-out QR acceptance** (v0.5.0) — scanning a QR before having an account returns you to it after sign-in; incoming credit is accepted automatically, paying always asks for confirmation
 
 ---
 
@@ -32,11 +34,10 @@ These items improve what's already built before adding new features.
 
 - [ ] **Theme pass** — Align shadcn-svelte theme (CSS variables in `layout.css`) with the mockup's forest/cream palette. Consistent use of ShadCN components across all screens.
 - [ ] **Unit tests** — Balance utilities (`getBalance`, `formatAmount`, `getConnections`), QR JWT sign/verify, settlement atomicity.
-- [x] **Security audit** (Sub-Agent H from the plan) — the bulk of this landed as a stack of
-      hardening PRs (atomic settlement, strict amount validation, authz-gap fixes, push/SSE
-      allowlisting + caps, production-mode enforcement, phone pre-claim/unique-index fix, rate
-      limiting, QR expiry presets, CSP + security headers, and this PR's deploy/supply-chain
-      hardening):
+- [x] **Security audit** (Sub-Agent H from the plan) — shipped in v0.5.0 (see CHANGELOG.md →
+      `[0.5.0]` → Security): atomic settlement, strict amount validation, authz-gap fixes,
+      push/SSE allowlisting + caps, production-mode enforcement, phone pre-claim/unique-index fix,
+      rate limiting, QR expiry presets, CSP + security headers, and deploy/supply-chain hardening:
   - [x] No cross-user transaction history leak — authz-gap fixes (decline requires login,
         `/api/qr-status/[id]` party check, layout data trimmed)
   - [x] ~~`QR_JWT_SECRET` absent from all client bundles~~ — moot: there is no `QR_JWT_SECRET`

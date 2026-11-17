@@ -345,5 +345,6 @@
 	"whats_new_version_label": "Version {version}",
 	"whats_new_v0_2_0": "Manage your email and phone number in settings\nSpanish language support\nImproved navigation with back button and cancel confirmation",
 	"whats_new_v0_3_0": "Reusable payment QR codes — create a permanent code for customers to scan multiple times\nEasier-to-scan QR codes (shorter, simpler URLs)",
-	"whats_new_v0_4_0": "Contacts — see your balance with each person you've traded with, and your shared history\nSecurity updates to sign-in emails and request handling"
+	"whats_new_v0_4_0": "Contacts — see your balance with each person you've traded with, and your shared history\nSecurity updates to sign-in emails and request handling",
+	"whats_new_v0_5_0": "Choose how long a QR code stays valid: from 1 hour up to 30 days, with a live countdown until it expires\nStronger security behind the scenes: safer sign-in, protection against misuse, and better-protected balances and personal data\nWhen someone sends you credit by QR, it's now accepted automatically once you've signed in"
 }

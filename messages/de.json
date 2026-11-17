@@ -332,5 +332,6 @@
 	"whats_new_version_label": "Version {version}",
 	"whats_new_v0_2_0": "E-Mail und Telefonnummer in den Einstellungen verwalten\nSpanische Sprachunterstützung\nVerbesserte Navigation mit Zurück-Schaltfläche und Abbruchbestätigung",
 	"whats_new_v0_3_0": "Wiederverwendbare Zahlungs-QR-Codes — erstelle einen permanenten Code für mehrfaches Scannen\nEinfacher zu scannende QR-Codes (kürzere, einfachere URLs)",
-	"whats_new_v0_4_0": "Kontakte — sieh deinen Saldo mit jeder Person, mit der du gehandelt hast, und euren gemeinsamen Verlauf\nSicherheitsupdates für Anmelde-E-Mails und die Verarbeitung von Anfragen"
+	"whats_new_v0_4_0": "Kontakte — sieh deinen Saldo mit jeder Person, mit der du gehandelt hast, und euren gemeinsamen Verlauf\nSicherheitsupdates für Anmelde-E-Mails und die Verarbeitung von Anfragen",
+	"whats_new_v0_5_0": "Wähle, wie lange ein QR-Code gültig bleibt: von 1 Stunde bis zu 30 Tagen, mit einem Live-Countdown bis zum Ablauf\nMehr Sicherheit im Hintergrund: sicherere Anmeldung, Schutz vor Missbrauch und besser geschützte Guthaben und persönliche Daten\nWenn dir jemand per QR-Code Guthaben sendet, wird es jetzt automatisch angenommen, sobald du angemeldet bist"
 }
