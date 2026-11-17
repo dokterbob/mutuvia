@@ -98,6 +98,10 @@ describe('isSafeReturnTo', () => {
 	test.each([
 		'//evil.example',
 		'/\\evil.example',
+		'/\t/evil.example',
+		'/\n/evil.example',
+		'/\r//evil.example',
+		'/a\\b',
 		'https://evil.example/accept/abc',
 		'evil',
 		'/onboarding',

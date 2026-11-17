@@ -71,18 +71,27 @@ export function returnCookieMaxAge(expiresAt: Date | null, nowMs: number = Date.
 	);
 }
 
+const RETURN_TO_BASE = 'http://return-to.invalid';
+
 /**
- * Open-redirect guard: only a same-origin absolute path, never a
- * protocol-relative `//host`, and never back into onboarding (loop).
+ * Open-redirect guard: only a same-origin absolute path, and never back into
+ * onboarding (loop). Prefix checks alone aren't enough — the URL parser
+ * strips tabs/newlines and treats `\` as `/`, so e.g. `/\t/evil.example` or
+ * `/\\evil.example` would resolve to `//evil.example`. So control characters
+ * and backslashes are rejected outright, and the value must still resolve to
+ * our own origin.
  */
 export function isSafeReturnTo(value: string | undefined): value is string {
-	return (
-		typeof value === 'string' &&
-		value.startsWith('/') &&
-		!value.startsWith('//') &&
-		!value.startsWith('/\\') &&
-		!value.startsWith('/onboarding')
-	);
+	if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return false;
+	// eslint-disable-next-line no-control-regex
+	if (/[\u0000-\u001f\u007f\\]/.test(value)) return false;
+	let resolved: URL;
+	try {
+		resolved = new URL(value, RETURN_TO_BASE);
+	} catch {
+		return false;
+	}
+	return resolved.origin === RETURN_TO_BASE && !resolved.pathname.startsWith('/onboarding');
 }
 
 export interface QrReturnOptions {

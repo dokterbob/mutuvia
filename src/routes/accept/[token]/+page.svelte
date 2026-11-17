@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 	import { Button } from '$lib/components/ui/button';
@@ -105,7 +104,7 @@
 				ℹ
 			</div>
 			<p class="mb-6 text-lg font-medium">{m.accept_self_qr()}</p>
-			<Button class="w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
+			<Button href="/home" class="w-full rounded-xl bg-[#2D4A32] py-6 text-white">
 				{m.send_back_home()}
 			</Button>
 		</div>
@@ -118,10 +117,7 @@
 				<p class="mb-6 text-lg font-medium">
 					{m.accept_expired_during_onboarding({ name: data.initiatorName })}
 				</p>
-				<Button
-					class="w-full rounded-xl bg-[#2D4A32] py-6 text-white"
-					onclick={() => goto('/home')}
-				>
+				<Button href="/home" class="w-full rounded-xl bg-[#2D4A32] py-6 text-white">
 					{m.send_back_home()}
 				</Button>
 			{:else}

@@ -309,7 +309,7 @@ test.describe('QR accept/[token] signed-out return flow', () => {
 		await expect(
 			page.getByText(new RegExp(`This QR from ${CREATOR_NAME} expired before you finished`))
 		).toBeVisible();
-		await expect(page.getByRole('button', { name: /back to home/i })).toBeVisible();
+		await expect(page.getByRole('link', { name: /back to home/i })).toBeVisible();
 	});
 
 	test('Given a send QR, when the creator signs in from their own link, then the accept page says it is their own QR and nothing happened', async ({
@@ -345,6 +345,6 @@ test.describe('QR accept/[token] signed-out return flow', () => {
 		// is blocked and the "expired" ⏱ view is deliberately NOT shown.
 		await page.waitForURL(/\/accept\//, { timeout: 10_000 });
 		await expect(page.getByText('This is your own QR, so nothing happened.')).toBeVisible();
-		await expect(page.getByRole('button', { name: /back to home/i })).toBeVisible();
+		await expect(page.getByRole('link', { name: /back to home/i })).toBeVisible();
 	});
 });
