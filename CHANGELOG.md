@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Accepting a QR when signed out** — the sign-in button now says what happens next. For incoming credit it reads "Accept {amount} from {name}", and the credit is accepted automatically once you've signed in or created an account. For a payment request it reads "Sign in to review", and you always confirm with "Pay {name} {amount}" after signing in — nothing is ever paid automatically. The balance impact and the "not real money" notice are now shown before sign-in too, and every accepted QR is confirmed on Home.
+- **Accepting a QR when signed out** — the sign-in button now says what happens next. For incoming credit it reads "Accept {amount} from {name}", and the credit is accepted automatically once you've signed in or created an account. For a payment request it reads "Sign in to review", and you always confirm with "Pay {name} {amount}" after signing in — nothing is ever paid automatically. The balance impact and the "not real money" notice are now shown before sign-in too, and every accepted QR is confirmed on Home. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
 - `generate-secret` now documents and is used solely for generating `BETTER_AUTH_SECRET`; the stale `QR_JWT_SECRET` references (dead since the v0.3.0 move to UUID-based QR links) are gone from the README, `AGENTS.md`, the `.env*` example files, and `scripts/generate-secret.ts`. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
 
 ### Removed
@@ -24,9 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- After signing in or signing up from a scanned QR, you now land back on that QR instead of on Home. On a plain-http `APP_URL` (e.g. a phone on the LAN in dev) the browser silently dropped the return cookies; they now follow `APP_URL`'s scheme for `Secure`, like the session cookie.
-- Signing in from your own QR link now says "This is your own QR, so nothing happened." instead of showing it as expired; a QR that expired or was used while you were signing up now says so, by name, and that nothing was paid.
-- The dev server no longer logs a 404 for `/manifest.webmanifest` on every page: the PWA manifest (generated only at build time) is no longer linked in dev.
+- After signing in or signing up from a scanned QR, you now land back on that QR instead of on Home. On a plain-http `APP_URL` (e.g. a phone on the LAN in dev) the browser silently dropped the return cookies; they now follow `APP_URL`'s scheme for `Secure`, like the session cookie. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
+- Signing in from your own QR link now says "This is your own QR, so nothing happened." instead of showing it as expired; a QR that expired or was used while you were signing up now says so, by name, and that nothing was paid. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
+- The dev server no longer logs a 404 for `/manifest.webmanifest` on every page: the PWA manifest (generated only at build time) is no longer linked in dev. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
 - Production builds no longer fail with intermittent HTTP 500s under concurrent requests. The Bun adapter bundled Better Auth's single-request browser polyfill instead of Node's `AsyncLocalStorage`; a local adapter patch fixes this, and `bun run build` now checks for it. See README → "Bun adapter patch".
 - Push notification icon path now points at the generated `/pwa-192x192.png` (the previous path did not exist).
 
