@@ -30,6 +30,10 @@ test.describe('QR expiry preset', () => {
 			await expect(page.getByRole('heading', { name: 'Send' })).toBeVisible();
 			await page.locator('input[name="amount"]').fill('1.00');
 
+			// Open "Advanced options" first — the expiry Select lives inside the
+			// collapsed <details> block and isn't visible until it's expanded.
+			await page.getByText('Advanced options').click();
+
 			// Expiry Select — defaults to "3 days" (QR_TTL_SECONDS default).
 			// bits-ui's Select.Trigger renders a native <button> (aria-haspopup
 			// "listbox", no combobox role), so target it via its data-slot.
@@ -47,10 +51,11 @@ test.describe('QR expiry preset', () => {
 			// second, and a preset's seconds value sits exactly on a bucket
 			// boundary (86400s = the "day" bucket's minimum) — by the time the
 			// client renders, a few seconds have always elapsed server round-trip,
-			// so the remaining time is just *under* 86400s and renders in the next
-			// bucket down: "24 hours", not "1 day". That's the real, deterministic
-			// rendering (verified above), not a flaky edge case.
-			await expect(page.getByText(/Expires in (about )?(23|24) hours/i)).toBeVisible({
+			// so the remaining time is just *under* 86400s. `formatTimeRemaining`
+			// floors to the bucket below rather than rounding up, so it always
+			// renders "23 hours", never "24 hours" or "1 day". That's the real,
+			// deterministic rendering (verified above), not a flaky edge case.
+			await expect(page.getByText(/Expires in (about )?23 hours/i)).toBeVisible({
 				timeout: 10_000
 			});
 			await expect(page.getByText(/3 days/i)).not.toBeVisible();
@@ -101,8 +106,8 @@ test.describe('QR expiry preset', () => {
 
 			// QR step — the reusable QR now honours the chosen preset instead of
 			// always getting expiresAt: null. See the send test above for why
-			// this renders as "24 hours" rather than "1 day".
-			await expect(page.getByText(/Expires in (about )?(23|24) hours/i)).toBeVisible({
+			// this renders as "23 hours" rather than "1 day".
+			await expect(page.getByText(/Expires in (about )?23 hours/i)).toBeVisible({
 				timeout: 10_000
 			});
 		} finally {

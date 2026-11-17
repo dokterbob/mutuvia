@@ -14,7 +14,8 @@ vi.mock('$lib/push-subscribe', () => ({ subscribeToPush: vi.fn().mockResolvedVal
 vi.mock('$lib/sse-client', () => ({ sseManager: { on: vi.fn().mockReturnValue(vi.fn()) } }));
 vi.mock('$lib/format-time', () => ({
 	formatTimeRemaining: () => 'in 10 minutes',
-	remainingSeconds: () => 600
+	remainingSeconds: () => 600,
+	formatDuration: (seconds: number) => `${seconds} seconds`
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: false }));
@@ -47,7 +48,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	qr_expiry_1w: () => '1 week',
 	qr_expiry_30d: () => '30 days',
 	qr_expiry_never: () => 'Never',
-	qr_expiry_default: () => 'Default'
+	advanced_options: () => 'Advanced options'
 }));
 
 const mockData = {
@@ -230,5 +231,42 @@ describe('send page – resume from pending list (#86)', () => {
 		await waitFor(() => {
 			expect(getByText('Expired')).toBeTruthy();
 		});
+	});
+});
+
+// User-testing feedback on #141: the expiry select sits under "Advanced
+// options" on Send too (symmetry with Receive), and a non-preset operator
+// default is labelled with its actual duration instead of a bare "Default".
+describe('send page – expiry under Advanced options', () => {
+	afterEach(() => cleanup());
+
+	test('given the amount step, when rendered, then the expiry select is inside a collapsed "Advanced options" section', () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { container } = render(SendPage, { props: { data: mockData as any, form: null } });
+
+		const details = container.querySelector('details');
+		expect(details).not.toBeNull();
+		expect(details!.open).toBe(false);
+		expect(details!.querySelector('summary')?.textContent).toContain('Advanced options');
+		expect(details!.textContent).toContain('Expires');
+		expect(details!.textContent).toContain('3 days');
+	});
+
+	test('given a synthetic operator default, when rendered, then it is preselected and labelled with its duration', () => {
+		const data = {
+			...mockData,
+			expiryOptions: [
+				{ key: '1h', seconds: 3600, isDefault: false },
+				{ key: 'default', seconds: 600, isDefault: true }
+			]
+		};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { container } = render(SendPage, { props: { data: data as any, form: null } });
+
+		const details = container.querySelector('details')!;
+		expect(details.textContent).toContain('600 seconds');
+		expect(details.textContent).not.toContain('Default');
+		const hidden = container.querySelector<HTMLInputElement>('input[name="expiryPreset"]');
+		expect(hidden?.value).toBe('default');
 	});
 });
