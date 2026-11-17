@@ -29,6 +29,9 @@ vi.mock('$app/forms', () => ({
 
 vi.mock('$app/environment', () => ({ browser: false }));
 
+const { toastSuccess } = vi.hoisted(() => ({ toastSuccess: vi.fn() }));
+vi.mock('svelte-sonner', () => ({ toast: { success: toastSuccess } }));
+
 vi.mock('$lib/paraglide/runtime.js', () => ({ getLocale: () => 'en' }));
 
 vi.mock('$lib/paraglide/messages.js', () => ({
@@ -61,6 +64,10 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	home_resume_action: () => 'Resume',
 	pending_cancel_aria: () => 'Cancel',
 	qr_expires: ({ time }: { time: string }) => `Expires ${time}`,
+	toast_accept_received: ({ amount, name }: { amount: string; name: string }) =>
+		`${amount} from ${name} added to your balance`,
+	toast_accept_paid: ({ amount, name }: { amount: string; name: string }) =>
+		`You paid ${name} ${amount}`,
 	time_just_now: () => 'just now',
 	time_minutes_ago: ({ count }: { count: string }) => `${count}m ago`,
 	time_hours_ago: ({ count }: { count: string }) => `${count}h ago`,
@@ -197,5 +204,39 @@ describe('home page – pending reusable QR expiry display', () => {
 		const { queryByText } = render(HomePage, { props: { data: data as any } });
 
 		expect(queryByText(/Expires/)).toBeNull();
+	});
+});
+
+describe('home page – confirmation after accepting a QR', () => {
+	beforeEach(() => toastSuccess.mockClear());
+
+	it('Given an accept flash for incoming credit, When Home loads → toasts "{amount} from {name} added to your balance" once', () => {
+		const data = {
+			...mockData,
+			acceptFlash: { direction: 'send', name: 'Alice', amount: '€5.00' }
+		};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		render(HomePage, { props: { data: data as any } });
+
+		expect(toastSuccess).toHaveBeenCalledOnce();
+		expect(toastSuccess).toHaveBeenCalledWith('€5.00 from Alice added to your balance');
+	});
+
+	it('Given an accept flash for a payment, When Home loads → toasts "You paid {name} {amount}"', () => {
+		const data = {
+			...mockData,
+			acceptFlash: { direction: 'receive', name: 'Alice', amount: '€5.00' }
+		};
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		render(HomePage, { props: { data: data as any } });
+
+		expect(toastSuccess).toHaveBeenCalledWith('You paid Alice €5.00');
+	});
+
+	it('Given no flash, When Home loads → no toast', () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		render(HomePage, { props: { data: { ...mockData, acceptFlash: null } as any } });
+
+		expect(toastSuccess).not.toHaveBeenCalled();
 	});
 });

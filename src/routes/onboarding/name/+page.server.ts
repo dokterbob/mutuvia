@@ -5,24 +5,9 @@ import { db } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import type { Cookies } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { config } from '$lib/config';
-
-function consumeQrReturnTo(cookies: Cookies): string | null {
-	const returnTo = cookies.get('qr_return_to');
-	if (
-		returnTo &&
-		returnTo.startsWith('/') &&
-		!returnTo.startsWith('//') &&
-		!returnTo.startsWith('/onboarding')
-	) {
-		cookies.delete('qr_return_to', { path: '/' });
-		cookies.delete('qr_skip_intros', { path: '/' });
-		return returnTo;
-	}
-	return null;
-}
+import { consumeQrReturnTo } from '$lib/server/qr-return';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { isAuthenticated } = await parent();

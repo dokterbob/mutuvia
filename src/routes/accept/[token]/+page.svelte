@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as m from '$lib/paraglide/messages.js';
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { env } from '$env/dynamic/public';
 	import { Button } from '$lib/components/ui/button';
@@ -15,11 +16,25 @@
 	let fullOnboardingLoading = $state(false);
 	let acceptLoading = $state(false);
 	let declineLoading = $state(false);
+	let acceptForm = $state<HTMLFormElement | undefined>(undefined);
+	let autoSubmitted = $state(false);
+
+	// Incoming credit after a fast-track sign-in: submit the ordinary accept
+	// form once, as an enhanced POST (same settlement path, CSRF origin check
+	// still applies). Effects only run in the browser, so without JS this never
+	// fires and the plain Accept button is all there is.
+	$effect(() => {
+		if (!data.autoAccept || autoSubmitted || !acceptForm) return;
+		autoSubmitted = true;
+		acceptForm.requestSubmit();
+	});
+	// "Finishing…" until it settles (→ redirect) or fails (→ error + buttons).
+	let finishing = $derived(autoSubmitted && !form?.error);
 
 	const appName = env.PUBLIC_APP_NAME || 'Mutuvia';
 
 	const ogTitle = $derived(
-		data.expired
+		data.expired || data.selfAccept
 			? m.og_expired_title()
 			: data.direction === 'send'
 				? m.og_send_title({ amount: data.formattedAmount ?? '' })
@@ -59,23 +74,76 @@
 	{/if}
 {/snippet}
 
+{#snippet balanceImpact()}
+	<p class="mb-4 text-sm text-muted-foreground">
+		{#if data.direction === 'send'}
+			{m.accept_send_balance_impact({
+				name: data.initiatorName ?? '',
+				amount: data.formattedAmount ?? ''
+			})}
+		{:else}
+			{m.accept_receive_balance_impact({
+				name: data.initiatorName ?? '',
+				amount: data.formattedAmount ?? ''
+			})}
+		{/if}
+	</p>
+{/snippet}
+
+{#snippet firstTimeNotice()}
+	<Card class="mb-4 rounded-xl border-blue-200 bg-blue-50 p-4">
+		<p class="text-sm text-blue-900">
+			{m.accept_first_time_notice()}
+		</p>
+	</Card>
+{/snippet}
+
 <div class="mx-auto flex min-h-dvh w-full max-w-md flex-col px-6 pt-14 pb-8">
-	{#if data.expired}
+	{#if data.selfAccept}
+		<div class="flex flex-1 flex-col items-center justify-center text-center">
+			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted text-3xl">
+				ℹ
+			</div>
+			<p class="mb-6 text-lg font-medium">{m.accept_self_qr()}</p>
+			<Button class="w-full rounded-xl bg-[#2D4A32] py-6 text-white" onclick={() => goto('/home')}>
+				{m.send_back_home()}
+			</Button>
+		</div>
+	{:else if data.expired}
 		<div class="flex flex-1 flex-col items-center justify-center text-center">
 			<div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted text-3xl">
 				⏱
 			</div>
-			<p class="mb-2 text-lg font-medium">{m.accept_expired()}</p>
-			<p class="text-sm text-muted-foreground">{data.error}</p>
+			{#if data.expiredDuringOnboarding && data.initiatorName}
+				<p class="mb-6 text-lg font-medium">
+					{m.accept_expired_during_onboarding({ name: data.initiatorName })}
+				</p>
+				<Button
+					class="w-full rounded-xl bg-[#2D4A32] py-6 text-white"
+					onclick={() => goto('/home')}
+				>
+					{m.send_back_home()}
+				</Button>
+			{:else}
+				<p class="mb-2 text-lg font-medium">{m.accept_expired()}</p>
+				<p class="text-sm text-muted-foreground">{data.error}</p>
+			{/if}
 		</div>
 	{:else if data.needsAuth}
-		<!-- Unauthenticated view: show transaction details + sign-in CTAs -->
+		<!-- Unauthenticated view: transaction details, what it does to the
+		     balances, then sign-in CTAs that say what happens next. -->
 		<div class="flex flex-1 flex-col">
 			{@render transactionSummary()}
-
-			<p class="mb-6 text-sm text-muted-foreground">{m.accept_sign_in_required()}</p>
+			{@render balanceImpact()}
+			{@render firstTimeNotice()}
 
 			<div class="flex-1"></div>
+
+			<p class="mb-3 text-center text-sm text-muted-foreground">
+				{data.direction === 'send'
+					? m.accept_signed_out_send_helper()
+					: m.accept_signed_out_receive_helper()}
+			</p>
 
 			<form
 				method="POST"
@@ -97,7 +165,12 @@
 					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 				>
 					<CheckIcon class="mr-2 h-5 w-5" />
-					{m.accept_fast_cta()}
+					{data.direction === 'send'
+						? m.accept_signed_out_send_cta({
+								amount: data.formattedAmount ?? '',
+								name: data.initiatorName ?? ''
+							})
+						: m.accept_signed_out_receive_cta()}
 				</Button>
 			</form>
 
@@ -134,6 +207,20 @@
 	{:else}
 		<!-- Authenticated view: accept/decline -->
 		<div class="flex flex-1 flex-col">
+			{#if data.resumed}
+				<p
+					class="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800"
+					role="status"
+				>
+					{m.accept_resume_banner({ name: data.viewerName ?? '' })}
+				</p>
+			{/if}
+
+			{#if data.resumed && data.direction === 'receive'}
+				<!-- Paying: lead with what it does to the balances. -->
+				{@render balanceImpact()}
+			{/if}
+
 			{@render transactionSummary()}
 
 			{#if data.direction === 'send' && data.initiatorBalance}
@@ -147,28 +234,19 @@
 				</p>
 			{/if}
 
-			<p class="mb-4 text-sm text-muted-foreground">
-				{#if data.direction === 'send'}
-					{m.accept_send_balance_impact({
-						name: data.initiatorName ?? '',
-						amount: data.formattedAmount ?? ''
-					})}
-				{:else}
-					{m.accept_receive_balance_impact({
-						name: data.initiatorName ?? '',
-						amount: data.formattedAmount ?? ''
-					})}
-				{/if}
-			</p>
-
-			<Card class="mb-4 rounded-xl border-blue-200 bg-blue-50 p-4">
-				<p class="text-sm text-blue-900">
-					{m.accept_first_time_notice()}
-				</p>
-			</Card>
+			{#if !(data.resumed && data.direction === 'receive')}
+				{@render balanceImpact()}
+			{/if}
+			{@render firstTimeNotice()}
 
 			{#if form?.error}
-				<p class="mb-3 text-sm text-red-600">{form.error}</p>
+				<p class="mb-3 text-sm text-red-600" role="alert">{form.error}</p>
+			{/if}
+
+			{#if finishing}
+				<p class="mb-3 text-center text-sm text-muted-foreground" aria-live="polite">
+					{m.accept_finishing()}
+				</p>
 			{/if}
 
 			<div class="flex-1"></div>
@@ -176,6 +254,7 @@
 			<form
 				method="POST"
 				action="?/accept"
+				bind:this={acceptForm}
 				use:enhance={() => {
 					acceptLoading = true;
 					return async ({ update }) => {
@@ -194,7 +273,14 @@
 					class="w-full rounded-xl bg-[#2D4A32] py-6 text-base text-white hover:bg-[#3D6145]"
 				>
 					<CheckIcon class="mr-2 h-5 w-5" />
-					{m.accept_cta()}
+					{#if data.resumed && data.direction === 'receive'}
+						{m.accept_pay_cta({
+							name: data.initiatorName ?? '',
+							amount: data.formattedAmount ?? ''
+						})}
+					{:else}
+						{m.accept_cta()}
+					{/if}
 				</Button>
 			</form>
 

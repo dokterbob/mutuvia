@@ -13,8 +13,21 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
 	import { now } from '$lib/now.svelte';
+	import { toast } from 'svelte-sonner';
 
 	let { data } = $props();
+
+	// Confirm a just-accepted QR (flash set by the accept action's redirect
+	// here). The Toaster's live region announces it to screen readers.
+	$effect(() => {
+		const flash = data.acceptFlash;
+		if (!flash) return;
+		toast.success(
+			flash.direction === 'send'
+				? m.toast_accept_received({ amount: flash.amount, name: flash.name })
+				: m.toast_accept_paid({ amount: flash.amount, name: flash.name })
+		);
+	});
 
 	// Live expiry: rows count down off the shared clock and flip to "Expired"
 	// the moment the countdown reaches 0, without waiting for a reload to get

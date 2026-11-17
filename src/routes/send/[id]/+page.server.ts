@@ -12,6 +12,7 @@ import { sendPushToUser } from '$lib/server/push-sender';
 import { config } from '$lib/config';
 import { parseAmount, parseStoredAmount } from '$lib/server/amount';
 import { isExpired } from '$lib/server/qr-expiry';
+import { setQrReturnCookies, qrCookieOptions, QR_AMOUNT_COOKIE } from '$lib/server/qr-return';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -40,7 +41,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	if (!qr.reusable) error(404, 'Not found');
 
 	if (!locals.session || !locals.appUser) {
-		const prefilledAmount = parseStoredAmount(cookies.get('qr_amount'));
+		const prefilledAmount = parseStoredAmount(cookies.get(QR_AMOUNT_COOKIE));
 		return {
 			needsAuth: true,
 			qrId: qr.id,
@@ -58,9 +59,9 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	}
 
 	const scannerBalance = await getBalance(locals.appUser.id);
-	const cookieAmount = cookies.get('qr_amount');
+	const cookieAmount = cookies.get(QR_AMOUNT_COOKIE);
 	const prefilledAmount = parseStoredAmount(cookieAmount);
-	if (cookieAmount) cookies.delete('qr_amount', { path: '/' });
+	if (cookieAmount) cookies.delete(QR_AMOUNT_COOKIE, qrCookieOptions());
 	return {
 		qrId: qr.id,
 		initiatorName: qr.initiatorName,
@@ -78,20 +79,23 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 	};
 };
 
-function setSendReturnCookies(
+async function setSendReturnCookies(
 	cookies: import('@sveltejs/kit').Cookies,
 	id: string,
 	amount: number | null,
 	skipIntros: boolean
 ) {
-	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: config.qrTtlSeconds };
-	cookies.set('qr_return_to', `/send/${id}`, opts);
-	if (amount !== null) {
-		cookies.set('qr_amount', String(amount), opts);
-	} else {
-		cookies.delete('qr_amount', { path: '/' });
-	}
-	if (skipIntros) cookies.set('qr_skip_intros', '1', opts);
+	const [qr] = await db
+		.select({ expiresAt: paymentRequests.expiresAt })
+		.from(paymentRequests)
+		.where(eq(paymentRequests.id, id))
+		.limit(1);
+	setQrReturnCookies(cookies, {
+		returnTo: `/send/${id}`,
+		expiresAt: qr?.expiresAt ?? null,
+		skipIntros,
+		amount
+	});
 }
 
 export const actions: Actions = {
@@ -99,7 +103,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const dp = currencyFractionDigits();
 		const amountInt = parseAmount(data.get('amount'), dp);
-		setSendReturnCookies(cookies, params.id, amountInt, true);
+		await setSendReturnCookies(cookies, params.id, amountInt, true);
 		redirect(307, '/onboarding/phone');
 	},
 
@@ -107,7 +111,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const dp = currencyFractionDigits();
 		const amountInt = parseAmount(data.get('amount'), dp);
-		setSendReturnCookies(cookies, params.id, amountInt, false);
+		await setSendReturnCookies(cookies, params.id, amountInt, false);
 		redirect(307, '/onboarding');
 	},
 
@@ -119,7 +123,7 @@ export const actions: Actions = {
 		const amount = parseAmount(data.get('amount'), dp);
 
 		if (amount === null) {
-			cookies.delete('qr_amount', { path: '/' });
+			cookies.delete(QR_AMOUNT_COOKIE, qrCookieOptions());
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
@@ -151,7 +155,7 @@ export const actions: Actions = {
 			});
 		}
 
-		cookies.delete('qr_amount', { path: '/' });
+		cookies.delete(QR_AMOUNT_COOKIE, qrCookieOptions());
 
 		return {
 			success: true,

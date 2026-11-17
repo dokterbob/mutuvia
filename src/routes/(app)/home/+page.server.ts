@@ -7,8 +7,9 @@ import { db } from '$lib/server/db';
 import { transactions, appUsers } from '$lib/server/schema';
 import { eq, or, desc } from 'drizzle-orm';
 import { getPendingItems } from '$lib/server/payment-requests';
+import { consumeAcceptFlash } from '$lib/server/accept-flash';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const userId = locals.appUser!.id;
 	const balance = await getBalance(userId);
 
@@ -58,6 +59,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		balance,
 		formattedBalance: formatAmount(balance),
 		recentTransactions,
-		pendingItems
+		pendingItems,
+		// One-shot confirmation after accepting a QR (see accept/[token]).
+		acceptFlash: consumeAcceptFlash(cookies)
 	};
 };
