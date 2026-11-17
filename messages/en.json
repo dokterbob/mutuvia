@@ -189,7 +189,6 @@
 	"qr_expiry_1w": "1 week",
 	"qr_expiry_30d": "30 days",
 	"qr_expiry_never": "Never",
-	"qr_expiry_default": "Default",
 	"home_pending": "Pending",
 	"home_pending_send": "Sending {amount}",
 	"home_pending_receive": "Requesting {amount}",
@@ -315,7 +314,7 @@
 	"send_qr_done_body": "You sent {amount} to {name}.",
 	"send_qr_back_home": "Back to home",
 
-	"receive_advanced_options": "Advanced options",
+	"advanced_options": "Advanced options",
 	"receive_reusable_label": "Reusable QR code",
 	"receive_reusable_description": "Anyone can scan this QR code to pay you, any number of times.",
 	"receive_amount_optional": "(optional)",

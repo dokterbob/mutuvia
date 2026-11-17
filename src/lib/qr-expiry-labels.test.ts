@@ -8,8 +8,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	qr_expiry_3d: () => '3 days',
 	qr_expiry_1w: () => '1 week',
 	qr_expiry_30d: () => '30 days',
-	qr_expiry_never: () => 'Never',
-	qr_expiry_default: () => 'Default'
+	qr_expiry_never: () => 'Never'
 }));
 
 import { qrExpiryLabel } from './qr-expiry-labels';
@@ -17,16 +16,27 @@ import { DEFAULT_EXPIRY_KEY } from './qr-expiry';
 
 describe('qrExpiryLabel', () => {
 	test('given a known preset key, when looked up, then returns its localized label', () => {
-		expect(qrExpiryLabel('1h')).toBe('1 hour');
-		expect(qrExpiryLabel('never')).toBe('Never');
+		expect(qrExpiryLabel({ key: '1h', seconds: 3600 }, 'en')).toBe('1 hour');
+		expect(qrExpiryLabel({ key: 'never', seconds: null }, 'en')).toBe('Never');
 	});
 
-	test('given the synthetic default key, when looked up, then returns its label', () => {
-		expect(qrExpiryLabel(DEFAULT_EXPIRY_KEY)).toBe('Default');
+	describe('given the synthetic default option', () => {
+		test('when its seconds are 600, then it is labelled with its actual duration ("10 minutes")', () => {
+			expect(qrExpiryLabel({ key: DEFAULT_EXPIRY_KEY, seconds: 600 }, 'en')).toBe('10 minutes');
+		});
+
+		test('when its seconds are 2 days, then the label is localized for the given locale', () => {
+			expect(qrExpiryLabel({ key: DEFAULT_EXPIRY_KEY, seconds: 172_800 }, 'en')).toBe('2 days');
+			expect(qrExpiryLabel({ key: DEFAULT_EXPIRY_KEY, seconds: 172_800 }, 'nl')).toBe('2 dagen');
+		});
+
+		test('when its seconds are null (no expiry), then it reads as "Never"', () => {
+			expect(qrExpiryLabel({ key: DEFAULT_EXPIRY_KEY, seconds: null }, 'en')).toBe('Never');
+		});
 	});
 
 	test('given an unknown key, when looked up, then falls back to the key itself', () => {
-		expect(qrExpiryLabel('bogus')).toBe('bogus');
+		expect(qrExpiryLabel({ key: 'bogus', seconds: 1 }, 'en')).toBe('bogus');
 	});
 
 	// Review fix (PR #137 follow-up): a bracket lookup on a plain object
@@ -38,7 +48,7 @@ describe('qrExpiryLabel', () => {
 	test.each(['toString', 'constructor', 'hasOwnProperty', '__proto__', 'valueOf'])(
 		"given the Object.prototype-colliding key %j, when looked up, then falls back to the key itself (not an inherited method's result)",
 		(key) => {
-			expect(qrExpiryLabel(key)).toBe(key);
+			expect(qrExpiryLabel({ key, seconds: 1 }, 'en')).toBe(key);
 		}
 	);
 });
