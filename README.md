@@ -479,13 +479,17 @@ Key settings for rebranding:
 ### QR expiry
 
 The creator chooses an expiry for each QR from a fixed set of presets — 1 hour, 1 day, 3 days,
-1 week, 30 days, or "never" (reusable QRs only). The server accepts only these preset keys, never
-a raw number of seconds.
+1 week, 30 days, or "never" (reusable QRs only) — under "Advanced options" on both the Send and
+Receive forms. The server accepts only these preset keys, never a raw number of seconds.
 
 - `QR_TTL_SECONDS` / `REUSABLE_QR_TTL_SECONDS` set the **default** selection for one-time and
   reusable QRs respectively. If an operator's default doesn't exactly match one of the presets
-  above, the app offers it as an extra "Default" option rather than silently rounding to the
+  above, the app offers it as an extra option labelled with its actual duration (e.g.
+  `QR_TTL_SECONDS=600` → "10 minutes") and preselects it, rather than silently rounding to the
   nearest preset.
+- Remaining time is shown as a live countdown on the QR screen and in the Home and History pending
+  lists (floor-based: "in 23 hours", then "in 59 minutes", then every second in the last minute),
+  and a row switches to "Expired" the moment it runs out, without a reload.
 - `QR_MAX_TTL_SECONDS` caps how long any QR — one-time or reusable — can be made to last. Setting
   it removes every preset above the cap, and removes "never" entirely, even for reusable QRs. If
   either `QR_TTL_SECONDS` or `REUSABLE_QR_TTL_SECONDS` would then exceed the cap (including

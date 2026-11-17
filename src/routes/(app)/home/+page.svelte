@@ -12,8 +12,19 @@
 	import { browser } from '$app/environment';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
+	import { now } from '$lib/now.svelte';
 
 	let { data } = $props();
+
+	// Live expiry: rows count down off the shared clock and flip to "Expired"
+	// the moment the countdown reaches 0, without waiting for a reload to get
+	// the server's `isExpired`.
+	function secondsLeft(expiresAt: Date | string): number {
+		return remainingSeconds(expiresAt, now.current);
+	}
+	function isItemExpired(item: { isExpired: boolean; expiresAt: Date | string | null }): boolean {
+		return item.isExpired || (item.expiresAt != null && secondsLeft(item.expiresAt) <= 0);
+	}
 
 	let hasCamera = $state(false);
 
@@ -144,7 +155,7 @@
 		<div class="mb-4 space-y-0">
 			{#each data.pendingItems as item (item.id)}
 				{#if item.reusable}
-					{#if item.isExpired}
+					{#if isItemExpired(item)}
 						<!-- A reusable QR can now have a real expiry (see PR #137) and
 						     expire while still `status: 'active'` in the DB — show it
 						     the same way as an expired one-time QR instead of a live link. -->
@@ -222,7 +233,7 @@
 								{#if item.expiresAt}
 									<p class="text-xs text-muted-foreground">
 										{m.qr_expires({
-											time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+											time: formatTimeRemaining(secondsLeft(item.expiresAt), getLocale())
 										})}
 									</p>
 								{/if}
@@ -235,7 +246,7 @@
 							</div>
 						</a>
 					{/if}
-				{:else if item.isExpired}
+				{:else if isItemExpired(item)}
 					<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
 						<div>
 							<p class="text-sm font-medium">
@@ -268,7 +279,7 @@
 							{#if item.expiresAt}
 								<p class="text-xs text-muted-foreground">
 									{m.qr_expires({
-										time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+										time: formatTimeRemaining(secondsLeft(item.expiresAt), getLocale())
 									})}
 								</p>
 							{/if}

@@ -14,7 +14,8 @@ vi.mock('$lib/push-subscribe', () => ({ subscribeToPush: vi.fn().mockResolvedVal
 vi.mock('$lib/sse-client', () => ({ sseManager: { on: vi.fn().mockReturnValue(vi.fn()) } }));
 vi.mock('$lib/format-time', () => ({
 	formatTimeRemaining: () => 'in 10 minutes',
-	remainingSeconds: () => 600
+	remainingSeconds: () => 600,
+	formatDuration: (seconds: number) => `${seconds} seconds`
 }));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: false }));
@@ -41,7 +42,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	receive_back_home: () => 'Back home',
 	receive_declined: () => 'Declined',
 	receive_done: () => 'Done',
-	receive_advanced_options: () => 'Advanced options',
+	advanced_options: () => 'Advanced options',
 	receive_reusable_label: () => 'Reusable QR code',
 	receive_reusable_description: () => 'Anyone can scan this QR code to pay you.',
 	receive_amount_optional: () => '(optional)',
@@ -62,8 +63,7 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	qr_expiry_3d: () => '3 days',
 	qr_expiry_1w: () => '1 week',
 	qr_expiry_30d: () => '30 days',
-	qr_expiry_never: () => 'Never',
-	qr_expiry_default: () => 'Default'
+	qr_expiry_never: () => 'Never'
 }));
 
 const mockData = {
