@@ -58,7 +58,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
-	const initiatorBalance = await getBalance(qr.initiatingUserId);
+	// The initiator's total balance is shown on this page only, only while the
+	// visitor is deciding whether to accept money FROM the initiator (direction
+	// 'send' — the initiator is sending), and only until accepted. It must never
+	// be computed (let alone returned) for 'receive' QRs, where the visitor would
+	// be the one paying — nor anywhere else in the app.
+	const initiatorBalance =
+		qr.direction === 'send' ? formatAmount(await getBalance(qr.initiatingUserId)) : null;
 
 	return {
 		expired: false,
@@ -69,7 +75,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		formattedAmount: formatAmount(qr.amount ?? 0),
 		note: qr.description,
 		initiatorName: qr.initiatorName,
-		initiatorBalance: formatAmount(initiatorBalance),
+		initiatorBalance,
 		token: params.token
 	};
 };
@@ -175,7 +181,16 @@ export const actions: Actions = {
 		redirect(307, '/home');
 	},
 
-	decline: async ({ request, params }) => {
+	decline: async ({ request, locals, params }) => {
+		// A one-time link is bearer cash: any logged-in app user holding it other
+		// than the initiator may decline it. An unauthenticated visitor cannot —
+		// they have no account to attribute the decline to, and no stake in the
+		// request — so they must sign in first (the UI doesn't offer this action
+		// to them at all; this guard also covers a direct POST).
+		if (!locals.session || !locals.appUser) {
+			error(401, 'Not authenticated');
+		}
+
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
 
@@ -194,6 +209,14 @@ export const actions: Actions = {
 
 		if (qr?.reusable) {
 			redirect(303, `/send/${qrId}`);
+		}
+
+		// The initiator can't decline their own request — they cancel it instead
+		// (see the receive page's `cancel` action). The UI never shows this form to
+		// the initiator (their own one-time link loads as "expired"), so this only
+		// guards against a direct POST.
+		if (qr && qr.initiatingUserId === locals.appUser.id) {
+			return fail(400, { error: 'You cannot decline your own QR code.' });
 		}
 
 		await db

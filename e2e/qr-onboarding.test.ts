@@ -56,6 +56,10 @@ test.describe.serial('QR scan → onboarding → accept', () => {
 		const fastCta = page.getByRole('button', { name: /accept and sign in/i });
 		await expect(fastCta).toBeVisible();
 
+		// Decline requires authentication — an unauthenticated visitor must not
+		// be offered a working Decline button on this page.
+		await expect(page.getByRole('button', { name: /decline/i })).not.toBeVisible();
+
 		// Click it — should go to phone verification (fast track)
 		await fastCta.click();
 		await page.waitForURL(/\/onboarding\/phone/);

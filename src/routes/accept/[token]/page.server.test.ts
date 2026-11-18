@@ -123,6 +123,7 @@ vi.mock('drizzle-orm', () => ({
 
 // Import AFTER mocks are registered
 import { actions, load } from './+page.server';
+import { getBalance } from '$lib/server/balance';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -170,7 +171,7 @@ function makeAcceptEvent(overrides: Record<string, unknown> = {}) {
 	} as unknown as Parameters<(typeof actions)['accept']>[0];
 }
 
-function makeDeclineEvent() {
+function makeDeclineEvent(overrides: Record<string, unknown> = {}) {
 	const formData = new FormData();
 	formData.set('qrId', QR_ID);
 	const request = new Request(`http://localhost/accept/${QR_ID}`, {
@@ -180,8 +181,14 @@ function makeDeclineEvent() {
 	return {
 		request,
 		params: { token: QR_ID },
-		locals: {},
-		url: new URL(`http://localhost/accept/${QR_ID}`)
+		// Declining is bearer cash for anyone holding the link other than the
+		// initiator — default to an authenticated non-initiator (the acceptor).
+		locals: {
+			session: { id: 'session-1' },
+			appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+		},
+		url: new URL(`http://localhost/accept/${QR_ID}`),
+		...overrides
 	} as unknown as Parameters<(typeof actions)['decline']>[0];
 }
 
@@ -346,6 +353,53 @@ describe('settlement → notification fanout', () => {
 				expect.objectContaining({ type: 'qr_declined', qrId: QR_ID })
 			);
 		});
+
+		describe('[security] authorization', () => {
+			it('rejects an unauthenticated caller without touching the database', async () => {
+				await expect(
+					actions.decline(makeDeclineEvent({ locals: { session: null, appUser: null } }))
+				).rejects.toThrow('Not authenticated');
+
+				expect(dbSelectMock).not.toHaveBeenCalled();
+				expect(dbUpdateMock).not.toHaveBeenCalled();
+			});
+
+			it('rejects a session with no appUser (onboarding not finished) without touching the database', async () => {
+				await expect(
+					actions.decline(
+						makeDeclineEvent({ locals: { session: { id: 'session-1' }, appUser: null } })
+					)
+				).rejects.toThrow('Not authenticated');
+
+				expect(dbSelectMock).not.toHaveBeenCalled();
+			});
+
+			it('rejects the initiator declining their own one-time QR (they must cancel instead)', async () => {
+				selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID, reusable: false }]);
+
+				const result = await actions.decline(
+					makeDeclineEvent({
+						locals: {
+							session: { id: 'session-1' },
+							appUser: { id: INITIATOR_ID, displayName: 'Alice' }
+						}
+					})
+				);
+
+				expect(result).toMatchObject({ error: 'You cannot decline your own QR code.' });
+				expect(dbUpdateMock).not.toHaveBeenCalled();
+				expect(emitMock).not.toHaveBeenCalled();
+			});
+
+			it('allows a non-initiator authenticated caller to decline (bearer-link semantics)', async () => {
+				selectLimitFn.mockResolvedValueOnce([{ initiatingUserId: INITIATOR_ID, reusable: false }]);
+				selectLimitFn.mockResolvedValueOnce([{ status: 'declined' }]);
+
+				await runAction(() => actions.decline(makeDeclineEvent()));
+
+				expect(dbUpdateMock).toHaveBeenCalled();
+			});
+		});
 	});
 });
 
@@ -400,7 +454,10 @@ function makeReusableDeclineEvent() {
 	return {
 		request,
 		params: { token: reusablePaymentRequestRecord.id },
-		locals: {},
+		locals: {
+			session: { id: 'session-1' },
+			appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+		},
 		url: new URL(`http://localhost/accept/${reusablePaymentRequestRecord.id}`)
 	} as unknown as Parameters<(typeof actions)['decline']>[0];
 }
@@ -518,6 +575,67 @@ describe('decline action — reusable QR guard', () => {
 			await runAction(() => actions.decline(makeReusableDeclineEvent()));
 
 			expect(dbUpdateMock).not.toHaveBeenCalled();
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// load — initiator balance is only ever returned for direction 'send'
+// ---------------------------------------------------------------------------
+//
+// The initiator's total balance may be shown only on this page, only while an
+// authenticated non-initiator visitor is deciding whether to accept money FROM
+// the initiator (direction 'send'). It must never be computed or returned for
+// a 'receive' QR (the visitor would be the one paying the initiator).
+
+describe('load — initiator balance direction gating [security]', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		formatAmountMock.mockReturnValue('€10.00');
+		(getBalance as ReturnType<typeof vi.fn>).mockResolvedValue(5000);
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+	});
+
+	describe('Given an active one-time QR with direction "send" (initiator is sending)', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		});
+
+		it('When an authenticated non-initiator loads the page → computes and returns initiatorBalance', async () => {
+			const result = await load(
+				makeLoadEvent(QR_ID, {
+					locals: {
+						session: { id: 'session-1' },
+						appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+					}
+				})
+			);
+
+			expect(getBalance).toHaveBeenCalledWith(INITIATOR_ID);
+			expect(result).toMatchObject({ initiatorBalance: '€10.00' });
+		});
+	});
+
+	describe('Given an active one-time QR with direction "receive" (initiator is requesting payment)', () => {
+		beforeEach(() => {
+			selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'receive' }]);
+		});
+
+		it('When an authenticated non-initiator loads the page → does NOT compute initiatorBalance at all', async () => {
+			const result = await load(
+				makeLoadEvent(QR_ID, {
+					locals: {
+						session: { id: 'session-1' },
+						appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+					}
+				})
+			);
+
+			expect(getBalance).not.toHaveBeenCalled();
+			expect(result).toMatchObject({ initiatorBalance: null });
 		});
 	});
 });

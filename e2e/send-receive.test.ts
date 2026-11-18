@@ -186,6 +186,80 @@ test.describe.serial('Send / Receive flow', () => {
 		}
 	});
 
+	test('send: accept page shows the initiator balance for a send QR', async ({
+		browser
+	}, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const senderCtx = await browser.newContext({ storageState: senderStorage, baseURL });
+		const receiverCtx = await browser.newContext({ storageState: receiverStorage, baseURL });
+		const senderPage = await senderCtx.newPage();
+		const receiverPage = await receiverCtx.newPage();
+
+		try {
+			// ── Sender: amount ────────────────────────────────────────────────────
+			await goto(senderPage, '/send');
+			await expect(senderPage.getByRole('heading', { name: 'Send' })).toBeVisible();
+			await senderPage.locator('input[name="amount"]').fill('2.00');
+			await senderPage.getByRole('button', { name: 'Generate QR' }).click();
+
+			// ── Sender: QR step — extract accept URL ─────────────────────────────
+			const urlText = senderPage.getByText(/\/accept\//);
+			await expect(urlText).toBeVisible({ timeout: 10_000 });
+			const acceptUrl = (await urlText.textContent())!.trim();
+
+			// ── Receiver: accept page shows the initiator's balance (direction 'send') ──
+			await goto(receiverPage, acceptUrl);
+			await expect(receiverPage.getByRole('heading', { level: 1 })).toContainText(
+				`${SENDER_NAME} wants to send you`
+			);
+			await expect(receiverPage.getByText(/current balance/i)).toBeVisible();
+
+			// Finish the flow cleanly so this QR doesn't linger for other serial tests.
+			await receiverPage.getByRole('button', { name: 'Accept' }).click();
+			await expect(receiverPage).toHaveURL(/\/home/, { timeout: 10_000 });
+		} finally {
+			await senderCtx.close();
+			await receiverCtx.close();
+		}
+	});
+
+	test('receive: accept page does not show any balance for a receive QR', async ({
+		browser
+	}, testInfo) => {
+		const baseURL = testInfo.project.use.baseURL!;
+		const initiatorCtx = await browser.newContext({ storageState: receiverStorage, baseURL });
+		const payerCtx = await browser.newContext({ storageState: senderStorage, baseURL });
+		const initiatorPage = await initiatorCtx.newPage();
+		const payerPage = await payerCtx.newPage();
+
+		try {
+			// ── Initiator: amount ─────────────────────────────────────────────────
+			await goto(initiatorPage, '/receive');
+			await expect(initiatorPage.getByRole('heading', { name: 'Receive' })).toBeVisible();
+			await initiatorPage.locator('input[name="amount"]').fill('4.00');
+			await initiatorPage.getByRole('button', { name: 'Generate QR' }).click();
+
+			// ── Initiator: QR step — extract accept URL ───────────────────────────
+			const urlText = initiatorPage.getByText(/\/accept\//);
+			await expect(urlText).toBeVisible({ timeout: 10_000 });
+			const acceptUrl = (await urlText.textContent())!.trim();
+
+			// ── Payer: accept page must never show a balance (direction 'receive') ──
+			await goto(payerPage, acceptUrl);
+			await expect(payerPage.getByRole('heading', { level: 1 })).toContainText(
+				`${RECEIVER_NAME} is requesting`
+			);
+			await expect(payerPage.getByText(/current balance/i)).not.toBeVisible();
+
+			// Finish the flow cleanly so this QR doesn't linger for other serial tests.
+			await payerPage.getByRole('button', { name: 'Accept' }).click();
+			await expect(payerPage).toHaveURL(/\/home/, { timeout: 10_000 });
+		} finally {
+			await initiatorCtx.close();
+			await payerCtx.close();
+		}
+	});
+
 	test.afterAll(async ({ email }) => {
 		await deleteTestUser(email('sender'));
 		await deleteTestUser(email('receiver'));
