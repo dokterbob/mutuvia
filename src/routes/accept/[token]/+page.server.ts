@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { getBalance } from '$lib/server/balance';
 import { settleOneTimeAccept } from '$lib/server/payment-requests';
 import { formatAmount } from '$lib/server/currency';
+import { isExpired } from '$lib/server/qr-expiry';
 import { config } from '$lib/config';
 import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
@@ -29,7 +30,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		redirect(307, `/send/${qr.id}`);
 	}
 
-	if (qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
+	if (qr.status !== 'active' || isExpired(qr.expiresAt)) {
 		return {
 			expired: true,
 			error: 'This link has expired or is invalid.'
@@ -126,7 +127,7 @@ export const actions: Actions = {
 			redirect(303, `/send/${qr.id}`);
 		}
 
-		if (qr.status !== 'active' || (qr.expiresAt && qr.expiresAt < new Date())) {
+		if (qr.status !== 'active' || isExpired(qr.expiresAt)) {
 			return fail(400, { error: 'This QR code has expired or already been used.' });
 		}
 

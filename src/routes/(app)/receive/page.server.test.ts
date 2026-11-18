@@ -116,6 +116,8 @@ vi.mock('$lib/config', () => ({
 		appName: 'Mutuvia',
 		unitCode: 'EUR',
 		qrTtlSeconds: 300,
+		reusableQrTtlSeconds: null,
+		qrMaxTtlSeconds: null,
 		appUrl: 'http://localhost',
 		maxTransactionAmount: 100_000_000
 	}
@@ -169,11 +171,13 @@ function makeLoadEvent(qrId?: string): Parameters<typeof load>[0] {
 
 function makeCreateQrEvent(
 	amount: string | null,
-	reusable = false
+	reusable = false,
+	expiryPreset?: string
 ): Parameters<(typeof actions)['createQr']>[0] {
 	const formData = new FormData();
 	if (amount !== null) formData.set('amount', amount);
 	if (reusable) formData.set('reusable', 'on');
+	if (expiryPreset !== undefined) formData.set('expiryPreset', expiryPreset);
 	return {
 		request: { formData: () => Promise.resolve(formData) },
 		locals: {
@@ -347,5 +351,54 @@ describe('createQr — amount validation (reusable: amount optional)', () => {
 
 		expect(result).toMatchObject({ status: 400 });
 		expect(dbInsertMock).not.toHaveBeenCalled();
+	});
+});
+
+describe('createQr — expiry preset validation', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		dbInsertMock.mockReturnValue({ values: insertValuesFn });
+		insertValuesFn.mockResolvedValue(undefined);
+	});
+
+	test('Given an unknown expiry preset key, When createQr is submitted → rejects with a 400 and does not write anything', async () => {
+		const result = await actions.createQr(makeCreateQrEvent('10.50', false, 'bogus'));
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(dbInsertMock).not.toHaveBeenCalled();
+	});
+
+	test('Given "never" on a non-reusable QR, When createQr is submitted → rejects with a 400 (never is reusable-only)', async () => {
+		const result = await actions.createQr(makeCreateQrEvent('10.50', false, 'never'));
+
+		expect(result).toMatchObject({ status: 400 });
+		expect(dbInsertMock).not.toHaveBeenCalled();
+	});
+
+	test('Given "never" on a reusable QR, When createQr is submitted → inserts with a null expiresAt', async () => {
+		await actions.createQr(makeCreateQrEvent(null, true, 'never'));
+
+		expect(insertValuesFn).toHaveBeenCalledWith(expect.objectContaining({ expiresAt: null }));
+	});
+
+	test('Given the "1h" preset on a reusable QR, When createQr is submitted → inserts with an expiresAt ~1 hour out', async () => {
+		const before = Date.now();
+		await actions.createQr(makeCreateQrEvent(null, true, '1h'));
+		const after = Date.now();
+
+		const inserted = insertValuesFn.mock.calls[0][0] as { expiresAt: Date };
+		const delta = inserted.expiresAt.getTime() - before;
+		expect(delta).toBeGreaterThanOrEqual(3600_000 - (after - before));
+		expect(delta).toBeLessThanOrEqual(3600_000 + (after - before) + 1000);
+	});
+
+	test('Given no expiry preset submitted, When createQr is submitted → falls back to the operator default (qrTtlSeconds for a one-time QR)', async () => {
+		const before = Date.now();
+		await actions.createQr(makeCreateQrEvent('10.50', false));
+
+		const inserted = insertValuesFn.mock.calls[0][0] as { expiresAt: Date };
+		// Mocked config.qrTtlSeconds is 300.
+		expect(inserted.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 300_000 - 1000);
+		expect(inserted.expiresAt.getTime()).toBeLessThanOrEqual(before + 300_000 + 1000);
 	});
 });

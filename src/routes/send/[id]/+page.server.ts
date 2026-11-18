@@ -11,6 +11,7 @@ import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
 import { config } from '$lib/config';
 import { parseAmount, parseStoredAmount } from '$lib/server/amount';
+import { isExpired } from '$lib/server/qr-expiry';
 import type { PageServerLoad, Actions } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals, cookies }) => {
@@ -32,7 +33,7 @@ export const load: PageServerLoad = async ({ params, locals, cookies }) => {
 		return { expired: true, error: 'This QR is no longer active.' };
 	}
 
-	if (qr.expiresAt && qr.expiresAt < new Date()) {
+	if (isExpired(qr.expiresAt)) {
 		return { expired: true, error: 'This QR has expired.' };
 	}
 

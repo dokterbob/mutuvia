@@ -16,6 +16,7 @@ import { rmSync } from 'node:fs';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import * as schema from './schema.sqlite';
 import { eq, and } from 'drizzle-orm';
+import * as qrExpiry from './qr-expiry';
 
 // settlement.sqlite.ts imports the live singleton from `./db.sqlite`, which
 // opens `config.dbFileName` at module load time. We can't inject a db
@@ -240,6 +241,19 @@ describe('settleOneTimeAccept — real SQLite transaction', () => {
 			expect(result.ok).toBe(false);
 			expect(countTransactions('pr-5')).toBe(0);
 		});
+
+		// Boundary: expiresAt exactly equal to "now" counts as expired (the
+		// claim's SQL condition is `expiresAt IS NULL OR expiresAt > now`, so
+		// equality fails the claim) — see $lib/server/qr-expiry's isExpired(),
+		// which every other expiry check in the app now shares.
+		test('When expiresAt is exactly now → still fails (the <= boundary, not <)', () => {
+			seedOneTimePr('pr-5b', { expiresAt: new Date() });
+
+			const result = settleOneTimeAccept('pr-5b', ACCEPTOR);
+
+			expect(result.ok).toBe(false);
+			expect(countTransactions('pr-5b')).toBe(0);
+		});
 	});
 
 	describe('Given the accepting user is the initiator (self-payment)', () => {
@@ -333,6 +347,58 @@ describe('settleReusable — real SQLite transaction', () => {
 			expect(result.ok).toBe(false);
 			expect(countTransactions('rpr-3')).toBe(0);
 			expect(getPr('rpr-3')?.totalReceived).toBe(0);
+		});
+	});
+
+	// Reusable QRs can now have a real `expiresAt` (previously always null)
+	// — see $lib/server/qr-expiry. `status` on the row stays 'active' even
+	// after it expires (nothing auto-transitions it), so this must come from
+	// the `isExpired()` check, not the `status` column.
+	describe('Given an expired reusable payment request', () => {
+		test('When settled → fails with 410 and touches no counters or ledger', () => {
+			seedReusablePr('rpr-expired', { expiresAt: new Date(Date.now() - 1000) });
+
+			const result = settleReusable('rpr-expired', ACCEPTOR, 1000);
+
+			expect(result).toMatchObject({ ok: false, status: 410 });
+			expect(countTransactions('rpr-expired')).toBe(0);
+			expect(getPr('rpr-expired')?.totalReceived).toBe(0);
+		});
+
+		// Review fix (PR #137 follow-up): the pre-read's own `isExpired()` call
+		// isn't the only thing standing between an expired QR and the ledger —
+		// the claim UPDATE's WHERE must independently reject it too (defense in
+		// depth, and the only thing that would have caught a QR that expired in
+		// the gap between the pre-read and the claim, however small that gap
+		// really is). Proven here by disabling the pre-read's own check — if
+		// the claim's WHERE didn't also have `notExpiredCondition()`, this
+		// would settle anyway, because `status` stays 'active' regardless of
+		// expiry. Before that fix, this test failed (ok:true, a ledger row
+		// written) with exactly this setup.
+		//
+		// Status is 409 ("not active"), not 410 ("expired"): the claim's own
+		// zero-rows branch always reports 409 now, because with a real
+		// (unmocked) `isExpired()` the pre-read and the claim share one `now`
+		// and can never disagree — reaching the claim at all means the
+		// pre-read saw it as not expired, so expiry is never the real reason
+		// the claim fails. This test only reaches the claim's expiry rejection
+		// by artificially bypassing the pre-read; a genuine caller would
+		// simply get rejected by the pre-read's 410, before ever reaching here.
+		test('When the pre-read check is bypassed → the claim itself still rejects it, with no ledger row', () => {
+			const isExpiredSpy = vi.spyOn(qrExpiry, 'isExpired').mockReturnValue(false);
+			try {
+				seedReusablePr('rpr-bypass', { expiresAt: new Date(Date.now() - 1000) });
+
+				const result = settleReusable('rpr-bypass', ACCEPTOR, 1000);
+
+				expect(isExpiredSpy).toHaveBeenCalled();
+				expect(result).toMatchObject({ ok: false, status: 409 });
+				expect(countTransactions('rpr-bypass')).toBe(0);
+				expect(getPr('rpr-bypass')?.totalReceived).toBe(0);
+				expect(getPr('rpr-bypass')?.paymentCount).toBe(0);
+			} finally {
+				isExpiredSpy.mockRestore();
+			}
 		});
 	});
 

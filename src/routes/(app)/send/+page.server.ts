@@ -9,6 +9,7 @@ import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
 import { parseAmount } from '$lib/server/amount';
 import { getPendingItemById } from '$lib/server/payment-requests';
+import { getExpiryOptions, resolveExpiryPreset } from '$lib/server/qr-expiry';
 import { shareText } from '$lib/server/share-text';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -52,6 +53,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		appName: config.appName,
 		unitCode: config.unitCode,
 		qrTtlSeconds: config.qrTtlSeconds,
+		expiryOptions: getExpiryOptions(false),
 		resumeQr
 	};
 };
@@ -77,7 +79,13 @@ export const actions: Actions = {
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
-		const ttl = config.qrTtlSeconds;
+		// A send QR is always one-time, so "never" is never an option here —
+		// see resolveExpiryPreset()/getExpiryOptions(false).
+		const expiry = resolveExpiryPreset(data.get('expiryPreset'), false);
+		if (!expiry.ok) {
+			return fail(400, { error: expiry.error });
+		}
+
 		const now = new Date();
 		const qrId = crypto.randomUUID();
 
@@ -90,14 +98,14 @@ export const actions: Actions = {
 			initiatorName: displayName,
 			createdAt: now,
 			updatedAt: now,
-			expiresAt: new Date(now.getTime() + ttl * 1000),
+			expiresAt: expiry.expiresAt,
 			status: 'active'
 		});
 
 		return {
 			qrUrl: buildPaymentRequestUrl(qrId),
 			qrId,
-			expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
+			expiresAt: expiry.expiresAt?.toISOString() ?? '',
 			shareDescription: shareText(amount, note)
 		};
 	},

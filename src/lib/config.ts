@@ -26,6 +26,26 @@ function parsePositiveInt(name: string, raw: string): number {
 	return value;
 }
 
+// Sanity ceiling for a QR's TTL, in seconds — 10 years. Without this, a
+// typo'd env var (e.g. an extra digit or two, or seconds mistaken for
+// milliseconds) passes `parsePositiveInt` fine but overflows `Date`'s
+// internal millisecond range at `new Date(Date.now() + seconds * 1000)`
+// (`Number.MAX_SAFE_INTEGER` ms is ~285,616 years, but far smaller sums
+// already produce nonsense dates well before that ceiling), so the first QR
+// ever created under the bad config silently gets an `Invalid Date`
+// `expiresAt` instead of a clear failure at boot. Applies to
+// QR_TTL_SECONDS, REUSABLE_QR_TTL_SECONDS and QR_MAX_TTL_SECONDS — not
+// EXPIRED_QR_RETENTION_SECONDS (a retention window, not a QR lifetime).
+const MAX_QR_TTL_SECONDS = 315_360_000; // 10 years (365 * 24 * 3600 * 10)
+
+function parseQrTtlSeconds(name: string, raw: string): number {
+	const value = parsePositiveInt(name, raw);
+	if (value > MAX_QR_TTL_SECONDS) {
+		throw new Error(`${name} "${raw}" must not exceed ${MAX_QR_TTL_SECONDS} (10 years)`);
+	}
+	return value;
+}
+
 // `transactions.amount` / `payment_requests.amount` are PostgreSQL `integer`
 // (int4) on both providers' schemas (SQLite's `integer` column has no such
 // ceiling itself, but the two providers must behave identically). A value
@@ -50,7 +70,28 @@ export const config = {
 		return code;
 	},
 	get qrTtlSeconds() {
-		return parsePositiveInt('QR_TTL_SECONDS', env.QR_TTL_SECONDS || '259200');
+		return parseQrTtlSeconds('QR_TTL_SECONDS', env.QR_TTL_SECONDS || '259200');
+	},
+	// Default expiry for a *reusable* QR, in seconds. Unset/empty means "never
+	// expire" (the historical behavior, still the default) — unlike
+	// `qrTtlSeconds` above, there is no numeric fallback here: `null` is a
+	// real, meaningful value (see `$lib/qr-expiry`'s "never" preset), not a
+	// missing one.
+	get reusableQrTtlSeconds(): number | null {
+		const raw = env.REUSABLE_QR_TTL_SECONDS;
+		if (raw === undefined || raw === '') return null;
+		return parseQrTtlSeconds('REUSABLE_QR_TTL_SECONDS', raw);
+	},
+	// Optional upper bound on any QR's TTL, in seconds. When set, it removes
+	// every expiry preset above it (see `$lib/qr-expiry`'s `getExpiryOptions`)
+	// and removes the "never" preset entirely, regardless of `reusable`.
+	// `null` (unset) means no bound — every preset, including "never", stays
+	// available. See `validateConfig()` for the boot-time consistency check
+	// against `qrTtlSeconds`/`reusableQrTtlSeconds`.
+	get qrMaxTtlSeconds(): number | null {
+		const raw = env.QR_MAX_TTL_SECONDS;
+		if (raw === undefined || raw === '') return null;
+		return parseQrTtlSeconds('QR_MAX_TTL_SECONDS', raw);
 	},
 	// Sanity bound on a single transaction's amount, in minor units (cents).
 	// This is NOT a credit limit — it exists only to reject fat-fingered or
@@ -290,11 +331,40 @@ export function validateConfig(): void {
 	// getters triggers their own validation.
 	void config.qrTtlSeconds;
 	void config.expiredQrRetentionSeconds;
+	void config.reusableQrTtlSeconds;
+	void config.qrMaxTtlSeconds;
 	// Review fix (PR #136): without this, a bad PHONE_COUNTRY_ALLOWLIST value
 	// (e.g. a typo'd country code) wouldn't surface until the first real
 	// phone OTP send tried to read it — long after startup, possibly in
 	// production.
 	void config.phoneCountryAllowlist;
+
+	// An operator default that QR_MAX_TTL_SECONDS itself forbids is a
+	// deployment misconfiguration, not something to clamp silently (which
+	// would make the operator's own default env var a lie). Fail at boot,
+	// before any QR is ever created under the broken config. Checked
+	// unconditionally (like the getters above), not just in production.
+	const maxTtl = config.qrMaxTtlSeconds;
+	if (maxTtl !== null) {
+		if (config.qrTtlSeconds > maxTtl) {
+			throw new Error(
+				`QR_TTL_SECONDS (${config.qrTtlSeconds}) exceeds QR_MAX_TTL_SECONDS (${maxTtl})`
+			);
+		}
+		const reusableDefault = config.reusableQrTtlSeconds;
+		if (reusableDefault === null) {
+			throw new Error(
+				'REUSABLE_QR_TTL_SECONDS is unset (meaning reusable QRs default to "never expire") ' +
+					'but QR_MAX_TTL_SECONDS is set — "never" is incompatible with a max TTL. Set ' +
+					'REUSABLE_QR_TTL_SECONDS to a bounded duration, or unset QR_MAX_TTL_SECONDS.'
+			);
+		}
+		if (reusableDefault > maxTtl) {
+			throw new Error(
+				`REUSABLE_QR_TTL_SECONDS (${reusableDefault}) exceeds QR_MAX_TTL_SECONDS (${maxTtl})`
+			);
+		}
+	}
 
 	if (config.rateLimitDisableForTesting) {
 		// Always worth a loud, visible line — even under `bun run dev` — since

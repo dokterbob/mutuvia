@@ -11,12 +11,16 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Select from '$lib/components/ui/select';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import QrCodeIcon from '@lucide/svelte/icons/qr-code';
 	import ShareIcon from '@lucide/svelte/icons/share';
 	import XIcon from '@lucide/svelte/icons/x';
 	import QRCode from 'qrcode';
-	import { formatTimeRemaining } from '$lib/format-time';
+	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
+	import { qrExpiryLabel } from '$lib/qr-expiry-labels';
+	import { now } from '$lib/now.svelte';
+	import AdvancedOptions from '$lib/components/advanced-options.svelte';
 	import { sseManager } from '$lib/sse-client';
 	import { subscribeToPush } from '$lib/push-subscribe';
 
@@ -29,11 +33,26 @@
 	let note = $state('');
 	let reusable = $state(false);
 	let showAdvanced = $state(false);
+	let expiryOptions = $derived(reusable ? data.expiryOptionsReusable : data.expiryOptionsOneTime);
+	let expiryPreset = $state('');
+	// Picks the default option on mount, and re-picks it whenever "reusable"
+	// is toggled and invalidates the current selection — the preset lists
+	// differ (only the reusable list offers "never").
+	$effect(() => {
+		if (!expiryOptions.some((o) => o.key === expiryPreset)) {
+			expiryPreset = expiryOptions.find((o) => o.isDefault)?.key ?? '';
+		}
+	});
+	let selectedExpiryOption = $derived(expiryOptions.find((o) => o.key === expiryPreset));
 	let qrDataUrl = $state('');
 	let qrId = $state('');
-	let secondsLeft = $state(0);
-	let isExpired = $state(false);
 	let expiresAt = $state<string | null>(null);
+	// Set when resuming a QR the server already reports as expired.
+	let resumedExpired = $state(false);
+	// Live countdown off the shared clock. A reusable QR created with "never"
+	// keeps expiresAt null, so `now.current` isn't read and nothing ticks.
+	let secondsLeft = $derived(expiresAt ? remainingSeconds(expiresAt, now.current) : 0);
+	let isExpired = $derived(resumedExpired || (step === 'qr' && !!expiresAt && secondsLeft <= 0));
 	let completedName = $state('');
 	let completedAmount = $state('');
 	let qrUrl = $state('');
@@ -68,7 +87,7 @@
 	$effect(() => {
 		if (!data.resumeQr) return;
 		if (data.resumeQr.isExpired) {
-			isExpired = true;
+			resumedExpired = true;
 			isReusable = data.resumeQr.isReusable ?? false;
 			step = 'qr';
 		} else {
@@ -98,24 +117,6 @@
 			// user cancelled or share failed — stay on QR screen
 		}
 	}
-
-	// Countdown: auto-cleans when step leaves 'qr' or component unmounts
-	// Only runs for non-reusable QRs with an expiry
-	$effect(() => {
-		if (step !== 'qr' || !expiresAt || isReusable) return;
-		const expTime = new Date(expiresAt).getTime();
-		const update = () => {
-			const left = Math.max(0, Math.floor((expTime - Date.now()) / 1000));
-			secondsLeft = left;
-			if (left <= 0) {
-				isExpired = true;
-				clearInterval(interval);
-			}
-		};
-		update();
-		const interval = setInterval(update, 1000);
-		return () => clearInterval(interval);
-	});
 
 	// SSE: subscribe when QR is active, auto-cleans on completion, expiry, or unmount
 	$effect(() => {
@@ -192,27 +193,38 @@
 			<p class="mb-4 text-right text-xs text-muted-foreground">{note.length}/120</p>
 
 			<!-- Advanced options -->
-			<details class="mb-6" bind:open={showAdvanced}>
-				<summary class="cursor-pointer text-sm text-muted-foreground select-none">
-					{m.receive_advanced_options()}
-				</summary>
-				<div class="mt-3 rounded-lg border bg-muted/40 p-4">
-					<label class="flex items-start gap-3">
-						<input
-							type="checkbox"
-							name="reusable"
-							bind:checked={reusable}
-							class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2D4A32] accent-[#2D4A32]"
-						/>
-						<div>
-							<p class="text-sm font-medium">{m.receive_reusable_label()}</p>
-							<p class="text-xs text-muted-foreground">
-								{m.receive_reusable_description()}
-							</p>
-						</div>
-					</label>
-				</div>
-			</details>
+			<AdvancedOptions class="mb-6" bind:open={showAdvanced}>
+				<label class="flex items-start gap-3">
+					<input
+						type="checkbox"
+						name="reusable"
+						bind:checked={reusable}
+						class="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#2D4A32] accent-[#2D4A32]"
+					/>
+					<div>
+						<p class="text-sm font-medium">{m.receive_reusable_label()}</p>
+						<p class="text-xs text-muted-foreground">
+							{m.receive_reusable_description()}
+						</p>
+					</div>
+				</label>
+
+				<Label class="mt-4 mb-2 block text-sm text-muted-foreground">
+					{m.qr_expiry_label()}
+				</Label>
+				<Select.Root type="single" name="expiryPreset" bind:value={expiryPreset}>
+					<Select.Trigger class="w-full">
+						{selectedExpiryOption ? qrExpiryLabel(selectedExpiryOption, getLocale()) : ''}
+					</Select.Trigger>
+					<Select.Content>
+						{#each expiryOptions as option (option.key)}
+							<Select.Item value={option.key} label={qrExpiryLabel(option, getLocale())}>
+								{qrExpiryLabel(option, getLocale())}
+							</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</AdvancedOptions>
 
 			{#if form?.error}
 				<p class="mb-3 text-sm text-red-600">{form.error}</p>
@@ -281,11 +293,18 @@
 					</div>
 				{/if}
 				{#if isReusable}
-					<p class="mb-6 text-sm text-muted-foreground">
+					<p class="mb-1 text-sm text-muted-foreground">
 						{paymentCount === 1
 							? m.receive_reusable_payment_count_singular({ count: String(paymentCount) })
 							: m.receive_reusable_payment_count_plural({ count: String(paymentCount) })}
 					</p>
+					{#if expiresAt}
+						<p class="mb-6 text-sm text-muted-foreground">
+							{m.qr_expires({ time: formatTimeRemaining(secondsLeft, getLocale()) })}
+						</p>
+					{:else}
+						<div class="mb-6"></div>
+					{/if}
 					<div class="flex flex-col items-center gap-2">
 						<Button variant="outline" class="rounded-xl" onclick={() => goto('/home')}>
 							<XIcon class="mr-2 h-4 w-4" />

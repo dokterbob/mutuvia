@@ -14,6 +14,7 @@ import {
 	resumePaymentRequest,
 	archivePaymentRequest
 } from '$lib/server/payment-requests';
+import { getExpiryOptions, resolveExpiryPreset } from '$lib/server/qr-expiry';
 import { shareText } from '$lib/server/share-text';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -34,11 +35,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	if (resumeQrId) {
 		const item = await getPendingItemById(resumeQrId, appUser.id);
 		if (item && item.direction === 'receive' && item.status === 'active') {
-			if (item.reusable) {
+			if (item.reusable && item.isExpired) {
+				// A reusable QR with a real expiry (see PR #137) can expire while
+				// still `status: 'active'` in the DB — treat it as expired here too
+				// rather than handing back a live qrUrl.
+				resumeQr = {
+					qrUrl: '',
+					qrId: item.id,
+					expiresAt: item.expiresAt?.toISOString() ?? '',
+					isExpired: true,
+					isReusable: true
+				};
+			} else if (item.reusable) {
 				resumeQr = {
 					qrUrl: buildReusableUrl(item.id),
 					qrId: item.id,
-					expiresAt: null,
+					expiresAt: item.expiresAt?.toISOString() ?? null,
 					isExpired: false,
 					isReusable: true,
 					paymentCount: item.paymentCount ?? 0,
@@ -70,6 +82,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		appName: config.appName,
 		unitCode: config.unitCode,
 		qrTtlSeconds: config.qrTtlSeconds,
+		// Both expiry preset lists (one-time vs. reusable) up front, so toggling
+		// the "reusable" checkbox client-side doesn't need a round trip.
+		expiryOptionsOneTime: getExpiryOptions(false),
+		expiryOptionsReusable: getExpiryOptions(true),
 		resumeQr
 	};
 };
@@ -96,6 +112,15 @@ export const actions: Actions = {
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
+		// A preset KEY only (e.g. "1d", "never") — never a raw number of
+		// seconds. Rejects an unknown key, "never" on a one-time QR, and a
+		// preset above QR_MAX_TTL_SECONDS with a form failure; a missing field
+		// falls back to the operator's configured default.
+		const expiry = resolveExpiryPreset(data.get('expiryPreset'), reusable);
+		if (!expiry.ok) {
+			return fail(400, { error: expiry.error });
+		}
+
 		const now = new Date();
 		const qrId = crypto.randomUUID();
 
@@ -110,7 +135,7 @@ export const actions: Actions = {
 				reusable: true,
 				createdAt: now,
 				updatedAt: now,
-				expiresAt: null,
+				expiresAt: expiry.expiresAt,
 				status: 'active'
 			});
 
@@ -119,13 +144,12 @@ export const actions: Actions = {
 			return {
 				qrUrl: buildReusableUrl(qrId),
 				qrId,
-				expiresAt: null,
+				expiresAt: expiry.expiresAt?.toISOString() ?? null,
 				isReusable: true,
 				paymentCount: 0,
 				shareDescription: shareDesc
 			};
 		} else {
-			const ttl = config.qrTtlSeconds;
 			await db.insert(paymentRequests).values({
 				id: qrId,
 				initiatingUserId: userId,
@@ -136,14 +160,14 @@ export const actions: Actions = {
 				reusable: false,
 				createdAt: now,
 				updatedAt: now,
-				expiresAt: new Date(now.getTime() + ttl * 1000),
+				expiresAt: expiry.expiresAt,
 				status: 'active'
 			});
 
 			return {
 				qrUrl: buildPaymentRequestUrl(qrId),
 				qrId,
-				expiresAt: new Date(now.getTime() + ttl * 1000).toISOString(),
+				expiresAt: expiry.expiresAt?.toISOString() ?? null,
 				isReusable: false,
 				shareDescription: shareText(amount ?? 0, note)
 			};

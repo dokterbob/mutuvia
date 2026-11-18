@@ -12,8 +12,19 @@
 	import { browser } from '$app/environment';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
+	import { now } from '$lib/now.svelte';
 
 	let { data } = $props();
+
+	// Live expiry: rows count down off the shared clock and flip to "Expired"
+	// the moment the countdown reaches 0, without waiting for a reload to get
+	// the server's `isExpired`.
+	function secondsLeft(expiresAt: Date | string): number {
+		return remainingSeconds(expiresAt, now.current);
+	}
+	function isItemExpired(item: { isExpired: boolean; expiresAt: Date | string | null }): boolean {
+		return item.isExpired || (item.expiresAt != null && secondsLeft(item.expiresAt) <= 0);
+	}
 
 	let hasCamera = $state(false);
 
@@ -144,7 +155,26 @@
 		<div class="mb-4 space-y-0">
 			{#each data.pendingItems as item (item.id)}
 				{#if item.reusable}
-					{#if item.isPaused}
+					{#if isItemExpired(item)}
+						<!-- A reusable QR can now have a real expiry (see PR #137) and
+						     expire while still `status: 'active'` in the DB — show it
+						     the same way as an expired one-time QR instead of a live link. -->
+						<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
+							<div>
+								<p class="text-sm font-medium">
+									{item.direction === 'send'
+										? m.home_pending_send({ amount: item.formattedAmount ?? m.home_open_amount() })
+										: m.home_pending_receive({
+												amount: item.formattedAmount ?? m.home_open_amount()
+											})}
+								</p>
+								{#if item.note}
+									<p class="text-xs text-muted-foreground">{item.note}</p>
+								{/if}
+							</div>
+							<p class="text-xs text-red-600">{m.home_pending_expired()}</p>
+						</div>
+					{:else if item.isPaused}
 						<div class="flex items-center justify-between border-b py-3 last:border-b-0">
 							<div>
 								<p class="text-sm font-medium">
@@ -200,6 +230,13 @@
 								</p>
 							</div>
 							<div class="flex items-center gap-2">
+								{#if item.expiresAt}
+									<p class="text-xs text-muted-foreground">
+										{m.qr_expires({
+											time: formatTimeRemaining(secondsLeft(item.expiresAt), getLocale())
+										})}
+									</p>
+								{/if}
 								<span
 									class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
 								>
@@ -209,7 +246,7 @@
 							</div>
 						</a>
 					{/if}
-				{:else if item.isExpired}
+				{:else if isItemExpired(item)}
 					<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
 						<div>
 							<p class="text-sm font-medium">
@@ -242,7 +279,7 @@
 							{#if item.expiresAt}
 								<p class="text-xs text-muted-foreground">
 									{m.qr_expires({
-										time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+										time: formatTimeRemaining(secondsLeft(item.expiresAt), getLocale())
 									})}
 								</p>
 							{/if}

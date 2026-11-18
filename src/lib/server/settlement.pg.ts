@@ -8,8 +8,9 @@
 import { db } from './db.pg';
 import { paymentRequests, transactions, connections } from './schema.pg';
 import { config } from '$lib/config';
-import { eq, and, or, isNull, gt, sql } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { SettleResult } from './settlement-types';
+import { isExpired, notExpiredCondition } from './qr-expiry';
 
 function orderedPair(a: string, b: string): [string, string] {
 	return a < b ? [a, b] : [b, a];
@@ -59,7 +60,7 @@ export async function settleOneTimeAccept(
 					eq(paymentRequests.id, qrId),
 					eq(paymentRequests.status, 'active'),
 					eq(paymentRequests.reusable, false),
-					or(isNull(paymentRequests.expiresAt), gt(paymentRequests.expiresAt, now))
+					notExpiredCondition(paymentRequests.expiresAt, now)
 				)
 			)
 			.returning();
@@ -97,7 +98,19 @@ export async function settleOneTimeAccept(
 	});
 }
 
-/** See settlement.sqlite.ts#settleReusable for the claim-then-write rationale. */
+/**
+ * See settlement.sqlite.ts#settleReusable for the claim-then-write
+ * rationale, the claim's `notExpiredCondition()` (matching
+ * `settleOneTimeAccept()`), why the pre-read and the claim share one `now`
+ * taken at the top of the transaction, and why the claim's zero-rows branch
+ * reports 409 "not active" rather than 410 "expired" — expiry can't be the
+ * cause once both checks agree on `now`. That race (a concurrent
+ * pause/archive/decline landing between the pre-read and the claim) is
+ * also the more realistic one specifically on Postgres: under the default
+ * READ COMMITTED isolation, each statement in this transaction sees a fresh
+ * snapshot, so a concurrent transaction's committed status change becomes
+ * visible to the claim's own `WHERE` even though the pre-read didn't see it.
+ */
 export async function settleReusable(
 	paymentRequestId: string,
 	scannerId: string,
@@ -115,6 +128,8 @@ export async function settleReusable(
 	}
 
 	return db.transaction(async (tx) => {
+		const now = new Date();
+
 		const [pr] = await tx
 			.select()
 			.from(paymentRequests)
@@ -129,10 +144,8 @@ export async function settleReusable(
 			return { ok: false, status: 400, error: 'Cannot pay yourself' };
 		if (pr.amount !== null && pr.amount !== amount)
 			return { ok: false, status: 400, error: 'Amount does not match the required amount' };
-		if (pr.expiresAt && pr.expiresAt <= new Date())
+		if (isExpired(pr.expiresAt, now))
 			return { ok: false, status: 410, error: 'Payment request has expired' };
-
-		const now = new Date();
 
 		const claimed = await tx
 			.update(paymentRequests)
@@ -141,10 +154,24 @@ export async function settleReusable(
 				paymentCount: sql`${paymentRequests.paymentCount} + 1`,
 				updatedAt: now
 			})
-			.where(and(eq(paymentRequests.id, paymentRequestId), eq(paymentRequests.status, 'active')))
+			.where(
+				and(
+					eq(paymentRequests.id, paymentRequestId),
+					eq(paymentRequests.status, 'active'),
+					notExpiredCondition(paymentRequests.expiresAt, now)
+				)
+			)
 			.returning();
 
 		if (claimed.length !== 1) {
+			// Zero rows: the claim's WHERE uses the exact same `now` as the
+			// pre-read's `isExpired()` check above, so expiry can't be *why* this
+			// failed — if the pre-read saw it as not expired, the claim's
+			// `notExpiredCondition()` agrees, by construction, every time. The
+			// only remaining way to land here is a concurrent status change
+			// (pause/archive/decline) between the pre-read and the claim —
+			// report that, not expiry. No ledger row has been written yet, so
+			// there is nothing to roll back.
 			return { ok: false, status: 409, error: 'Payment request is not active' };
 		}
 

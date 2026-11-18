@@ -230,3 +230,73 @@ describe('send/[id] load — tampered qr_amount cookie', () => {
 		expect(result).toMatchObject({ needsAuth: true, prefilledAmount: 1050 });
 	});
 });
+
+// A reusable QR can now have a real expiresAt (previously always null) —
+// see $lib/server/qr-expiry. This landing page's DB row stays
+// `status: 'active'` even after it expires (nothing auto-transitions it),
+// so the load function must derive "expired" from expiresAt itself.
+describe('send/[id] load — expiry (reusable QR with a real expiresAt)', () => {
+	function makeReusableQr(expiresAt: Date | null) {
+		return {
+			id: 'pr-1',
+			status: 'active',
+			reusable: true,
+			expiresAt,
+			initiatingUserId: 'initiator-1',
+			amount: null,
+			description: null,
+			initiatorName: 'Ana'
+		};
+	}
+
+	test('Given expiresAt is in the past, When load runs → returns expired: true', async () => {
+		selectLimitFn.mockResolvedValue([makeReusableQr(new Date(Date.now() - 1000))]);
+
+		const result = await load({
+			params: { id: 'pr-1' },
+			locals: {},
+			cookies: makeCookies()
+		} as never);
+
+		expect(result).toMatchObject({ expired: true });
+	});
+
+	// Boundary: expiresAt exactly equal to "now" counts as expired (`<=`,
+	// not `<`) — this used to be `qr.expiresAt < new Date()` here, which
+	// would NOT catch this case.
+	test('Given expiresAt is exactly now, When load runs → still returns expired: true (the <= boundary)', async () => {
+		selectLimitFn.mockResolvedValue([makeReusableQr(new Date())]);
+
+		const result = await load({
+			params: { id: 'pr-1' },
+			locals: {},
+			cookies: makeCookies()
+		} as never);
+
+		expect(result).toMatchObject({ expired: true });
+	});
+
+	test('Given expiresAt is in the future, When load runs → does not return expired', async () => {
+		selectLimitFn.mockResolvedValue([makeReusableQr(new Date(Date.now() + 300_000))]);
+
+		const result = await load({
+			params: { id: 'pr-1' },
+			locals: {},
+			cookies: makeCookies()
+		} as never);
+
+		expect(result).not.toMatchObject({ expired: true });
+	});
+
+	test('Given expiresAt is null ("never"), When load runs → does not return expired', async () => {
+		selectLimitFn.mockResolvedValue([makeReusableQr(null)]);
+
+		const result = await load({
+			params: { id: 'pr-1' },
+			locals: {},
+			cookies: makeCookies()
+		} as never);
+
+		expect(result).not.toMatchObject({ expired: true });
+	});
+});

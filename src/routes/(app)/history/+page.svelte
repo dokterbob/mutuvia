@@ -6,8 +6,17 @@
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { formatTimeRemaining, remainingSeconds } from '$lib/format-time';
+	import { now } from '$lib/now.svelte';
 
 	let { data } = $props();
+
+	// Live expiry — see the matching helpers on the Home page.
+	function secondsLeft(expiresAt: Date | string): number {
+		return remainingSeconds(expiresAt, now.current);
+	}
+	function isItemExpired(item: { isExpired: boolean; expiresAt: Date | string | null }): boolean {
+		return item.isExpired || (item.expiresAt != null && secondsLeft(item.expiresAt) <= 0);
+	}
 
 	type Filter = 'all' | 'sent' | 'received' | 'pending';
 	let filter = $state<Filter>('all');
@@ -53,7 +62,7 @@
 		{:else}
 			<div class="space-y-0">
 				{#each data.pendingItems as item (item.id)}
-					{#if item.isExpired}
+					{#if isItemExpired(item)}
 						<div class="flex items-center justify-between border-b py-3 opacity-60 last:border-b-0">
 							<div>
 								<p class="text-sm font-medium">
@@ -90,7 +99,7 @@
 								{#if item.expiresAt}
 									<p class="text-xs text-muted-foreground">
 										{m.qr_expires({
-											time: formatTimeRemaining(remainingSeconds(item.expiresAt), getLocale())
+											time: formatTimeRemaining(secondsLeft(item.expiresAt), getLocale())
 										})}
 									</p>
 								{/if}

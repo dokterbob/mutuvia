@@ -51,6 +51,14 @@ vi.mock('$lib/paraglide/messages.js', () => ({
 	home_pending_send: ({ amount }: { amount: string }) => `Send ${amount}`,
 	home_pending_receive: ({ amount }: { amount: string }) => `Receive ${amount}`,
 	home_pending_expired: () => 'Expired',
+	home_open_amount: () => 'any amount',
+	home_reusable_payment_count_singular: ({ count }: { count: string }) =>
+		`Received ${count} payment`,
+	home_reusable_payment_count_plural: ({ count }: { count: string }) =>
+		`Received ${count} payments`,
+	home_reusable_badge: () => 'Reusable',
+	home_paused_badge: () => 'Paused',
+	home_resume_action: () => 'Resume',
 	pending_cancel_aria: () => 'Cancel',
 	qr_expires: ({ time }: { time: string }) => `Expires ${time}`,
 	time_just_now: () => 'just now',
@@ -140,5 +148,54 @@ describe('home page – SSE-driven invalidateAll()', () => {
 		expect(cleanupSpy).not.toHaveBeenCalled();
 		cleanup();
 		expect(cleanupSpy).toHaveBeenCalled();
+	});
+});
+
+// Review fix (PR #137 follow-up): a reusable QR can now have a real,
+// non-null `expiresAt` (previously always null). The active (non-paused,
+// non-expired) reusable branch rendered no expiry at all, unlike the
+// one-time branch's `qr_expires` countdown right next to it — fixed to show
+// the same countdown, and nothing when `expiresAt` is null ("never").
+describe('home page – pending reusable QR expiry display', () => {
+	function makeReusableItem(overrides: Record<string, unknown> = {}) {
+		return {
+			id: 'rpr-1',
+			direction: 'receive',
+			formattedAmount: null,
+			note: null,
+			reusable: true,
+			status: 'active',
+			isPaused: false,
+			isExpired: false,
+			paymentCount: 2,
+			totalReceived: 0,
+			createdAt: new Date(),
+			expiresAt: null,
+			...overrides
+		};
+	}
+
+	it('Given an active reusable QR with a non-null expiresAt → shows the qr_expires countdown', () => {
+		const data = {
+			...mockData,
+			pendingItems: [makeReusableItem({ expiresAt: new Date(Date.now() + 86_400_000) })]
+		};
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { getByText } = render(HomePage, { props: { data: data as any } });
+
+		expect(getByText(/Expires in 1 days/)).toBeTruthy();
+	});
+
+	it('Given an active reusable QR with expiresAt: null ("never") → shows no expiry text', () => {
+		const data = {
+			...mockData,
+			pendingItems: [makeReusableItem({ expiresAt: null })]
+		};
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const { queryByText } = render(HomePage, { props: { data: data as any } });
+
+		expect(queryByText(/Expires/)).toBeNull();
 	});
 });
