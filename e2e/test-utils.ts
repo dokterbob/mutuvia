@@ -1,6 +1,10 @@
 import type { Page, BrowserContext } from '@playwright/test';
 import { test as base } from '@playwright/test';
-import { basename } from 'path';
+import { basename, join } from 'path';
+import { execSync } from 'child_process';
+import { mkdtempSync, unlinkSync } from 'fs';
+import { tmpdir } from 'os';
+import QRCode from 'qrcode';
 import type { TestHelpers } from 'better-auth/plugins';
 import { auth, sqlite } from './auth.js';
 import pkg from '../package.json' with { type: 'json' };
@@ -373,3 +377,32 @@ export const test = base.extend<{
 		}
 	}
 });
+
+// ── Fake-camera QR video ──────────────────────────────────────────────────────
+
+/**
+ * Generate a .y4m fake webcam video file containing a QR code for the given URL.
+ * Chromium's --use-file-for-fake-video-capture accepts .y4m format. Needs
+ * `ffmpeg` on PATH. Returns the .y4m path; remove its directory afterwards.
+ */
+export async function generateQrVideo(url: string): Promise<string> {
+	const dir = mkdtempSync(join(tmpdir(), 'qr-e2e-'));
+	const pngPath = join(dir, 'qr.png');
+	const y4mPath = join(dir, 'qr.y4m');
+
+	// Generate a QR code PNG at a size Chromium's fake camera can read
+	await QRCode.toFile(pngPath, url, {
+		width: 640,
+		margin: 4,
+		color: { dark: '#000000', light: '#FFFFFF' }
+	});
+
+	// Convert to y4m: 5-second still image video at 10fps
+	execSync(
+		`ffmpeg -y -loop 1 -i "${pngPath}" -t 5 -pix_fmt yuv420p -vf "scale=640:640" -r 10 "${y4mPath}"`,
+		{ stdio: 'pipe' }
+	);
+
+	unlinkSync(pngPath);
+	return y4mPath;
+}

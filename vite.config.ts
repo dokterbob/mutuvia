@@ -4,7 +4,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import type { ViteDevServer } from 'vite';
 
@@ -13,6 +13,23 @@ const pkg = JSON.parse(readFileSync('package.json', 'utf-8')) as { version: stri
 function hashFile(path: string): string {
 	return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
+
+// Self-host the QR scanner's WASM module rather than letting barcode-detector's
+// ponyfill fetch it from fastly.jsdelivr.net at runtime (see
+// src/lib/components/qr-scanner.svelte's setZXingModuleOverrides call and
+// svelte.config.js's connect-src comment — the CSP must stay same-origin).
+// Copied from node_modules at config-load time (both `bun run dev` and
+// `bun run build` load this file before anything else runs) rather than
+// committed to the repo, so an upgrade of the `barcode-detector`/`zxing-wasm`
+// dependency can never leave a stale binary behind — see
+// src/lib/wasm-integrity.test.ts, which asserts the served copy's sha256
+// still matches node_modules AND matches barcode-detector's own exported
+// ZXING_WASM_SHA256 constant.
+const ZXING_WASM_SOURCE = 'node_modules/zxing-wasm/dist/reader/zxing_reader.wasm';
+const ZXING_WASM_STATIC_PATH = 'static/wasm/zxing_reader.wasm';
+mkdirSync('static/wasm', { recursive: true });
+copyFileSync(ZXING_WASM_SOURCE, ZXING_WASM_STATIC_PATH);
+const zxingWasmHash = hashFile(ZXING_WASM_STATIC_PATH);
 
 // In dev, populate APP_URL from Vite's resolved URLs so that mobile testing
 // (--host) works without manual config. Prefer the network (LAN) URL.
@@ -109,7 +126,11 @@ export default defineConfig({
 				// files at "/" (without the prefix), so we must strip it here.
 				modifyURLPrefix: { 'client/': '' },
 				additionalManifestEntries: [
-					{ url: '/offline.html', revision: hashFile('static/offline.html') }
+					{ url: '/offline.html', revision: hashFile('static/offline.html') },
+					// ~1MB — precached so the scanner works offline too; revision is
+					// the file's own sha256, so a dependency bump that changes the
+					// binary automatically busts the SW cache entry.
+					{ url: '/wasm/zxing_reader.wasm', revision: zxingWasmHash }
 				],
 				// pwaAssets injects icons into manifest.webmanifest, producing entries
 				// that duplicate those from the glob after the prefix is stripped.
