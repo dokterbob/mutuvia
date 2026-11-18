@@ -8,12 +8,27 @@ import { getBalance } from '$lib/server/balance';
 import { settleOneTimeAccept } from '$lib/server/payment-requests';
 import { formatAmount } from '$lib/server/currency';
 import { isExpired } from '$lib/server/qr-expiry';
-import { config } from '$lib/config';
+import {
+	setQrReturnCookies,
+	readAcceptIntent,
+	clearAcceptIntent,
+	type AcceptIntentMode
+} from '$lib/server/qr-return';
+import { setAcceptFlash } from '$lib/server/accept-flash';
 import { emit } from '$lib/server/sse-registry';
 import { sendPushToUser } from '$lib/server/push-sender';
 import type { PageServerLoad, Actions } from './$types';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies }) => {
+	const signedIn = !!(locals.session && locals.appUser);
+
+	// Set by startFastTrack / startFullOnboarding before a signed-out visitor
+	// went off to sign in. Read once, by the signed-in user it was meant for:
+	// clearing it in this same response is what makes the auto-accept below
+	// fire at most once.
+	const intent = signedIn ? readAcceptIntent(cookies, params.token) : null;
+	if (intent) clearAcceptIntent(cookies);
+
 	const [qr] = await db
 		.select()
 		.from(paymentRequests)
@@ -22,6 +37,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!qr) {
 		return {
 			expired: true,
+			expiredDuringOnboarding: false,
 			error: 'This link has expired or is invalid.'
 		};
 	}
@@ -33,6 +49,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (qr.status !== 'active' || isExpired(qr.expiresAt)) {
 		return {
 			expired: true,
+			// The user set out to accept this QR, signed in, and came back to find
+			// it expired / used / cancelled meanwhile — tell them so, by name,
+			// rather than showing a generic "invalid link".
+			expiredDuringOnboarding: intent !== null,
+			initiatorName: intent !== null ? qr.initiatorName : null,
 			error: 'This link has expired or is invalid.'
 		};
 	}
@@ -51,11 +72,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		};
 	}
 
-	// Prevent self-acceptance (locals.appUser is narrowed to non-null by the check above)
+	// Prevent self-acceptance (locals.appUser is narrowed to non-null by the check above).
+	// Typically the creator signing in from their own link on another device:
+	// say plainly that nothing happened, rather than "expired".
 	if (locals.appUser.id === qr.initiatingUserId) {
 		return {
-			expired: true,
-			error: 'You cannot accept your own QR code.'
+			expired: false,
+			selfAccept: true,
+			initiatorName: qr.initiatorName
 		};
 	}
 
@@ -77,32 +101,50 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		note: qr.description,
 		initiatorName: qr.initiatorName,
 		initiatorBalance,
-		token: params.token
+		token: params.token,
+		viewerName: locals.appUser.displayName,
+		// Back from signing in to accept this QR ("Last step" resume state).
+		resumed: intent !== null,
+		// Incoming credit is accepted automatically after a fast-track sign-in —
+		// that's what its "Accept … from …" button promised. The page submits
+		// the ordinary ?/accept form itself (client-side, enhanced POST), so
+		// there is still one settlement path and no state-changing GET. Paying
+		// (direction 'receive') always waits for an explicit "Pay", and "How it
+		// works" (mode 'full') never auto-accepts: its label promises nothing.
+		autoAccept: intent === 'fast' && qr.direction === 'send'
 	};
 };
 
-function setQrReturnCookies(
+async function startOnboarding(
 	cookies: import('@sveltejs/kit').Cookies,
 	token: string,
-	skipIntros: boolean
+	mode: AcceptIntentMode
 ) {
-	const opts = { path: '/', httpOnly: true, sameSite: 'lax' as const, maxAge: config.qrTtlSeconds };
-	cookies.set('qr_return_to', `/accept/${token}`, opts);
-	if (skipIntros) cookies.set('qr_skip_intros', '1', opts);
+	const [qr] = await db
+		.select({ expiresAt: paymentRequests.expiresAt })
+		.from(paymentRequests)
+		.where(eq(paymentRequests.id, token))
+		.limit(1);
+	setQrReturnCookies(cookies, {
+		returnTo: `/accept/${token}`,
+		expiresAt: qr?.expiresAt ?? null,
+		skipIntros: mode === 'fast',
+		acceptIntent: { token, mode }
+	});
 }
 
 export const actions: Actions = {
 	startFastTrack: async ({ params, cookies }) => {
-		setQrReturnCookies(cookies, params.token, true);
+		await startOnboarding(cookies, params.token, 'fast');
 		redirect(307, '/onboarding/phone');
 	},
 
 	startFullOnboarding: async ({ params, cookies }) => {
-		setQrReturnCookies(cookies, params.token, false);
+		await startOnboarding(cookies, params.token, 'full');
 		redirect(307, '/onboarding');
 	},
 
-	accept: async ({ request, locals, params }) => {
+	accept: async ({ request, locals, params, cookies }) => {
 		if (!locals.session || !locals.appUser) {
 			error(401, 'Not authenticated');
 		}
@@ -177,6 +219,15 @@ export const actions: Actions = {
 		// Push: only needed for the initiator (acceptor is present, SW will postMessage instead).
 		sendPushToUser(qr.initiatingUserId, completedForInitiator).catch((err) => {
 			console.error('Push notification failed for QR acceptance:', err);
+		});
+
+		// Confirm on Home ("€5 from Alice added to your balance"): the acceptor's
+		// own SSE stream isn't open on this page, so the qr_completed event above
+		// can't do it.
+		setAcceptFlash(cookies, {
+			direction: qr.direction,
+			name: initiatorName,
+			amount: formattedAmt
 		});
 
 		redirect(307, '/home');

@@ -75,6 +75,17 @@ export async function createPendingQr(
 }
 
 /**
+ * Force a pending payment_requests row into the past so it reads as expired
+ * on its next load, without waiting out a real TTL. Used to simulate a QR
+ * expiring while the scanner is mid-onboarding (started before the expiry,
+ * finished after it).
+ */
+export function expirePendingQr(token: string): void {
+	const past = Math.floor(Date.now() / 1000) - 60;
+	sqlite.prepare(`UPDATE payment_requests SET expires_at = ? WHERE id = ?`).run(past, token);
+}
+
+/**
  * Insert a reusable payment_requests row and return the UUID. The request is
  * created with status='active' and reusable=1. Amount and description are
  * optional (null = open amount / no description).

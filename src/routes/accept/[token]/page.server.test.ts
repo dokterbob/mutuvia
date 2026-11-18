@@ -99,7 +99,7 @@ vi.mock('$lib/server/payment-requests', () => ({
 }));
 vi.mock('$lib/server/qr', () => ({}));
 vi.mock('$lib/config', () => ({
-	config: { unitCode: 'EUR', qrTtlSeconds: 300 }
+	config: { unitCode: 'EUR', qrTtlSeconds: 300, appUrl: 'http://localhost:5173' }
 }));
 vi.mock('@sveltejs/kit', () => ({
 	redirect: redirectMock,
@@ -664,5 +664,213 @@ describe('load — initiator balance direction gating [security]', () => {
 			expect(result).toMatchObject({ expired: true });
 			expect(result).not.toHaveProperty('initiatorBalance');
 		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Post-sign-in acceptance (user-testing feedback on #141): the accept intent
+// recorded before sign-in decides what the signed-in page does next.
+// ---------------------------------------------------------------------------
+
+function makeCookieJar(initial: Record<string, string> = {}) {
+	const store = new Map(Object.entries(initial));
+	return {
+		store,
+		get: vi.fn((name: string) => store.get(name)),
+		set: vi.fn((name: string, value: string) => {
+			store.set(name, value);
+		}),
+		delete: vi.fn((name: string) => {
+			store.delete(name);
+		})
+	};
+}
+
+const SIGNED_IN = {
+	session: { id: 'session-1' },
+	appUser: { id: ACCEPTOR_ID, displayName: 'Bob' }
+};
+
+describe('startFastTrack / startFullOnboarding — accept intent', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+	});
+
+	it('Given a signed-out visitor, When they choose the fast track → records a fast intent bound to this token, skips intros, and goes to sign-in', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ expiresAt: new Date(Date.now() + 600_000) }]);
+		const cookies = makeCookieJar();
+
+		await expect(
+			actions.startFastTrack({ params: { token: QR_ID }, cookies } as never)
+		).rejects.toMatchObject({ location: '/onboarding/phone' });
+
+		expect(cookies.store.get('qr_return_to')).toBe(`/accept/${QR_ID}`);
+		expect(cookies.store.get('qr_skip_intros')).toBe('1');
+		expect(cookies.store.get('qr_accept_intent')).toBe(`fast:${QR_ID}`);
+	});
+
+	it('Given a signed-out visitor, When they choose "How it works" → records a full intent and shows the intros', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ expiresAt: null }]);
+		const cookies = makeCookieJar();
+
+		await expect(
+			actions.startFullOnboarding({ params: { token: QR_ID }, cookies } as never)
+		).rejects.toMatchObject({ location: '/onboarding' });
+
+		expect(cookies.store.get('qr_accept_intent')).toBe(`full:${QR_ID}`);
+		expect(cookies.store.has('qr_skip_intros')).toBe(false);
+	});
+});
+
+describe('load — after signing in from an accept link', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		formatAmountMock.mockReturnValue('€10.00');
+		(getBalance as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+	});
+
+	it('Given a fast intent for this token and incoming credit (send), When loaded → autoAccept, resumed, and the intent is consumed', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: `fast:${QR_ID}` });
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN, cookies }));
+
+		expect(result).toMatchObject({ autoAccept: true, resumed: true, viewerName: 'Bob' });
+		expect(cookies.store.has('qr_accept_intent')).toBe(false);
+	});
+
+	it('Given a fast intent and a payment request (receive), When loaded → resumed but never autoAccept', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'receive' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: `fast:${QR_ID}` });
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN, cookies }));
+
+		expect(result).toMatchObject({ autoAccept: false, resumed: true });
+	});
+
+	it('Given a full ("How it works") intent for a send QR, When loaded → resumed but never autoAccept', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: `full:${QR_ID}` });
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN, cookies }));
+
+		expect(result).toMatchObject({ autoAccept: false, resumed: true });
+	});
+
+	it('Given an intent for a different token, When loaded → no autoAccept, not resumed, and that intent is left alone', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: 'fast:other-token' });
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN, cookies }));
+
+		expect(result).toMatchObject({ autoAccept: false, resumed: false });
+		expect(cookies.store.get('qr_accept_intent')).toBe('fast:other-token');
+	});
+
+	it('Given a signed-out visitor with an intent cookie, When loaded → the intent is neither used nor consumed', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: `fast:${QR_ID}` });
+
+		const result = await load(makeLoadEvent(QR_ID, { cookies }));
+
+		expect(result).toMatchObject({ needsAuth: true });
+		expect(result).not.toHaveProperty('autoAccept');
+		expect(cookies.store.get('qr_accept_intent')).toBe(`fast:${QR_ID}`);
+	});
+
+	it('Given the QR creator signs in from their own link, When loaded → selfAccept (not "expired") and no autoAccept', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: `fast:${QR_ID}` });
+
+		const result = await load(
+			makeLoadEvent(QR_ID, {
+				locals: { session: { id: 's' }, appUser: { id: INITIATOR_ID, displayName: 'Alice' } },
+				cookies
+			})
+		);
+
+		expect(result).toMatchObject({ selfAccept: true, expired: false });
+		expect(result).not.toHaveProperty('autoAccept');
+	});
+
+	it('Given an intent and the QR expired while onboarding, When loaded → expiredDuringOnboarding with the creator name', async () => {
+		selectLimitFn.mockResolvedValueOnce([
+			{ ...paymentRequestRecord, expiresAt: new Date(Date.now() - 1000) }
+		]);
+		const cookies = makeCookieJar({ qr_accept_intent: `fast:${QR_ID}` });
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN, cookies }));
+
+		expect(result).toMatchObject({
+			expired: true,
+			expiredDuringOnboarding: true,
+			initiatorName: 'Alice'
+		});
+	});
+
+	it('Given an intent and the QR was used meanwhile, When loaded → expiredDuringOnboarding', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, status: 'completed' }]);
+		const cookies = makeCookieJar({ qr_accept_intent: `fast:${QR_ID}` });
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN, cookies }));
+
+		expect(result).toMatchObject({ expired: true, expiredDuringOnboarding: true });
+	});
+
+	it('Given NO intent and an expired QR, When loaded → the generic expired view, without naming the creator', async () => {
+		selectLimitFn.mockResolvedValueOnce([
+			{ ...paymentRequestRecord, expiresAt: new Date(Date.now() - 1000) }
+		]);
+
+		const result = await load(makeLoadEvent(QR_ID, { locals: SIGNED_IN }));
+
+		expect(result).toMatchObject({ expired: true, expiredDuringOnboarding: false });
+		expect(result).toMatchObject({ initiatorName: null });
+	});
+});
+
+describe('accept action — confirmation flash', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		selectLimitFn.mockReset();
+		formatAmountMock.mockReturnValue('€10.00');
+		sendPushMock.mockResolvedValue(undefined);
+		settleOneTimeAcceptMock.mockResolvedValue({ ok: true, txId: 'tx-1' });
+		redirectMock.mockImplementation((status: number, location: string) => {
+			throw new MockRedirect(status, location);
+		});
+	});
+
+	it('Given a successful accept, When it redirects home → a one-shot flash names the amount, the other party and the direction', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord, direction: 'send' }]);
+		const cookies = makeCookieJar();
+
+		await expect(actions.accept(makeAcceptEvent({ cookies }))).rejects.toMatchObject({
+			location: '/home'
+		});
+
+		expect(JSON.parse(cookies.store.get('qr_accepted_flash')!)).toEqual({
+			direction: 'send',
+			name: 'Alice',
+			amount: '€10.00'
+		});
+	});
+
+	it('Given the settlement lost a race, When accept fails → no flash is set', async () => {
+		selectLimitFn.mockResolvedValueOnce([{ ...paymentRequestRecord }]);
+		settleOneTimeAcceptMock.mockResolvedValueOnce({ ok: false, status: 409, error: 'gone' });
+		const cookies = makeCookieJar();
+
+		await actions.accept(makeAcceptEvent({ cookies }));
+
+		expect(cookies.store.has('qr_accepted_flash')).toBe(false);
 	});
 });

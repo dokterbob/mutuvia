@@ -52,8 +52,8 @@ test.describe.serial('QR scan → onboarding → accept', () => {
 			`${SENDER_NAME} wants to send you`
 		);
 
-		// "Accept and sign in" button should be visible
-		const fastCta = page.getByRole('button', { name: /accept and sign in/i });
+		// The signed-out fast-track CTA names the amount and sender.
+		const fastCta = page.getByRole('button', { name: new RegExp(`Accept .* from ${SENDER_NAME}`) });
 		await expect(fastCta).toBeVisible();
 
 		// Decline requires authentication — an unauthenticated visitor must not
@@ -84,18 +84,13 @@ test.describe.serial('QR scan → onboarding → accept', () => {
 		await page.locator('input[name="displayName"]').fill(SCANNER_NAME);
 		await page.getByRole('button', { name: /enter the community/i }).click();
 
-		// KEY ASSERTION: should land back on the accept page, NOT /home
-		await page.waitForURL(/\/accept\//, { timeout: 10_000 });
-
-		// Now authenticated — should see the accept/decline UI
-		await expect(page.getByRole('heading', { level: 1 })).toContainText(
-			`${SENDER_NAME} wants to send you`
-		);
-		await expect(page.getByRole('button', { name: /^accept$/i })).toBeVisible();
-
-		// Accept the transaction
-		await page.getByRole('button', { name: /^accept$/i }).click();
+		// KEY ASSERTION: the name step returns to /accept/[token] (not /home) —
+		// but a "send" QR reached via the fast track auto-accepts there and
+		// redirects on to /home itself, with no manual Accept click needed.
 		await expect(page).toHaveURL(/\/home/, { timeout: 10_000 });
+		await expect(
+			page.getByText(new RegExp(`from ${SENDER_NAME} added to your balance`))
+		).toBeVisible();
 	});
 });
 // Sender user is intentionally not cleaned up per-test — global setup deletes test.db on the next run.

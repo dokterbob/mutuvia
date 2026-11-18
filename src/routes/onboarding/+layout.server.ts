@@ -2,20 +2,14 @@
 
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
+import { consumeQrReturnTo } from '$lib/server/qr-return';
 
 export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	if (locals.session && locals.appUser) {
-		const returnTo = cookies.get('qr_return_to');
-		if (
-			returnTo &&
-			returnTo.startsWith('/') &&
-			!returnTo.startsWith('//') &&
-			!returnTo.startsWith('/onboarding')
-		) {
-			cookies.delete('qr_return_to', { path: '/' });
-			cookies.delete('qr_skip_intros', { path: '/' });
-			redirect(307, returnTo);
-		}
+		// An existing user signing in from a QR link returns to it here (a new
+		// user returns from the name step instead).
+		const returnTo = consumeQrReturnTo(cookies);
+		if (returnTo) redirect(307, returnTo);
 		if (!url.searchParams.has('review')) {
 			redirect(307, '/home');
 		}

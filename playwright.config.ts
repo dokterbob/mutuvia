@@ -25,7 +25,9 @@ export default defineConfig({
 		// be told at runtime that it's not production — leaving NODE_ENV
 		// unset would now fail closed and refuse to start (by design; see
 		// config.isProduction).
-		command: `rm -f ${E2E_DB_FILE} ${E2E_DB_FILE}-wal ${E2E_DB_FILE}-shm && bun run db:migrate && bun run build && NODE_ENV=test bun ./build/index.js`,
+		// The DB paths are quoted: unquoted, a checkout path containing a space
+		// made `rm` silently miss test.db, so users piled up across local runs.
+		command: `rm -f "${E2E_DB_FILE}" "${E2E_DB_FILE}-wal" "${E2E_DB_FILE}-shm" && bun run db:migrate && bun run build && NODE_ENV=test bun ./build/index.js`,
 		env: {
 			E2E: 'true',
 			PORT: '5174',

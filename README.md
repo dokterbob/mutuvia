@@ -33,6 +33,33 @@ Open [http://localhost:5173](http://localhost:5173).
 
 With the default `.env.example` (`DEV_LOG_OTP=true`), SMS and email OTP codes are logged to the console — no Prelude or SMTP credentials needed.
 
+### Testing on a phone over the LAN
+
+`bun run dev -- --host` serves on your LAN IP, and `APP_URL` falls back to that network URL
+(see the `APP_URL` row under "Environment variables"). Sign-in, sending, receiving and accepting
+QR links all work there. But a plain-http LAN address like `http://192.168.1.20:5173` is **not a
+[secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts)**, so the
+browser turns off the features that need one. `http://localhost` is exempt.
+
+- **Camera / QR scanner**: `navigator.mediaDevices` is undefined, so Home hides the Scan button
+  and there is no camera prompt.
+- **Service worker / PWA install**: not available.
+- **Web Push**: not available. Real-time updates still work for open tabs (SSE).
+
+Workarounds, if you need those on a phone:
+
+- **USB**: run `adb reverse tcp:5173 tcp:5173`, set `APP_URL=http://localhost:5173`, and open
+  `http://localhost:5173` on the phone.
+- **HTTPS dev certificate**: e.g. [`@vitejs/plugin-basic-ssl`](https://github.com/vitejs/vite-plugin-basic-ssl)
+  or [mkcert](https://github.com/FiloSottile/mkcert), with `APP_URL` set to the `https://` URL.
+- **Browser flag**: in Chrome or Brave on the phone, add the LAN URL to
+  `chrome://flags/#unsafely-treat-insecure-origin-as-secure`.
+
+The QR return cookies (`qr_return_to` and friends, which bring a signed-out scanner back to the
+QR after signing in) follow `APP_URL`'s scheme for `Secure`, just like the session cookie. So the
+return path works on plain-http LAN dev too. The PWA manifest is intentionally not linked in dev:
+`@vite-pwa/sveltekit` only generates it at build time.
+
 ---
 
 ## Deployment (Docker Compose)

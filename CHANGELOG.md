@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Accepting a QR when signed out** — the sign-in button now says what happens next. For incoming credit it reads "Accept {amount} from {name}", and the credit is accepted automatically once you've signed in or created an account. For a payment request it reads "Sign in to review", and you always confirm with "Pay {name} {amount}" after signing in — nothing is ever paid automatically. The balance impact and the "not real money" notice are now shown before sign-in too, and every accepted QR is confirmed on Home. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
 - `generate-secret` now documents and is used solely for generating `BETTER_AUTH_SECRET`; the stale `QR_JWT_SECRET` references (dead since the v0.3.0 move to UUID-based QR links) are gone from the README, `AGENTS.md`, the `.env*` example files, and `scripts/generate-secret.ts`. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
 
 ### Removed
@@ -23,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- After signing in or signing up from a scanned QR, you now land back on that QR instead of on Home. On a plain-http `APP_URL` (e.g. a phone on the LAN in dev) the browser silently dropped the return cookies; they now follow `APP_URL`'s scheme for `Secure`, like the session cookie. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
+- Signing in from your own QR link now says "This is your own QR, so nothing happened." instead of showing it as expired; a QR that expired or was used while you were signing up now says so, by name, and that nothing was paid. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
+- The dev server no longer logs a 404 for `/manifest.webmanifest` on every page: the PWA manifest (generated only at build time) is no longer linked in dev. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
 - Production builds no longer fail with intermittent HTTP 500s under concurrent requests. The Bun adapter bundled Better Auth's single-request browser polyfill instead of Node's `AsyncLocalStorage`; a local adapter patch fixes this, and `bun run build` now checks for it. See README → "Bun adapter patch".
 - Push notification icon path now points at the generated `/pwa-192x192.png` (the previous path did not exist).
 
@@ -37,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Abuse limits** — sign-in and OTP requests are now rate-limited by real client IP (database-backed, survives restarts); a separate per-destination throttle caps OTP sends to any one phone number or email address regardless of IP; an optional `PHONE_COUNTRY_ALLOWLIST` guards against SMS-pumping fraud. ([#136](https://github.com/dokterbob/mutuvia/pull/136))
 - **Security headers and CSP** — the app now sends a strict, nonce-based Content-Security-Policy plus HSTS, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and related headers on every response; the QR scanner's WASM module is now self-hosted instead of loaded from a third-party CDN; Sentry error reports now scrub phone numbers, emails and session data before upload, and Sentry Session Replay is no longer enabled (its DOM recording would capture payment links and contact details). ([#138](https://github.com/dokterbob/mutuvia/pull/138))
 - **Deployment hardening** — the Docker image now runs as a non-root user with a pinned, digest-verified base image; dependency updates are now tracked automatically via Dependabot, including for the Android app's Gradle dependencies; the Android app now excludes its local data from cloud backups and device-to-device transfers; added a `SECURITY.md` with vulnerability-reporting instructions. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
+- **Post-sign-in redirect** — the "return to the QR after sign-in" path now rejects control characters and backslashes and must resolve to the app's own origin; previously a crafted `qr_return_to` cookie like `/\t/evil.example` could redirect off-site. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
 
 ### Upgrade notes
 

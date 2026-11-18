@@ -3,6 +3,7 @@
 	import '@fontsource-variable/noto-sans';
 	import { onMount } from 'svelte';
 	import { navigating, page } from '$app/state';
+	import { dev } from '$app/environment';
 	import { Toaster } from '$lib/components/ui/sonner';
 
 	let { data, children } = $props();
@@ -15,6 +16,11 @@
 </script>
 
 <svelte:head>
+	<!-- @vite-pwa/sveltekit only generates the manifest at build time (no
+	     devOptions), so linking it in dev just 404s on every page load. -->
+	{#if !dev}
+		<link rel="manifest" href="/manifest.webmanifest" />
+	{/if}
 	<meta property="og:image" content={ogImage} />
 	<meta property="og:type" content="website" />
 	<meta property="og:site_name" content={data.appName} />

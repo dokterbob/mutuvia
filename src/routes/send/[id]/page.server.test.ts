@@ -51,7 +51,12 @@ vi.mock('$lib/server/push-sender', () => ({
 	sendPushToUser: vi.fn().mockResolvedValue(undefined)
 }));
 vi.mock('$lib/config', () => ({
-	config: { qrTtlSeconds: 300, maxTransactionAmount: 100_000_000, unitCode: 'EUR' }
+	config: {
+		qrTtlSeconds: 300,
+		maxTransactionAmount: 100_000_000,
+		unitCode: 'EUR',
+		appUrl: 'http://localhost:5173'
+	}
 }));
 vi.mock('@sveltejs/kit', () => ({
 	redirect: vi.fn((status: number, location: string) => {
