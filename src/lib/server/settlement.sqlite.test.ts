@@ -35,7 +35,12 @@ const { TEST_DB_FILE } = vi.hoisted(() => ({
 }));
 
 vi.mock('$lib/config', () => ({
-	config: { dbFileName: TEST_DB_FILE, dbProvider: 'sqlite', unitCode: 'EUR' }
+	config: {
+		dbFileName: TEST_DB_FILE,
+		dbProvider: 'sqlite',
+		unitCode: 'EUR',
+		maxTransactionAmount: 100_000_000
+	}
 }));
 
 const { sqlite, db: liveDb } = await import('./db.sqlite');
@@ -237,6 +242,35 @@ describe('settleOneTimeAccept — real SQLite transaction', () => {
 		});
 	});
 
+	describe('Given the accepting user is the initiator (self-payment)', () => {
+		test('When accepted → fails cleanly without writing a ledger row, even though the route already refuses this first', () => {
+			seedOneTimePr('pr-self', { initiatingUserId: INITIATOR });
+
+			const result = settleOneTimeAccept('pr-self', INITIATOR);
+
+			expect(result).toMatchObject({ ok: false, status: 400 });
+			expect(countTransactions('pr-self')).toBe(0);
+			// The claim never ran, so the request is still claimable afterwards.
+			expect(getPr('pr-self')?.status).toBe('active');
+		});
+	});
+
+	describe('Given the request has an amount above the configured sanity bound', () => {
+		test('When accepted → fails cleanly instead of throwing a CHECK-constraint error', () => {
+			// Only the app-level max (config.maxTransactionAmount), not the DB's
+			// `amount > 0` CHECK, bounds this value — so seeding it directly is a
+			// legitimate way to simulate data that predates a lowered max, or any
+			// future caller that bypasses parseAmount().
+			seedOneTimePr('pr-over-max', { amount: 100_000_001 });
+
+			const result = settleOneTimeAccept('pr-over-max', ACCEPTOR);
+
+			expect(result).toMatchObject({ ok: false, status: 400 });
+			expect(countTransactions('pr-over-max')).toBe(0);
+			expect(getPr('pr-over-max')?.status).toBe('active');
+		});
+	});
+
 	describe('Given a receive-direction request', () => {
 		test('When accepted → ledger row has the scanner as fromUserId', () => {
 			seedOneTimePr('pr-6', { direction: 'receive' });
@@ -338,6 +372,114 @@ describe('settleReusable — real SQLite transaction', () => {
 			const result = settleReusable('rpr-5', ACCEPTOR, 0);
 
 			expect(result).toMatchObject({ ok: false, status: 400 });
+		});
+
+		test('When settled with a negative amount → fails before touching the database', () => {
+			seedReusablePr('rpr-6');
+
+			const result = settleReusable('rpr-6', ACCEPTOR, -100);
+
+			expect(result).toMatchObject({ ok: false, status: 400 });
+			expect(countTransactions('rpr-6')).toBe(0);
+		});
+
+		test('When settled with a non-integer amount → fails before touching the database', () => {
+			seedReusablePr('rpr-7');
+
+			const result = settleReusable('rpr-7', ACCEPTOR, 10.5);
+
+			expect(result).toMatchObject({ ok: false, status: 400 });
+			expect(countTransactions('rpr-7')).toBe(0);
+		});
+
+		test('When settled with an amount above the configured sanity bound → fails before touching the database', () => {
+			seedReusablePr('rpr-8');
+
+			const result = settleReusable('rpr-8', ACCEPTOR, 100_000_001);
+
+			expect(result).toMatchObject({ ok: false, status: 400 });
+			expect(countTransactions('rpr-8')).toBe(0);
+			expect(getPr('rpr-8')?.totalReceived).toBe(0);
+		});
+	});
+});
+
+describe('transactions CHECK constraints — real SQLite transaction', () => {
+	describe('Given a direct insert with a non-positive amount', () => {
+		test('When amount is negative → the insert is rejected', () => {
+			seedOneTimePr('pr-check-neg');
+
+			expect(() =>
+				liveDb
+					.insert(schema.transactions)
+					.values({
+						id: 'tx-check-neg',
+						fromUserId: ACCEPTOR,
+						toUserId: INITIATOR,
+						amount: -500,
+						unitCode: 'EUR',
+						createdAt: new Date()
+					})
+					.run()
+			).toThrow(/CHECK constraint failed/);
+
+			expect(countTransactions('pr-check-neg')).toBe(0);
+		});
+
+		test('When amount is zero → the insert is rejected', () => {
+			expect(() =>
+				liveDb
+					.insert(schema.transactions)
+					.values({
+						id: 'tx-check-zero',
+						fromUserId: ACCEPTOR,
+						toUserId: INITIATOR,
+						amount: 0,
+						unitCode: 'EUR',
+						createdAt: new Date()
+					})
+					.run()
+			).toThrow(/CHECK constraint failed/);
+		});
+	});
+
+	describe('Given a direct insert where fromUserId equals toUserId', () => {
+		test('When the two user ids match → the insert is rejected', () => {
+			expect(() =>
+				liveDb
+					.insert(schema.transactions)
+					.values({
+						id: 'tx-check-self',
+						fromUserId: ACCEPTOR,
+						toUserId: ACCEPTOR,
+						amount: 500,
+						unitCode: 'EUR',
+						createdAt: new Date()
+					})
+					.run()
+			).toThrow(/CHECK constraint failed/);
+		});
+	});
+});
+
+describe('payment_requests CHECK constraint — real SQLite transaction', () => {
+	describe('Given a direct insert with a non-positive amount', () => {
+		test('When amount is negative → the insert is rejected', () => {
+			expect(() => seedOneTimePr('pr-check-neg-amount', { amount: -1 })).toThrow(
+				/CHECK constraint failed/
+			);
+		});
+
+		test('When amount is zero → the insert is rejected', () => {
+			expect(() => seedOneTimePr('pr-check-zero-amount', { amount: 0 })).toThrow(
+				/CHECK constraint failed/
+			);
+		});
+	});
+
+	describe('Given a direct insert with a null amount (open-amount reusable request)', () => {
+		test('When amount is null → the insert succeeds', () => {
+			expect(() => seedReusablePr('pr-check-null-amount', { amount: null })).not.toThrow();
 		});
 	});
 });

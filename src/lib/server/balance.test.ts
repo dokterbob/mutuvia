@@ -37,7 +37,7 @@ function setRows(rows: unknown[]) {
 	selectRows = rows;
 }
 
-const { getContactBalances, getContactBalance } = await import('./balance.js');
+const { getBalance, getContactBalances, getContactBalance } = await import('./balance.js');
 
 beforeEach(() => {
 	vi.clearAllMocks();
@@ -48,6 +48,48 @@ beforeEach(() => {
 	mockDb.where.mockReturnThis();
 	mockDb.groupBy.mockImplementation(() => Promise.resolve(selectRows));
 	mockDb.limit.mockImplementation(() => Promise.resolve(selectRows));
+});
+
+describe('getBalance', () => {
+	describe('given a positive balance', () => {
+		test('returns it as a number', async () => {
+			setRows([{ balance: 1000 }]);
+			const result = await getBalance('user1');
+			expect(result).toBe(1000);
+		});
+	});
+
+	describe('given a negative balance', () => {
+		test('returns it as a number', async () => {
+			setRows([{ balance: -250 }]);
+			const result = await getBalance('user1');
+			expect(result).toBe(-250);
+		});
+	});
+
+	describe('given no transactions', () => {
+		test('returns 0', async () => {
+			setRows([]);
+			const result = await getBalance('user1');
+			expect(result).toBe(0);
+		});
+	});
+
+	describe('given pg returning SUM as a string', () => {
+		test('coerces string balance to number, same as getContactBalances/getContactBalance', async () => {
+			setRows([{ balance: '350' }]);
+			const result = await getBalance('user1');
+			expect(result).toBe(350);
+			expect(typeof result).toBe('number');
+		});
+
+		test('coerces a negative string balance to a number', async () => {
+			setRows([{ balance: '-75' }]);
+			const result = await getBalance('user1');
+			expect(result).toBe(-75);
+			expect(typeof result).toBe('number');
+		});
+	});
 });
 
 describe('getContactBalances', () => {

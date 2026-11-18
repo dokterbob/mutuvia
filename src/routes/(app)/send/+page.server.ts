@@ -7,6 +7,7 @@ import { eq, and } from 'drizzle-orm';
 import { buildPaymentRequestUrl } from '$lib/server/qr';
 import { config } from '$lib/config';
 import { currencyFractionDigits } from '$lib/server/currency';
+import { parseAmount } from '$lib/server/amount';
 import { getPendingItemById } from '$lib/server/payment-requests';
 import { shareText } from '$lib/server/share-text';
 import type { PageServerLoad, Actions } from './$types';
@@ -67,23 +68,15 @@ export const actions: Actions = {
 		const displayName = locals.appUser!.displayName;
 		const data = await request.formData();
 
-		const amountStr = data.get('amount') as string;
+		const amountStr = data.get('amount');
 		const note = (data.get('note') as string)?.trim().slice(0, 120) || null;
 		const dp = currencyFractionDigits();
 
-		const floatAmount = parseFloat(amountStr);
-		if (isNaN(floatAmount) || floatAmount <= 0) {
+		const amount = parseAmount(amountStr, dp);
+		if (amount === null) {
 			return fail(400, { error: 'Enter a valid amount.' });
 		}
 
-		const submittedDecimals = amountStr.includes('.') ? amountStr.split('.')[1].length : 0;
-		if (submittedDecimals > dp) {
-			return fail(400, {
-				error: `Amount cannot have more than ${dp} decimal place${dp === 1 ? '' : 's'}.`
-			});
-		}
-
-		const amount = Math.round(floatAmount * Math.pow(10, dp));
 		const ttl = config.qrTtlSeconds;
 		const now = new Date();
 		const qrId = crypto.randomUUID();

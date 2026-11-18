@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { sqliteTable, text, integer, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+	sqliteTable,
+	text,
+	integer,
+	primaryKey,
+	uniqueIndex,
+	check
+} from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 // ── Better Auth managed tables ──
 // These are created/managed by Better Auth. We define them here for FK references only.
@@ -71,42 +79,68 @@ export const appUsers = sqliteTable('app_users', {
 	lastSeenVersion: text('last_seen_version')
 });
 
-export const paymentRequests = sqliteTable('payment_requests', {
-	id: text('id').primaryKey(),
-	initiatingUserId: text('initiating_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	reusable: integer('reusable', { mode: 'boolean' }).notNull().default(false),
-	direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
-	amount: integer('amount'),
-	description: text('description'),
-	status: text('status', {
-		enum: ['active', 'paused', 'completed', 'declined', 'archived']
-	})
-		.notNull()
-		.default('active'),
-	initiatorName: text('initiator_name').notNull(),
-	createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-	updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-	expiresAt: integer('expires_at', { mode: 'timestamp' }),
-	totalReceived: integer('total_received').notNull().default(0),
-	paymentCount: integer('payment_count').notNull().default(0)
-});
+export const paymentRequests = sqliteTable(
+	'payment_requests',
+	{
+		id: text('id').primaryKey(),
+		initiatingUserId: text('initiating_user_id')
+			.notNull()
+			.references(() => appUsers.id),
+		reusable: integer('reusable', { mode: 'boolean' }).notNull().default(false),
+		direction: text('direction', { enum: ['send', 'receive'] }).notNull(),
+		amount: integer('amount'),
+		description: text('description'),
+		status: text('status', {
+			enum: ['active', 'paused', 'completed', 'declined', 'archived']
+		})
+			.notNull()
+			.default('active'),
+		initiatorName: text('initiator_name').notNull(),
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+		updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+		expiresAt: integer('expires_at', { mode: 'timestamp' }),
+		totalReceived: integer('total_received').notNull().default(0),
+		paymentCount: integer('payment_count').notNull().default(0)
+	},
+	() => [
+		// amount is nullable (an "open amount" reusable request has none), but
+		// when set it must be a positive sanity-bounded value — same invariant
+		// enforced in application code by parseAmount().
+		//
+		// Deliberately unqualified column names (not `table.amount`, which
+		// Drizzle renders table-qualified): SQLite can't ALTER TABLE ADD
+		// CONSTRAINT, so any future migration touching this table goes through
+		// a rebuild (CREATE __new_X, copy, DROP, RENAME). A qualified reference
+		// bakes the table's *temporary* rebuild name into the stored CHECK
+		// clause, and SQLite's RENAME TO then fails to resolve it afterwards
+		// ("no such column: __new_payment_requests.amount").
+		check('payment_requests_amount_positive_check', sql`"amount" IS NULL OR "amount" > 0`)
+	]
+);
 
-export const transactions = sqliteTable('transactions', {
-	id: text('id').primaryKey(),
-	fromUserId: text('from_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	toUserId: text('to_user_id')
-		.notNull()
-		.references(() => appUsers.id),
-	amount: integer('amount').notNull(),
-	unitCode: text('unit_code').notNull(),
-	note: text('note'),
-	paymentRequestId: text('payment_request_id').references(() => paymentRequests.id),
-	createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
-});
+export const transactions = sqliteTable(
+	'transactions',
+	{
+		id: text('id').primaryKey(),
+		fromUserId: text('from_user_id')
+			.notNull()
+			.references(() => appUsers.id),
+		toUserId: text('to_user_id')
+			.notNull()
+			.references(() => appUsers.id),
+		amount: integer('amount').notNull(),
+		unitCode: text('unit_code').notNull(),
+		note: text('note'),
+		paymentRequestId: text('payment_request_id').references(() => paymentRequests.id),
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+	},
+	() => [
+		// See the comment on payment_requests' check() above for why these use
+		// bare, unqualified column names.
+		check('transactions_amount_positive_check', sql`"amount" > 0`),
+		check('transactions_not_self_payment_check', sql`"from_user_id" <> "to_user_id"`)
+	]
+);
 
 export const connections = sqliteTable(
 	'connections',

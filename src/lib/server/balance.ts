@@ -22,7 +22,8 @@ export async function getBalance(userId: string): Promise<number> {
 		.where(or(eq(transactions.fromUserId, userId), eq(transactions.toUserId, userId)))
 		.limit(1);
 
-	return result?.balance ?? 0;
+	// Number() guards pg returning SUM as a string; sqlite returns a number.
+	return Number(result?.balance) || 0;
 }
 
 export async function getConnections(userId: string) {
