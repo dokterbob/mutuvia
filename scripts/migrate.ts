@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Applies Drizzle migrations using the active DB provider (bun:sqlite or bun:sql).
 
+import { scrubDatabaseUrl } from '../src/lib/server/db-url';
+
 const provider = process.env.DB_PROVIDER || 'sqlite';
 
 if (provider === 'pg') {
@@ -13,7 +15,8 @@ if (provider === 'pg') {
 	const client = new SQL(url);
 	const db = drizzle({ client });
 
-	console.log(`Migrating PostgreSQL: ${url}`);
+	// Never log the raw URL — it contains the database password.
+	console.log(`Migrating PostgreSQL: ${scrubDatabaseUrl(url)}`);
 	await migrate(db, { migrationsFolder: './drizzle/pg' });
 	console.log('Migration complete.');
 

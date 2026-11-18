@@ -23,7 +23,9 @@ export function buildOtpEmail(email: string, otp: string) {
 		from: config.smtpFrom,
 		to: email,
 		subject: `Your ${config.appName} sign-in code`,
-		text: `Your sign-in code is: ${otp}\n\nThis code expires in 10 minutes.`
+		// Better Auth's emailOTP plugin defaults expiresIn to 300s (5 minutes) —
+		// we don't override it in auth.ts, so this must match that default.
+		text: `Your sign-in code is: ${otp}\n\nThis code expires in 5 minutes.`
 	};
 }
 
@@ -33,10 +35,14 @@ export async function sendOtpEmail(
 	transport: Transporter | null = mailer
 ): Promise<void> {
 	if (!transport) {
-		if (process.env.NODE_ENV !== 'production') {
+		if (config.devLogOtp) {
 			console.log(`[DEV] Email OTP for ${email}: ${otp}`);
 			return;
 		}
+		// Throw rather than silently return — Better Auth's emailOTP plugin
+		// still reports success to the client either way (see the equivalent
+		// note in auth.ts's phoneNumber sendOTP), but this makes the failure
+		// clearly visible in server logs.
 		throw new Error('SMTP_HOST not configured — cannot send email OTP');
 	}
 	await transport.sendMail(buildOtpEmail(email, otp));

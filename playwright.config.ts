@@ -15,7 +15,17 @@ export default defineConfig({
 		trace: 'on-first-retry'
 	},
 	webServer: {
-		command: `rm -f ${E2E_DB_FILE} ${E2E_DB_FILE}-wal ${E2E_DB_FILE}-shm && bun run db:migrate && bun run build && bun ./build/index.js`,
+		// NODE_ENV=test is set only on the final `bun ./build/index.js`
+		// (the server start), NOT via `env` below (which would apply to the
+		// whole command, including `bun run build`) — setting NODE_ENV
+		// during the build changes Vite's own build mode and breaks client
+		// hydration (see commit history). This built server is still
+		// production-shaped (no real OTP channel, a non-secret
+		// BETTER_AUTH_SECRET), so validateConfig() (src/lib/config.ts) must
+		// be told at runtime that it's not production — leaving NODE_ENV
+		// unset would now fail closed and refuse to start (by design; see
+		// config.isProduction).
+		command: `rm -f ${E2E_DB_FILE} ${E2E_DB_FILE}-wal ${E2E_DB_FILE}-shm && bun run db:migrate && bun run build && NODE_ENV=test bun ./build/index.js`,
 		env: {
 			E2E: 'true',
 			PORT: '5174',

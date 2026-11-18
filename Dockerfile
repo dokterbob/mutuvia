@@ -2,6 +2,13 @@
 FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
+# Belt-and-suspenders: Vite's own "build" command already treats itself as
+# production internally, and the svelte-adapter-bun patch (see
+# patches/svelte-adapter-bun@*.patch) makes the final server bundle respect
+# whatever NODE_ENV actually is at build time instead of ignoring it. Setting
+# it explicitly here means that's never left to implicit bundler behaviour.
+ENV NODE_ENV=production
+
 # Build tools required to compile better-sqlite3 (devDep used by drizzle-kit).
 # Versions are pinned by the base image's Alpine release; apk lacks range
 # syntax so exact pins break on patch bumps (e.g. python3 3.12.12→3.12.13).
@@ -22,7 +29,7 @@ ARG SENTRY_PROJECT
 ENV SENTRY_RELEASE=$SENTRY_RELEASE
 
 # Copy source and build
-# svelte-adapter-bun uses esbuild to bundle the server into build/
+# svelte-adapter-bun uses rolldown to bundle the server into build/
 # Source maps are uploaded to Sentry during build, not needed at runtime.
 COPY . .
 RUN bun run build
@@ -30,6 +37,14 @@ RUN bun run build
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM oven/bun:1-alpine
 WORKDIR /app
+
+# Required at runtime (not just build time): our own config.ts reads this
+# live via $env/dynamic/private to decide whether to run startup validation
+# (BETTER_AUTH_SECRET strength, OTP delivery channel configured, etc.) — see
+# config.isProduction / validateConfig() in src/lib/config.ts. It also
+# affects any externalised dependency (e.g. Sentry) that checks NODE_ENV
+# itself at runtime rather than through a bundled, baked-in reference.
+ENV NODE_ENV=production
 
 # Install production deps only (migrate.ts imports drizzle-orm/bun-sqlite,
 # which is not bundled by the vite build)
@@ -40,9 +55,13 @@ RUN bun install --production --frozen-lockfile
 # Bundled SvelteKit server
 COPY --from=builder /app/build ./build
 
-# Drizzle migration SQL files (both dialects) + runner script
+# Drizzle migration SQL files (both dialects) + runner script.
+# migrate.ts imports db-url.ts (log scrubbing) by relative path — it's a
+# standalone, dependency-free module, so it's copied individually rather
+# than pulling in all of src/.
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts/migrate.ts ./scripts/migrate.ts
+COPY --from=builder /app/src/lib/server/db-url.ts ./src/lib/server/db-url.ts
 
 # Default to SQLite with a persistent-volume path.
 # Override DB_PROVIDER=pg and DATABASE_URL at runtime for PostgreSQL.

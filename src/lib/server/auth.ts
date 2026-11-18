@@ -9,12 +9,27 @@ import { config } from '$lib/config';
 import { sendOtpEmail } from './mailer';
 import { makePlaceholderEmail } from '$lib/placeholder-email';
 import { closeSession } from './sse-registry';
+import { maskPhone } from './phone-mask';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
 const prelude = config.preludeApiToken ? new Prelude({ apiToken: config.preludeApiToken }) : null;
 
 export const auth = betterAuth({
+	// Deliberately NOT setting `baseURL`. Better Auth's own route matcher
+	// (isAuthPath, in better-auth/dist/integrations/svelte-kit.mjs) compares
+	// the incoming request's origin against `baseURL`'s origin and 404s on
+	// any mismatch — direct port access, a LAN IP, or a proxy that doesn't
+	// preserve Host would all then break every /api/auth/* route with no
+	// diagnostic. Leaving it unset makes Better Auth derive the origin from
+	// each request instead (see getBaseURL in better-auth/dist/utils/url.mjs),
+	// which is what correctly happened before `trustedOrigins` below existed.
+	// Cookie security is driven explicitly instead (next line) rather than
+	// through baseURL or Better Auth's own `isProduction`, which is baked at
+	// build time and unreliable — see patches/svelte-adapter-bun@*.patch.
+	advanced: {
+		useSecureCookies: config.appUrl.startsWith('https://')
+	},
 	database: drizzleAdapter(db, {
 		provider: config.dbProvider
 	}),
@@ -37,19 +52,25 @@ export const auth = betterAuth({
 			},
 			sendOTP: async ({ phoneNumber: phone, code }) => {
 				if (!prelude) {
-					if (process.env.NODE_ENV !== 'production') {
+					if (config.devLogOtp) {
 						console.log(`[DEV] OTP for ${phone}: ${code}`);
-					} else {
-						console.error('PRELUDE_API_TOKEN not configured');
+						return;
 					}
-					return;
+					// Throw rather than silently return — Better Auth logs this via
+					// its background-task error handler. Note this does NOT make
+					// the failure visible in the HTTP response: Better Auth's
+					// phone-number route always returns `{ message: "code sent" }`
+					// regardless of what sendOTP does (likely to avoid leaking
+					// phone-number enumeration signals), so "visible" here means
+					// visible in server logs, not to the calling client.
+					throw new Error('PRELUDE_API_TOKEN not configured — cannot send SMS OTP');
 				}
 				const result = await prelude.verification.create({
 					target: { type: 'phone_number', value: phone },
 					options: { code_size: 6 }
 				});
 				if (result.status === 'blocked') {
-					console.error(`Prelude blocked verification for ${phone}: ${result.reason}`);
+					console.error(`Prelude blocked verification for ${maskPhone(phone)}: ${result.reason}`);
 				}
 			},
 			// Only override verification when Prelude is configured —

@@ -6,7 +6,7 @@ import { db, sqlite } from '$lib/server/db';
 import { appUsers } from '$lib/server/schema';
 import { eq } from 'drizzle-orm';
 import { redirect, type Handle, type ServerInit } from '@sveltejs/kit';
-import { config } from '$lib/config';
+import { config, validateConfig } from '$lib/config';
 import { sequence } from '@sveltejs/kit/hooks';
 import { paraglideMiddleware } from '$lib/paraglide/server';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
@@ -22,6 +22,11 @@ import { extractAcceptUrl } from '$lib/share-url';
  * no env-var timing issues around DB_FILE_NAME / DATABASE_URL.
  */
 export const init: ServerInit = async () => {
+	// Runs once when the server actually starts — never during `vite build`
+	// or prerendering — so it's safe to throw here on missing/weak secrets
+	// without breaking CI or the Docker build stage.
+	validateConfig();
+
 	if (config.dbProvider === 'pg') {
 		const { migrate } = await import('drizzle-orm/bun-sql/migrator');
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -2,17 +2,20 @@
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('$lib/config', () => ({
-	config: {
+const { mockConfig } = vi.hoisted(() => ({
+	mockConfig: {
 		smtpHost: 'smtp.example.com',
 		smtpPort: 587,
 		smtpSecure: false,
 		smtpUser: 'user',
 		smtpPass: 'pass',
 		smtpFrom: 'Test App <noreply@example.com>',
-		appName: 'Test App'
+		appName: 'Test App',
+		devLogOtp: false
 	}
 }));
+
+vi.mock('$lib/config', () => ({ config: mockConfig }));
 
 vi.mock('nodemailer', () => ({
 	default: { createTransport: vi.fn(() => ({ sendMail: vi.fn() })) }
@@ -27,7 +30,7 @@ describe('mailer', () => {
 				from: 'Test App <noreply@example.com>',
 				to: 'user@example.com',
 				subject: 'Your Test App sign-in code',
-				text: 'Your sign-in code is: 123456\n\nThis code expires in 10 minutes.'
+				text: 'Your sign-in code is: 123456\n\nThis code expires in 5 minutes.'
 			});
 		});
 	});
@@ -48,29 +51,22 @@ describe('mailer', () => {
 		});
 
 		describe('given no transport', () => {
-			test('logs OTP to console in dev', async () => {
+			test('given DEV_LOG_OTP=true, logs OTP to console', async () => {
 				const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
-				const saved = process.env.NODE_ENV;
-				process.env.NODE_ENV = 'development';
+				mockConfig.devLogOtp = true;
 				try {
 					await sendOtpEmail('user@example.com', '123456', null);
 					expect(spy).toHaveBeenCalledWith('[DEV] Email OTP for user@example.com: 123456');
 				} finally {
-					process.env.NODE_ENV = saved;
+					mockConfig.devLogOtp = false;
 					spy.mockRestore();
 				}
 			});
 
-			test('throws in production', async () => {
-				const saved = process.env.NODE_ENV;
-				process.env.NODE_ENV = 'production';
-				try {
-					await expect(sendOtpEmail('user@example.com', '123456', null)).rejects.toThrow(
-						'SMTP_HOST not configured'
-					);
-				} finally {
-					process.env.NODE_ENV = saved;
-				}
+			test('given DEV_LOG_OTP=false (default), throws rather than silently succeeding', async () => {
+				await expect(sendOtpEmail('user@example.com', '123456', null)).rejects.toThrow(
+					'SMTP_HOST not configured'
+				);
 			});
 		});
 	});
