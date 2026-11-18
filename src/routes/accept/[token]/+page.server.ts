@@ -2,9 +2,10 @@
 
 import { redirect, fail, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { paymentRequests, transactions } from '$lib/server/schema';
+import { paymentRequests } from '$lib/server/schema';
 import { eq, and } from 'drizzle-orm';
-import { getBalance, upsertConnection } from '$lib/server/balance';
+import { getBalance } from '$lib/server/balance';
+import { settleOneTimeAccept } from '$lib/server/payment-requests';
 import { formatAmount } from '$lib/server/currency';
 import { config } from '$lib/config';
 import { emit } from '$lib/server/sse-registry';
@@ -94,13 +95,17 @@ export const actions: Actions = {
 		redirect(307, '/onboarding');
 	},
 
-	accept: async ({ request, locals }) => {
+	accept: async ({ request, locals, params }) => {
 		if (!locals.session || !locals.appUser) {
 			error(401, 'Not authenticated');
 		}
 
 		const data = await request.formData();
 		const qrId = data.get('qrId') as string;
+
+		if (!qrId || qrId !== params.token) {
+			return fail(400, { error: 'Invalid QR ID.' });
+		}
 
 		const [qr] = await db
 			.select()
@@ -123,40 +128,15 @@ export const actions: Actions = {
 			return fail(400, { error: 'You cannot accept your own QR code.' });
 		}
 
-		// Determine from/to based on direction
-		let fromUserId: string;
-		let toUserId: string;
+		// Atomic settlement: claims the QR (status='active' AND reusable=false AND
+		// not expired), inserts the ledger row, and upserts the connection — all in
+		// one DB transaction. Returns ok:false without writing anything if the claim
+		// lost a race (concurrent accept, or a decline/cancel that landed first).
+		const result = await settleOneTimeAccept(qr.id, locals.appUser.id);
 
-		if (qr.direction === 'send') {
-			// Initiator is sending (their balance decreases)
-			fromUserId = qr.initiatingUserId;
-			toUserId = locals.appUser.id;
-		} else {
-			// Initiator is receiving (scanner's balance decreases)
-			fromUserId = locals.appUser.id;
-			toUserId = qr.initiatingUserId;
+		if (!result.ok) {
+			return fail(result.status, { error: result.error });
 		}
-
-		// Atomic settlement: insert transaction + update QR status + upsert connection
-		const txId = crypto.randomUUID();
-
-		await db.insert(transactions).values({
-			id: txId,
-			fromUserId,
-			toUserId,
-			amount: qr.amount ?? 0,
-			unitCode: config.unitCode,
-			note: qr.description,
-			paymentRequestId: qr.id,
-			createdAt: new Date()
-		});
-
-		await db
-			.update(paymentRequests)
-			.set({ status: 'completed' })
-			.where(eq(paymentRequests.id, qr.id));
-
-		await upsertConnection(fromUserId, toUserId);
 
 		// Notify both parties. Data prep uses individual fallbacks so a formatting
 		// or look-up failure can never silently prevent the emit() calls.
