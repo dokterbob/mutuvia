@@ -184,6 +184,9 @@ export default defineConfig({
 				test: {
 					name: 'server',
 					environment: 'node',
+					// scripts/**: standalone CLI scripts (e.g. generate-secret.ts)
+					// with no Svelte/browser surface — same "server" project as
+					// src/lib/server/**.
 					include: ['src/**/*.{test,spec}.{js,ts}', 'scripts/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}'],
 					server: {

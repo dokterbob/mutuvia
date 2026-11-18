@@ -58,7 +58,14 @@ services:
     environment:
       POSTGRES_DB: mutuvia
       POSTGRES_USER: mutuvia
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mutuvia}
+      # No default: a committed/example password would otherwise ship into
+      # real deployments that forget to set it. Deliberately NOT `${VAR:?err}`:
+      # Compose interpolates the whole file before filtering by profile, so
+      # that would also break `--profile sqlite` / `--profile dev`. The
+      # official postgres image itself refuses to initialise a new database
+      # with an empty superuser password, so `--profile postgres` still fails
+      # loudly when this is unset. Must match DATABASE_URL's password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
@@ -75,7 +82,10 @@ services:
     profiles: ['dev']
     image: postgres:17-alpine
     ports:
-      - '5432:5432'
+      # Bound to loopback only — this is a local-dev convenience container
+      # with a hardcoded password; it must never be reachable from the LAN
+      # or the internet.
+      - '127.0.0.1:5432:5432'
     environment:
       POSTGRES_DB: mutuvia
       POSTGRES_USER: mutuvia

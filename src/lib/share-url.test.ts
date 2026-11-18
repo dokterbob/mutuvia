@@ -12,11 +12,11 @@ describe('extractAcceptUrl', () => {
 			expect(extractAcceptUrl(p)).toBe('/accept/eyJtoken123');
 		});
 
-		test('extracts JWT token with dots from url param', () => {
+		test('rejects a dotted (legacy JWT-shaped) id — ids are plain UUIDs since v0.3.0', () => {
 			const p = new URLSearchParams({
 				url: `${BASE}/accept/eyJhbGciOiJIUzI1NiJ9.eyJhbXQiOjUwMH0.sig`
 			});
-			expect(extractAcceptUrl(p)).toBe('/accept/eyJhbGciOiJIUzI1NiJ9.eyJhbXQiOjUwMH0.sig');
+			expect(extractAcceptUrl(p)).toBeNull();
 		});
 
 		test('url param takes precedence over text', () => {
@@ -86,6 +86,20 @@ describe('extractAcceptUrl', () => {
 				title: `${BASE}/accept/titletoken`
 			});
 			expect(extractAcceptUrl(p)).toBe('/accept/titletoken');
+		});
+	});
+
+	describe('given a real UUID /accept/{id} — the actual production shape since v0.3.0', () => {
+		const ACCEPT_ID = '00000000-0000-0000-0000-000000000002';
+
+		test('extracts /accept/{id} from url param', () => {
+			const p = new URLSearchParams({ url: `${BASE}/accept/${ACCEPT_ID}` });
+			expect(extractAcceptUrl(p)).toBe(`/accept/${ACCEPT_ID}`);
+		});
+
+		test('extracts /accept/{id} from text param containing embedded URL', () => {
+			const p = new URLSearchParams({ text: `Pay me via Mutuvia: ${BASE}/accept/${ACCEPT_ID}` });
+			expect(extractAcceptUrl(p)).toBe(`/accept/${ACCEPT_ID}`);
 		});
 	});
 

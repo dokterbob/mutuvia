@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// JWT tokens use the base64url alphabet (A-Za-z0-9-_) with dots as part separators.
-// This pattern matches a single path segment with no slashes, preventing path traversal.
-const TOKEN_RE = /^[A-Za-z0-9\-_.]+$/;
-
-// UUIDs and short IDs used in /send/ paths (hex chars and hyphens)
+// Both /accept/{id} and /send/{id} ids are crypto.randomUUID() values (the
+// payment_requests primary key) since v0.3.0 — no more signed JWTs, so no
+// more '.' part-separators to allow. Kept as "alphanumeric + hyphen" rather
+// than a strict UUID-shape regex so a future id format doesn't need this
+// file touched again; it still rejects slashes (path traversal) and dots
+// (directory-traversal segments like "..").
+const TOKEN_RE = /^[A-Za-z0-9-]+$/;
 const ID_RE = /^[A-Za-z0-9-]+$/;
 
 /**

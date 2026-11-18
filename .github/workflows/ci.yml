@@ -15,6 +15,11 @@ permissions: {}
 
 env:
   DOCKER_IMAGE_NAME: ghcr.io/${{ github.repository }}
+  # Keep in sync with the Dockerfile's base image tag and the Bun this repo
+  # was developed/tested against (`bun --version` locally). There is no
+  # packageManager/engines pin in package.json, so this is the single source
+  # of truth for CI's Bun version.
+  BUN_VERSION: '1.4.4'
 
 jobs:
   lint-test:
@@ -24,9 +29,11 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -39,13 +46,38 @@ jobs:
 
       - name: Build
         run: bun run build
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: Test
         run: bun run test
+
+  audit:
+    name: Dependency audit (informational)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Deliberately not blocking (see continue-on-error, and this job is
+      # excluded from `gate`'s needs below): `bun audit` has no allowlist for
+      # a specific advisory, so a single unfixed transitive high/critical
+      # advisory would otherwise fail every PR indefinitely, including ones
+      # with no dependency changes at all. --audit-level=high surfaces
+      # high/critical only — moderate/low are too noisy to page anyone on.
+      # Run `bun audit` (no level filter) locally for the full picture; see
+      # the PR description for today's output summary. This repo does not
+      # upgrade dependencies as a side effect of this PR.
+      - name: bun audit (high/critical)
+        run: bun audit --audit-level=high
+        continue-on-error: true
 
   docker:
     name: Docker Build
@@ -55,26 +87,26 @@ jobs:
       packages: write # push to ghcr.io
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: Dockerfile
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
           images: ${{ env.DOCKER_IMAGE_NAME }}
           tags: |
@@ -83,8 +115,13 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
+      # No SENTRY_* build-args/secrets here (removed — see Dockerfile's
+      # comment): the ARG was never populated by a build-arg, and the
+      # `secrets:` block this step used to pass was never mounted by the
+      # Dockerfile either, so sourcemap upload never actually ran from this
+      # job. Wiring it up properly is left as follow-up.
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
@@ -92,12 +129,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            SENTRY_RELEASE=${{ github.sha }}
-            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
-            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
-          secrets: |
-            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
 
   e2e:
     runs-on: ubuntu-latest
@@ -111,12 +142,14 @@ jobs:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: apt-get update && apt-get install -y unzip ffmpeg
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -125,7 +158,7 @@ jobs:
         run: bunx playwright test
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
@@ -133,7 +166,7 @@ jobs:
           retention-days: 14
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: ${{ !cancelled() }}
         with:
           name: test-results
@@ -143,6 +176,8 @@ jobs:
   gate:
     name: CI
     runs-on: ubuntu-latest
+    # `audit` is deliberately excluded — informational only, see its step
+    # comment above.
     needs: [lint-test, docker, e2e]
     if: always()
     steps:

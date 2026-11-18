@@ -32,13 +32,29 @@ These items improve what's already built before adding new features.
 
 - [ ] **Theme pass** — Align shadcn-svelte theme (CSS variables in `layout.css`) with the mockup's forest/cream palette. Consistent use of ShadCN components across all screens.
 - [ ] **Unit tests** — Balance utilities (`getBalance`, `formatAmount`, `getConnections`), QR JWT sign/verify, settlement atomicity.
-- [ ] **Security audit** (Sub-Agent H from the plan):
-  - [ ] No cross-user transaction history leak
-  - [ ] `QR_JWT_SECRET` absent from all client bundles
-  - [ ] Server-side QR expiry enforced
-  - [ ] Better Auth cookie flags correct (`HttpOnly`, `SameSite=Lax`)
-  - [ ] SQLite WAL mode active
-  - [ ] Phone numbers not in `app_users` or application-layer logs
+- [x] **Security audit** (Sub-Agent H from the plan) — the bulk of this landed as a stack of
+      hardening PRs (atomic settlement, strict amount validation, authz-gap fixes, push/SSE
+      allowlisting + caps, production-mode enforcement, phone pre-claim/unique-index fix, rate
+      limiting, QR expiry presets, CSP + security headers, and this PR's deploy/supply-chain
+      hardening):
+  - [x] No cross-user transaction history leak — authz-gap fixes (decline requires login,
+        `/api/qr-status/[id]` party check, layout data trimmed)
+  - [x] ~~`QR_JWT_SECRET` absent from all client bundles~~ — moot: there is no `QR_JWT_SECRET`
+        anymore. QR/accept/send links carry a plain `crypto.randomUUID()` (the `payment_requests`
+        primary key) since v0.3.0; nothing is signed, so nothing can leak a signing secret
+  - [x] Server-side QR expiry enforced — `QR_TTL_SECONDS`/`REUSABLE_QR_TTL_SECONDS`/
+        `QR_MAX_TTL_SECONDS`, derived from `expires_at` server-side wherever a QR is listed or
+        opened, never trusting client-side state
+  - [ ] Better Auth cookie flags correct (`HttpOnly`, `SameSite=Lax`) — relies on Better Auth's
+        own defaults; not yet overridden or explicitly asserted by a test in this repo
+  - [x] SQLite WAL mode active — `src/lib/server/db.sqlite.ts`
+  - [x] Phone numbers not in `app_users` or application-layer logs — `phone_number` only exists on
+        Better Auth's own `user` table, never on `app_users`; Sentry's shared PII scrubber
+        (`src/lib/sentry-scrub.ts`) redacts phone-shaped strings everywhere else
+  - [x] Dependency/deploy supply chain — non-root Docker image, pinned base image (tag + digest),
+        pinned CI Actions (by commit SHA) and Bun version, Dependabot (bun/github-actions/gradle/
+        docker), `bun audit` in CI (informational — see its PR for why), Android release signing
+        gated behind a GitHub Environment
 - [ ] **Error handling** — Graceful error pages, network failure states in QR polling, form validation feedback.
 - [ ] **Accessibility** — Keyboard navigation, focus management on step transitions, screen reader labels.
 - [ ] **Responsive fine-tuning** — Test on small screens (320px), large phones, tablets.
@@ -88,4 +104,4 @@ These will not be implemented unless the community governance process decides ot
 
 ---
 
-_Last updated: 2026-03-23_
+_Last updated: 2026-11-11_

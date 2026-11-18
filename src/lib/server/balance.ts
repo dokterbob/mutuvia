@@ -90,15 +90,11 @@ export async function getContactBalance(userId: string, otherId: string): Promis
 	return Number(r?.balance) || 0;
 }
 
-export async function upsertConnection(userIdA: string, userIdB: string) {
-	const [lower, higher] = userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
-
-	// Single statement — safe under concurrent callers racing on the same pair.
-	// (The settlement paths in settlement.sqlite.ts/settlement.pg.ts run this
-	// same insert against the active transaction directly, since this
-	// function's `db` isn't transaction-aware.)
-	await db
-		.insert(connections)
-		.values({ userAId: lower, userBId: higher, createdAt: new Date() })
-		.onConflictDoNothing();
-}
+// `upsertConnection` (insert-on-settlement, keyed on the sorted user-id pair)
+// used to live here, but every real caller settled the connection row
+// through the settlement transaction directly — this standalone,
+// non-transaction-aware version was dead in production and has been
+// removed, along with its real-SQLite test (balance.sqlite.test.ts). See
+// settlement.sqlite.ts / settlement.pg.ts for the connection upsert that's
+// actually used (same `insert().onConflictDoNothing()` pattern, run against
+// the active transaction).

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    Two different things, only one of which android:allowBackup="false" (in
+    AndroidManifest.xml) actually covers:
+
+    - <cloud-backup>: redundant with allowBackup="false", which already
+      opts this app out of both the legacy Auto Backup mechanism and
+      Android 12+'s cloud backup. Kept anyway as belt-and-suspenders in case
+      allowBackup is ever flipped on (e.g. a future TWA helper default).
+    - <device-transfer>: NOT covered by allowBackup at all. Since Android
+      11, device-to-device migration (e.g. Samsung Smart Switch, the
+      Android setup wizard's "copy from old device") ignores allowBackup
+      entirely and transfers ALL of an app's data by default unless this
+      file's <device-transfer> section says otherwise — so this exclusion
+      is the only thing actually stopping that transfer, not a no-op. (What
+      it excludes is close to nothing regardless: the TWA shell itself
+      holds no user data — everything the user sees lives in Chrome's own
+      profile, not this app's — but exporting the exclusion explicitly
+      means a future addition to this app's own storage doesn't get an
+      implicit opt-in to D2D transfer by omission.)
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+    </device-transfer>
+</data-extraction-rules>
