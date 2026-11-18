@@ -8,6 +8,7 @@
         "@sentry/bun": "^10.46.0",
         "@sentry/sveltekit": "^10.46.0",
         "drizzle-orm": "^0.45.1",
+        "libphonenumber-js": "^1.10.43",
         "nodemailer": "^10.2.1",
         "web-push": "^3.6.7",
       },

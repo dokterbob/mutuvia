@@ -165,6 +165,7 @@
 	"common_community_docs": "Documentación de la comunidad",
 	"history_empty": "No se encontraron transacciones.",
 	"error_send_code": "Error al enviar el código",
+	"error_too_many_requests": "Demasiados intentos. Espera un momento antes de volver a intentarlo.",
 	"error_generic": "Algo salió mal",
 
 	"scan_title": "Escanear código QR",

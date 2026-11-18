@@ -29,22 +29,31 @@ const MIGRATIONS_DIR = './drizzle/sqlite';
 const NEW_MIGRATION_TAG = '0009_clumsy_typhoid_mary';
 
 /**
- * Builds a temp migrations folder containing every migration EXCEPT the new
- * unique-index one, by copying the real folder and trimming the journal +
- * deleting the new migration's `.sql` file. This reproduces "a database at
- * the previous migration" without hand-maintaining a second fixture that
- * would drift from the real migration history.
+ * Builds a temp migrations folder truncated to just BEFORE the new
+ * unique-index migration — i.e. everything up to it, but not it or anything
+ * after it (later migrations, like the rate-limit/OTP-throttle tables added
+ * after this one, must not leak into the "previous migration" baseline, or
+ * re-applying the FULL folder afterwards gets confused about what's already
+ * applied). Reproduces "a database at the previous migration" without
+ * hand-maintaining a second fixture that would drift from the real
+ * migration history.
  */
 function migrationsFolderWithoutNewMigration(): string {
 	const dir = mkdtempSync(path.join(tmpdir(), 'mutuvia-migrations-'));
 	cpSync(MIGRATIONS_DIR, dir, { recursive: true });
-	for (const file of readdirSync(dir)) {
-		if (file.startsWith(NEW_MIGRATION_TAG)) rmSync(path.join(dir, file));
-	}
+
 	const journalPath = path.join(dir, 'meta', '_journal.json');
 	const journal = JSON.parse(readFileSync(journalPath, 'utf-8'));
-	journal.entries = journal.entries.filter((e: { tag: string }) => e.tag !== NEW_MIGRATION_TAG);
+	const cutoffIdx = journal.entries.findIndex((e: { tag: string }) => e.tag === NEW_MIGRATION_TAG);
+	if (cutoffIdx === -1)
+		throw new Error(`Migration tag "${NEW_MIGRATION_TAG}" not found in journal`);
+	const dropped = journal.entries.slice(cutoffIdx);
+	journal.entries = journal.entries.slice(0, cutoffIdx);
 	writeFileSync(journalPath, JSON.stringify(journal));
+
+	for (const file of readdirSync(dir)) {
+		if (dropped.some((e: { tag: string }) => file.startsWith(e.tag))) rmSync(path.join(dir, file));
+	}
 	return dir;
 }
 

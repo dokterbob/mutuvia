@@ -166,6 +166,7 @@
 	"common_community_docs": "Community docs",
 	"history_empty": "No transactions found.",
 	"error_send_code": "Failed to send code",
+	"error_too_many_requests": "Too many attempts. Please wait a while before trying again.",
 	"error_generic": "Something went wrong",
 
 	"scan_title": "Scan QR Code",
