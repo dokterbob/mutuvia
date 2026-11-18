@@ -229,6 +229,61 @@ bun run db:generate:pg
 DB_PROVIDER=pg bun run db:migrate
 ```
 
+### Upgrading to unique `user.email` / `user.phone_number`
+
+A migration adds unique indexes on `user.email` and `user.phone_number`
+(closing an account-takeover path where an attacker could pre-claim another
+person's phone number). Both columns stay nullable — NULL never conflicts
+with another NULL on either engine — but if your database already has
+duplicate non-null values, the migration fails loudly (a clear "UNIQUE
+constraint failed" / "could not create unique index" error) rather than
+silently dropping or merging rows. Check for duplicates **before**
+upgrading:
+
+```sql
+-- Same SQL on SQLite and PostgreSQL
+SELECT phone_number, COUNT(*) FROM "user"
+WHERE phone_number IS NOT NULL GROUP BY phone_number HAVING COUNT(*) > 1;
+
+SELECT email, COUNT(*) FROM "user"
+WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) > 1;
+```
+
+If either query returns rows, resolve the duplicates manually first (there
+is no safe automatic merge — decide per case which account is real, migrate
+its data via `app_users`/`connections`/`transactions`, then null out or
+change the losing account's duplicate credential) before running
+`bun run db:migrate`.
+
+### Stale placeholder emails from phone number changes
+
+Phone-only sign-ups get a deterministic placeholder email
+(`<digits>@phone.placeholder`, see `src/lib/placeholder-email.ts`). Before
+the fix shipped alongside the unique indexes above, changing phone number
+from Settings updated only `phone_number` — the OLD placeholder stayed on
+the row, silently reserving the OLD number forever (anyone who later
+verified that released number would collide with it on the unique
+`user_email_idx`). The settings phone-change feature predates the unique
+indexes, so **any database that had the phone-change feature before this
+fix can already have stale rows** — check with the detection query below.
+The fix itself keeps every placeholder in sync going forward; this is only
+needed to clean up rows that went stale before it existed.
+
+```sql
+-- Same SQL on SQLite and PostgreSQL — phone numbers are stored in E.164
+-- format (a leading "+" then digits only), so stripping the "+" is
+-- equivalent to makePlaceholderEmail's digit-stripping.
+SELECT id, email, phone_number FROM "user"
+WHERE email LIKE '%@phone.placeholder'
+  AND (phone_number IS NULL OR email <> (substr(phone_number, 2) || '@phone.placeholder'));
+```
+
+Repair each returned row by setting
+`email = substr(phone_number, 2) || '@phone.placeholder'` (or, if
+`phone_number` is now `NULL`, resolving it the same manual way as a
+duplicate credential above) — checking first that the target value isn't
+already in use by another row, since that would just move the collision.
+
 ---
 
 ## Project Structure
