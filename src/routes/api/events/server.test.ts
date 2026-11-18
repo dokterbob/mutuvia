@@ -1,20 +1,56 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// DB mock — only used by the keepalive session-revalidation path, which only
+// ever runs once fake timers are advanced past KEEPALIVE_INTERVAL_MS (20s).
+// Tests that don't advance timers never touch this mock.
+// ---------------------------------------------------------------------------
+
+const { selectLimitFn, dbSelectMock } = vi.hoisted(() => {
+	const selectLimitFn = vi.fn();
+	const selectWhereFn = vi.fn().mockReturnValue({ limit: selectLimitFn });
+	const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+	const dbSelectMock = vi.fn().mockReturnValue({ from: selectFromFn });
+	return { selectLimitFn, dbSelectMock };
+});
+
+vi.mock('$lib/server/db', () => ({
+	db: { select: dbSelectMock }
+}));
+
+vi.mock('$lib/server/schema', () => ({
+	session: { id: 'session.id', expiresAt: 'session.expiresAt' }
+}));
+
+vi.mock('drizzle-orm', () => ({
+	eq: vi.fn((a: unknown, b: unknown) => `${String(a)}=${String(b)}`)
+}));
+
 import { GET } from './+server';
-import { emit } from '$lib/server/sse-registry';
+import { emit, closeSession } from '$lib/server/sse-registry';
 import type { QrCompletedEvent, QrDeclinedEvent } from '$lib/notifications';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 type GetEvent = Parameters<typeof GET>[0];
 
-function makeEvent(appUser: { id: string } | null, headers?: HeadersInit): GetEvent {
+function makeEvent(
+	appUser: { id: string } | null,
+	options?: { headers?: HeadersInit; sessionId?: string }
+): GetEvent {
 	return {
-		request: new Request('http://localhost/api/events', { headers }),
-		locals: { appUser }
+		request: new Request('http://localhost/api/events', { headers: options?.headers }),
+		locals: {
+			appUser,
+			session: appUser ? { id: options?.sessionId ?? `session-for-${appUser.id}` } : null
+		}
 	} as unknown as GetEvent;
 }
+
+const FAR_FUTURE = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -49,6 +85,8 @@ function nextUserId(): string {
 describe('GET /api/events', () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
+		selectLimitFn.mockReset();
+		selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
 	});
 
 	afterEach(() => {
@@ -153,7 +191,7 @@ describe('GET /api/events', () => {
 			// Open a second connection with the header present to verify it is ignored.
 			const secondUserId = nextUserId();
 			const response = GET(
-				makeEvent({ id: secondUserId }, { 'Last-Event-ID': qrCompleted.id })
+				makeEvent({ id: secondUserId }, { headers: { 'Last-Event-ID': qrCompleted.id } })
 			) as Response;
 			const reader2 = response.body!.getReader();
 
@@ -238,6 +276,152 @@ describe('GET /api/events', () => {
 			} finally {
 				await reader2.cancel();
 			}
+		});
+
+		// -----------------------------------------------------------------------
+		// 8. Keepalive re-validates the session every tick
+		// -----------------------------------------------------------------------
+
+		describe('keepalive session re-validation', () => {
+			it('keeps pinging while the session remains valid', async () => {
+				await reader.read(); // initial ping
+
+				selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { value, done } = await reader.read();
+				expect(done).toBe(false);
+				expect(decoder.decode(value)).toBe(': ping\n\n');
+			});
+
+			it('closes the stream once the session has expired', async () => {
+				await reader.read(); // initial ping
+
+				selectLimitFn.mockResolvedValue([{ expiresAt: new Date(Date.now() - 1000) }]);
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { done } = await reader.read();
+				expect(done).toBe(true);
+			});
+
+			it('closes the stream once the session row no longer exists', async () => {
+				await reader.read(); // initial ping
+
+				selectLimitFn.mockResolvedValue([]);
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { done } = await reader.read();
+				expect(done).toBe(true);
+			});
+
+			it('disposes the connection (no unhandled rejection) when the session lookup rejects', async () => {
+				await reader.read(); // initial ping
+
+				const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+				const dbError = new Error('db connection interrupted');
+				selectLimitFn.mockRejectedValue(dbError);
+
+				// If the rejection inside the keepalive tick were unhandled, this
+				// await would itself blow up with an unhandled rejection surfaced by
+				// vitest — the assertions below are the actual behavioural proof.
+				await vi.advanceTimersByTimeAsync(20_000);
+
+				const { done } = await reader.read();
+				expect(done).toBe(true);
+				expect(warnSpy).toHaveBeenCalledTimes(1);
+
+				// A subsequent emit for this user must be a no-op — proves the
+				// connection was unregistered, not just left to error out.
+				expect(() => emit(userId, qrCompleted)).not.toThrow();
+
+				warnSpy.mockRestore();
+			});
+		});
+	});
+
+	// ---------------------------------------------------------------------------
+	// Regression coverage for the keepalive-timer leak: closing a connection
+	// from OUTSIDE its own request (cap eviction, closeSession on sign-out)
+	// must clear that connection's own keepaliveTimer too, or it keeps firing
+	// isSessionStillValid() DB queries forever for a stream nobody reads.
+	// Exercised through the real GET handler + the real sse-registry (only
+	// db/schema/drizzle-orm are mocked in this file).
+	// ---------------------------------------------------------------------------
+
+	describe('connection cap eviction (through the real GET handler)', () => {
+		it('delivers the terminal evicted event, then clears the evicted connection’s keepalive timer', async () => {
+			const userId = nextUserId();
+			const readers: ReadableStreamDefaultReader<Uint8Array>[] = [];
+
+			// Fill up to the cap (5) with distinct sessions for the same user.
+			for (let i = 0; i < 5; i++) {
+				const response = GET(
+					makeEvent({ id: userId }, { sessionId: `${userId}-sess-${i}` })
+				) as Response;
+				const reader = response.body!.getReader();
+				await reader.read(); // discard initial ping
+				readers.push(reader);
+			}
+
+			// A 6th connection evicts the oldest (readers[0]).
+			const response6 = GET(
+				makeEvent({ id: userId }, { sessionId: `${userId}-sess-5` })
+			) as Response;
+			const reader6 = response6.body!.getReader();
+
+			// The evicted stream gets the terminal `evicted` frame before closing.
+			const { value: evictedFrame, done: notYetDone } = await readers[0].read();
+			expect(notYetDone).toBe(false);
+			expect(decoder.decode(evictedFrame)).toBe('event: evicted\ndata: {}\n\n');
+
+			const { done: streamDone } = await readers[0].read();
+			expect(streamDone).toBe(true);
+
+			await reader6.read(); // discard its initial ping
+
+			// If the evicted connection's keepaliveTimer had leaked, it would add
+			// its own isSessionStillValid() query on every subsequent tick, on
+			// top of the 5 surviving connections' own queries.
+			selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
+			const callsBefore = selectLimitFn.mock.calls.length;
+			await vi.advanceTimersByTimeAsync(20_000);
+			const callsAfterOneTick = selectLimitFn.mock.calls.length;
+
+			expect(callsAfterOneTick - callsBefore).toBe(5); // not 6
+
+			// Cleanup
+			for (const reader of readers.slice(1)) await reader.cancel();
+			await reader6.cancel();
+		});
+	});
+
+	describe('closeSession (through the real GET handler)', () => {
+		it('closes every connection for that session and clears their keepalive timers', async () => {
+			const userId = nextUserId();
+			const sessionId = `${userId}-shared-session`;
+
+			const response1 = GET(makeEvent({ id: userId }, { sessionId })) as Response;
+			const reader1 = response1.body!.getReader();
+			await reader1.read(); // initial ping
+
+			const response2 = GET(makeEvent({ id: userId }, { sessionId })) as Response;
+			const reader2 = response2.body!.getReader();
+			await reader2.read(); // initial ping
+
+			closeSession(sessionId);
+
+			const [{ done: done1 }, { done: done2 }] = await Promise.all([
+				reader1.read(),
+				reader2.read()
+			]);
+			expect(done1).toBe(true);
+			expect(done2).toBe(true);
+
+			// No evicted signal on a sign-out closure — just a clean close.
+			selectLimitFn.mockResolvedValue([{ expiresAt: FAR_FUTURE }]);
+			const callsBefore = selectLimitFn.mock.calls.length;
+			await vi.advanceTimersByTimeAsync(60_000);
+			expect(selectLimitFn.mock.calls.length).toBe(callsBefore);
 		});
 	});
 });

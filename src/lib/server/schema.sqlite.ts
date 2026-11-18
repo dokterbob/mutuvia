@@ -169,5 +169,8 @@ export const pushSubscriptions = sqliteTable(
 		userAgent: text('user_agent'),
 		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
 	},
-	(table) => [uniqueIndex('push_subscriptions_user_endpoint_idx').on(table.userId, table.endpoint)]
+	// `endpoint` alone (not userId+endpoint) is unique: a shared browser can only
+	// ever have one owner for a given push endpoint. Subscribing re-assigns
+	// ownership to the subscribing user (see src/routes/api/push/subscribe/+server.ts).
+	(table) => [uniqueIndex('push_subscriptions_endpoint_idx').on(table.endpoint)]
 );

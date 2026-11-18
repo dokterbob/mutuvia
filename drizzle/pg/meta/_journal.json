@@ -50,6 +50,13 @@
 			"when": 1794336100000,
 			"tag": "0006_amount_check_constraints",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1794340269454,
+			"tag": "0007_deep_tomas",
+			"breakpoints": true
 		}
 	]
 }

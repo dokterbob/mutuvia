@@ -19,7 +19,7 @@ vi.mock('$env/dynamic/public', () => ({
 	}
 }));
 
-import { subscribeToPush } from './push-subscribe';
+import { subscribeToPush, unsubscribeFromPush } from './push-subscribe';
 
 // ---------------------------------------------------------------------------
 // Shared mock objects
@@ -94,12 +94,26 @@ describe('subscribeToPush()', () => {
 		expect(result).toBe(false);
 	});
 
-	it('returns true without re-subscribing when already subscribed (idempotent)', async () => {
+	it('does not call pushManager.subscribe() again when already subscribed (idempotent)', async () => {
 		mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
 		const result = await subscribeToPush();
 		expect(result).toBe(true);
 		expect(mockPushManager.subscribe).not.toHaveBeenCalled();
-		expect(mockFetch).not.toHaveBeenCalled();
+	});
+
+	it('still POSTs to /api/push/subscribe when already subscribed — ownership must be reasserted', async () => {
+		// A shared/handed-down device may already have a browser-level
+		// subscription that the server still attributes to a previous user.
+		// Re-POSTing re-asserts the current user as the owner.
+		mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+		const result = await subscribeToPush();
+		expect(result).toBe(true);
+		expect(mockFetch).toHaveBeenCalledWith(
+			'/api/push/subscribe',
+			expect.objectContaining({
+				method: 'POST'
+			})
+		);
 	});
 
 	it('calls pushManager.subscribe() with userVisibleOnly: true and an applicationServerKey', async () => {
@@ -137,5 +151,158 @@ describe('subscribeToPush()', () => {
 	it('returns true on a full successful subscription flow', async () => {
 		const result = await subscribeToPush();
 		expect(result).toBe(true);
+	});
+});
+
+describe('unsubscribeFromPush()', () => {
+	const mockUnsubscribingSubscription = {
+		endpoint: 'https://fcm.googleapis.com/test-endpoint',
+		unsubscribe: vi.fn<() => Promise<boolean>>()
+	};
+
+	const mockGetRegistration = vi.fn();
+	const mockUnsubPushManager = {
+		getSubscription: vi.fn()
+	};
+
+	beforeEach(() => {
+		vi.stubGlobal('navigator', {
+			serviceWorker: { getRegistration: mockGetRegistration },
+			userAgent: 'test-agent'
+		});
+		vi.stubGlobal('window', { PushManager: class PushManager {} });
+		vi.stubGlobal('fetch', mockFetch);
+
+		mockGetRegistration.mockResolvedValue({ pushManager: mockUnsubPushManager });
+		mockUnsubPushManager.getSubscription.mockResolvedValue(mockUnsubscribingSubscription);
+		mockUnsubscribingSubscription.unsubscribe.mockResolvedValue(true);
+		mockFetch.mockResolvedValue(new Response(null, { status: 200 }));
+
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+		vi.resetAllMocks();
+	});
+
+	it('unsubscribes the browser subscription and tells the server', async () => {
+		await unsubscribeFromPush();
+		expect(mockUnsubscribingSubscription.unsubscribe).toHaveBeenCalled();
+		expect(mockFetch).toHaveBeenCalledWith(
+			'/api/push/unsubscribe',
+			expect.objectContaining({ method: 'POST' })
+		);
+		const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+		expect(body.endpoint).toBe('https://fcm.googleapis.com/test-endpoint');
+	});
+
+	it('does nothing when there is no service worker registration', async () => {
+		mockGetRegistration.mockResolvedValue(null);
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+		expect(mockFetch).not.toHaveBeenCalled();
+	});
+
+	it('does nothing when there is no active subscription', async () => {
+		mockUnsubPushManager.getSubscription.mockResolvedValue(null);
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+		expect(mockFetch).not.toHaveBeenCalled();
+	});
+
+	it('does not throw and still unsubscribes locally when the server request fails', async () => {
+		mockFetch.mockRejectedValue(new Error('network down'));
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+		expect(mockUnsubscribingSubscription.unsubscribe).toHaveBeenCalled();
+	});
+
+	it('never throws, even if PushManager is unavailable', async () => {
+		vi.stubGlobal('window', {}); // no PushManager
+		await expect(unsubscribeFromPush()).resolves.toBeUndefined();
+	});
+
+	describe('when a browser API stalls instead of rejecting', () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('resolves within UNSUBSCRIBE_TIMEOUT_MS when getRegistration() never resolves', async () => {
+			mockGetRegistration.mockReturnValue(new Promise(() => {})); // never settles
+
+			const promise = unsubscribeFromPush();
+			let settled = false;
+			void promise.then(() => {
+				settled = true;
+			});
+
+			// Not yet — the deadline hasn't elapsed.
+			await vi.advanceTimersByTimeAsync(2999);
+			expect(settled).toBe(false);
+
+			// The shared deadline elapses — the function must give up and resolve.
+			await vi.advanceTimersByTimeAsync(1);
+			await expect(promise).resolves.toBeUndefined();
+			expect(mockFetch).not.toHaveBeenCalled(); // never got far enough to have an endpoint
+		});
+
+		it('does not unsubscribe anything when getRegistration() resolves only after the deadline', async () => {
+			let resolveRegistration!: (r: unknown) => void;
+			mockGetRegistration.mockReturnValue(
+				new Promise((resolve) => {
+					resolveRegistration = resolve;
+				})
+			);
+
+			const promise = unsubscribeFromPush();
+			await vi.advanceTimersByTimeAsync(3000);
+			await expect(promise).resolves.toBeUndefined();
+
+			// Sign-out is done; a later user may own the subscription by now.
+			resolveRegistration({ pushManager: mockUnsubPushManager });
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(mockUnsubPushManager.getSubscription).not.toHaveBeenCalled();
+			expect(mockUnsubscribingSubscription.unsubscribe).not.toHaveBeenCalled();
+			expect(mockFetch).not.toHaveBeenCalled();
+		});
+
+		it('does not unsubscribe anything when getSubscription() resolves only after the deadline', async () => {
+			let resolveSubscription!: (s: unknown) => void;
+			mockUnsubPushManager.getSubscription.mockReturnValue(
+				new Promise((resolve) => {
+					resolveSubscription = resolve;
+				})
+			);
+
+			const promise = unsubscribeFromPush();
+			await vi.advanceTimersByTimeAsync(3000);
+			await expect(promise).resolves.toBeUndefined();
+
+			resolveSubscription(mockUnsubscribingSubscription);
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(mockUnsubscribingSubscription.unsubscribe).not.toHaveBeenCalled();
+			expect(mockFetch).not.toHaveBeenCalled();
+		});
+
+		it('does not wait for subscription.unsubscribe() when it never resolves — still notifies the server', async () => {
+			mockUnsubscribingSubscription.unsubscribe.mockReturnValue(new Promise(() => {})); // never settles
+
+			const promise = unsubscribeFromPush();
+
+			// Resolves promptly, well before the 3s deadline — unsubscribe() is
+			// fire-and-forget, not blocking the server round trip.
+			await vi.advanceTimersByTimeAsync(0);
+			await expect(promise).resolves.toBeUndefined();
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				'/api/push/unsubscribe',
+				expect.objectContaining({ method: 'POST' })
+			);
+		});
 	});
 });

@@ -4,6 +4,8 @@
 	import { goto } from '$app/navigation';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { authClient } from '$lib/auth-client';
+	import { unsubscribeFromPush } from '$lib/push-subscribe';
+	import { sseManager } from '$lib/sse-client';
 	import MenuIcon from '@lucide/svelte/icons/menu';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import CircleHelpIcon from '@lucide/svelte/icons/circle-help';
@@ -19,6 +21,10 @@
 	async function signOut() {
 		signingOut = true;
 		try {
+			// Best-effort and bounded (see unsubscribeFromPush) — must never block
+			// sign-out if the browser has no subscription or the network is down.
+			await unsubscribeFromPush();
+			sseManager.disconnect();
 			await authClient.signOut();
 			goto('/onboarding');
 		} finally {

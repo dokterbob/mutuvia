@@ -2,6 +2,7 @@
 
 import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
+import { isValidHostPattern } from '$lib/server/push-endpoint';
 
 const ANDROID_SHA256_FINGERPRINT = /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/;
 
@@ -107,6 +108,25 @@ export const config = {
 	},
 	get vapidSubject() {
 		return env.VAPID_SUBJECT ?? `mailto:admin@example.com`;
+	},
+	// Extra push-endpoint hosts to allow beyond the hard-coded browser vendor
+	// list (see src/lib/server/push-endpoint.ts). Comma-separated; each entry
+	// is either an exact host ("push.example.com") or a wildcard suffix
+	// ("*.push.example.com").
+	get pushEndpointExtraHosts(): string[] {
+		const hosts = (env.PUSH_ENDPOINT_EXTRA_HOSTS || '')
+			.split(',')
+			.map((h) => h.trim().toLowerCase())
+			.filter(Boolean);
+		for (const host of hosts) {
+			if (!isValidHostPattern(host)) {
+				throw new Error(
+					`PUSH_ENDPOINT_EXTRA_HOSTS entry "${host}" is not a valid host ` +
+						'(expected "example.com" or "*.example.com")'
+				);
+			}
+		}
+		return hosts;
 	},
 	// ── Android app (Digital Asset Links) ──
 	get androidPackageName() {

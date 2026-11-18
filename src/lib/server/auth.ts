@@ -8,6 +8,7 @@ import { db } from './db';
 import { config } from '$lib/config';
 import { sendOtpEmail } from './mailer';
 import { makePlaceholderEmail } from '$lib/placeholder-email';
+import { closeSession } from './sse-registry';
 
 // Singleton client — created once at module load, reused across requests.
 // null when PRELUDE_API_TOKEN is not set (dev/test fallback).
@@ -76,5 +77,19 @@ export const auth = betterAuth({
 		expiresIn: 60 * 60 * 24 * 30, // 30 days
 		updateAge: 60 * 60 * 24 // 1 day
 	},
-	trustedOrigins: [config.appUrl]
+	trustedOrigins: [config.appUrl],
+	databaseHooks: {
+		session: {
+			delete: {
+				// Fires on every session deletion (sign-out, revoke-session, etc.),
+				// in-process and synchronously with the request that caused it —
+				// so a signed-out session's SSE stream(s) close immediately rather
+				// than waiting for the next keepalive re-validation tick (see
+				// src/routes/api/events/+server.ts).
+				after: async (session) => {
+					closeSession(session.id);
+				}
+			}
+		}
+	}
 });
