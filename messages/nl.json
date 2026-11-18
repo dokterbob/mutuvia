@@ -344,5 +344,6 @@
 	"whats_new_version_label": "Versie {version}",
 	"whats_new_v0_2_0": "Beheer uw e-mail en telefoonnummer in instellingen\nSpaanse taalondersteuning\nVerbeterde navigatie met terugknop en annuleringsbevestiging",
 	"whats_new_v0_3_0": "Herbruikbare betaal-QR-codes — maak een permanente code die klanten meerdere keren kunnen scannen\nMakkelijker te scannen QR-codes (kortere, eenvoudigere URL's)",
-	"whats_new_v0_4_0": "Contacten — zie je saldo met iedereen met wie je hebt gehandeld, en jullie gedeelde geschiedenis\nBeveiligingsupdates voor inlog-e-mails en de verwerking van verzoeken"
+	"whats_new_v0_4_0": "Contacten — zie je saldo met iedereen met wie je hebt gehandeld, en jullie gedeelde geschiedenis\nBeveiligingsupdates voor inlog-e-mails en de verwerking van verzoeken",
+	"whats_new_v0_5_0": "Kies hoe lang een QR-code geldig blijft: van 1 uur tot 30 dagen, met een live aftelling tot hij verloopt\nSterkere beveiliging achter de schermen: veiliger inloggen, bescherming tegen misbruik en beter beschermde saldo's en persoonsgegevens\nAls iemand je krediet stuurt via een QR-code, wordt dat nu automatisch geaccepteerd zodra je bent ingelogd"
 }
