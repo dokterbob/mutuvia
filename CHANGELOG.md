@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-11-17
+## [0.5.0] - 2026-11-19
 
 Security hardening across the app, configurable QR expiry, and a smoother sign-in when you scan a QR before having an account.
 
@@ -19,6 +19,7 @@ Security hardening across the app, configurable QR expiry, and a smoother sign-i
 ### Changed
 
 - **Accepting a QR when signed out** — the sign-in button now says what happens next. For incoming credit it reads "Accept {amount} from {name}", and the credit is accepted automatically once you've signed in or created an account. For a payment request it reads "Sign in to review", and you always confirm with "Pay {name} {amount}" after signing in — nothing is ever paid automatically. The balance impact and the "not real money" notice are now shown before sign-in too, and every accepted QR is confirmed on Home. ([#147](https://github.com/dokterbob/mutuvia/pull/147))
+- Dependency updates: ESLint 10 ([#159](https://github.com/dokterbob/mutuvia/pull/159)), `@sveltejs/adapter-auto` 8 ([#156](https://github.com/dokterbob/mutuvia/pull/156)), Android Gradle Plugin 9.5.1 and Gradle 9.9.1 ([#151](https://github.com/dokterbob/mutuvia/pull/151)), and the Docker GitHub Actions used to build and publish the image ([#150](https://github.com/dokterbob/mutuvia/pull/150), [#152](https://github.com/dokterbob/mutuvia/pull/152)–[#154](https://github.com/dokterbob/mutuvia/pull/154)).
 - `generate-secret` now documents and is used solely for generating `BETTER_AUTH_SECRET`; the stale `QR_JWT_SECRET` references (dead since the v0.3.0 move to UUID-based QR links) are gone from the README, `AGENTS.md`, the `.env*` example files, and `scripts/generate-secret.ts`. ([#139](https://github.com/dokterbob/mutuvia/pull/139))
 
 ### Removed
