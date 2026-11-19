@@ -58,7 +58,7 @@
 		"clsx": "^2.1.1",
 		"country-flag-icons": "^1.6.15",
 		"drizzle-kit": "^0.31.10",
-		"eslint": "^9.39.2",
+		"eslint": "^10.15.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
 		"globals": "^17.3.0",
